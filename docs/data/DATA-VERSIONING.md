@@ -1,6 +1,6 @@
 # Data Versioning & Tracking - FinSight AI
 
-**Last Updated:** December 29, 2025  
+**Last Updated:** December 29, 2025
 **Purpose:** Document data versioning strategy using DVC and Weights & Biases
 
 ---
@@ -476,21 +476,21 @@ dvc remote add -d azure_storage azure://finsight-data/dvc-cache
 ## 8. Best Practices
 
 ### DO:
-✅ Commit `.dvc` metadata files to git  
-✅ Add descriptive commit messages  
-✅ Version data after every major transformation  
-✅ Track metadata (rows, columns, operations)  
-✅ Use semantic version names (v1_raw, v2_cleaned)  
-✅ Log artifacts to W&B for team visibility  
-✅ Maintain lineage.json for reproducibility  
+✅ Commit `.dvc` metadata files to git
+✅ Add descriptive commit messages
+✅ Version data after every major transformation
+✅ Track metadata (rows, columns, operations)
+✅ Use semantic version names (v1_raw, v2_cleaned)
+✅ Log artifacts to W&B for team visibility
+✅ Maintain lineage.json for reproducibility
 
 ### DON'T:
-❌ Commit large data files directly to git  
-❌ Ignore `.dvc` files  
-❌ Skip metadata documentation  
-❌ Version intermediate debug outputs  
-❌ Overwrite data without versioning  
-❌ Use DVC for small config files (<1MB)  
+❌ Commit large data files directly to git
+❌ Ignore `.dvc` files
+❌ Skip metadata documentation
+❌ Version intermediate debug outputs
+❌ Overwrite data without versioning
+❌ Use DVC for small config files (<1MB)
 
 ---
 
@@ -599,6 +599,6 @@ View real-time metrics:
 
 ---
 
-**Last Updated:** December 29, 2025  
-**Maintained By:** FinSight AI Team  
+**Last Updated:** December 29, 2025
+**Maintained By:** FinSight AI Team
 **Version:** 1.0

@@ -123,9 +123,7 @@ class DataLineage:
         """
         return self.lineage["data_versions"].get(version_name)
 
-    def get_transformation_history(
-        self, file_path: str
-    ) -> List[Dict]:
+    def get_transformation_history(self, file_path: str) -> List[Dict]:
         """Get transformation history for a file.
 
         Args:
@@ -143,9 +141,7 @@ class DataLineage:
                 history.append(transformation)
         return history
 
-    def get_lineage_chain(
-        self, file_path: str, direction: str = "backward"
-    ) -> List[Dict]:
+    def get_lineage_chain(self, file_path: str, direction: str = "backward") -> List[Dict]:
         """Get complete lineage chain for a file.
 
         Args:
@@ -168,19 +164,13 @@ class DataLineage:
 
                 if direction == "backward":
                     # Find transformations that produced current files
-                    if any(
-                        f in current_files
-                        for f in transformation["output_files"]
-                    ):
+                    if any(f in current_files for f in transformation["output_files"]):
                         chain.append(transformation)
                         next_files.extend(transformation["input_files"])
                         visited.add(trans_id)
                 else:
                     # Find transformations that consumed current files
-                    if any(
-                        f in current_files
-                        for f in transformation["input_files"]
-                    ):
+                    if any(f in current_files for f in transformation["input_files"]):
                         chain.append(transformation)
                         next_files.extend(transformation["output_files"])
                         visited.add(trans_id)
@@ -207,9 +197,7 @@ class DataLineage:
         # Data versions
         report.append("DATA VERSIONS:")
         report.append("-" * 70)
-        for version_name, version_info in self.lineage[
-            "data_versions"
-        ].items():
+        for version_name, version_info in self.lineage["data_versions"].items():
             report.append(f"\n{version_name}:")
             report.append(f"  Description: {version_info['description']}")
             report.append(f"  Files: {len(version_info['files'])}")
@@ -225,12 +213,8 @@ class DataLineage:
             report.append(f"\n{i}. {trans['id']}")
             report.append(f"   Script: {trans['script']}")
             report.append(f"   Operations: {', '.join(trans['operations'])}")
-            report.append(
-                f"   Input Version: {trans.get('input_version', 'N/A')}"
-            )
-            report.append(
-                f"   Output Version: {trans.get('output_version', 'N/A')}"
-            )
+            report.append(f"   Input Version: {trans.get('input_version', 'N/A')}")
+            report.append(f"   Output Version: {trans.get('output_version', 'N/A')}")
             report.append(f"   Timestamp: {trans['timestamp']}")
 
         report.append("\n" + "=" * 70)
@@ -262,18 +246,10 @@ class DataLineage:
 
         # Add transformation edges
         for trans in self.lineage["transformations"]:
-            input_ver = (
-                trans.get("input_version", "").replace("_", "")
-                or "unknown"
-            )
-            output_ver = (
-                trans.get("output_version", "").replace("_", "")
-                or "unknown"
-            )
+            input_ver = trans.get("input_version", "").replace("_", "") or "unknown"
+            output_ver = trans.get("output_version", "").replace("_", "") or "unknown"
             trans_label = " + ".join(trans["operations"][:2])
-            lines.append(
-                f'    {input_ver} -->|"{trans_label}"| {output_ver}'
-            )
+            lines.append(f'    {input_ver} -->|"{trans_label}"| {output_ver}')
 
         lines.append("```")
         return "\n".join(lines)

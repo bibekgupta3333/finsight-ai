@@ -61,9 +61,7 @@ class WandBDataVersioning:
         Returns:
             wandb.Artifact: Raw data artifact
         """
-        raw_data_path = (
-            self.data_dir / "raw" / "PS_20174392719_1491204439457_log.csv"
-        )
+        raw_data_path = self.data_dir / "raw" / "PS_20174392719_1491204439457_log.csv"
 
         # Create artifact
         artifact = wandb.Artifact(
@@ -113,8 +111,7 @@ class WandBDataVersioning:
         artifact = wandb.Artifact(
             name="paysim_cleaned_data",
             type="cleaned_dataset",
-            description="Cleaned and preprocessed PaySim dataset with "
-            "engineered features",
+            description="Cleaned and preprocessed PaySim dataset with " "engineered features",
             metadata={
                 "version": "v2_cleaned",
                 "rows": metadata.get("rows", 6_362_620),
