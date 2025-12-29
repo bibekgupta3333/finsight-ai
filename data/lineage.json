@@ -1,0 +1,122 @@
+{
+  "project": "FinSight AI - Fraud Detection",
+  "created_at": "2025-12-29T00:37:59.630116",
+  "last_updated": "2025-12-29T00:37:59.630136",
+  "data_versions": {
+    "v1_raw": {
+      "files": [
+        "data/raw/PS_20174392719_1491204439457_log.csv"
+      ],
+      "description": "Raw PaySim Mobile Money transaction dataset from Kaggle",
+      "metadata": {
+        "source": "Kaggle",
+        "rows": 6362620,
+        "columns": 11,
+        "size_mb": 493,
+        "fraud_rate": 0.0013
+      },
+      "created_at": "2025-12-29T00:37:59.630124"
+    },
+    "v2_cleaned": {
+      "files": [
+        "data/processed/paysim_cleaned.csv"
+      ],
+      "description": "Cleaned and preprocessed dataset with engineered features",
+      "metadata": {
+        "rows": 6362620,
+        "columns": 30,
+        "features_added": 19,
+        "normalization": "StandardScaler",
+        "pii_masked": true
+      },
+      "created_at": "2025-12-29T00:37:59.630126"
+    },
+    "v3_reasoning": {
+      "files": [
+        "data/annotations/fraud_explanations.json",
+        "data/annotations/weak_supervision_labels.json",
+        "data/annotations/preference_pairs.json"
+      ],
+      "description": "LLM explanations, weak supervision, and RLHF annotations",
+      "metadata": {
+        "fraud_explanations": 100,
+        "weak_supervision_labels": 8213,
+        "preference_pairs": 491,
+        "weak_supervision_accuracy": 0.9967
+      },
+      "created_at": "2025-12-29T00:37:59.630129"
+    }
+  },
+  "transformations": [
+    {
+      "id": "data_cleaning_pipeline",
+      "input_files": [
+        "data/raw/PS_20174392719_1491204439457_log.csv"
+      ],
+      "output_files": [
+        "data/processed/paysim_cleaned.csv"
+      ],
+      "input_version": "v1_raw",
+      "output_version": "v2_cleaned",
+      "script": "backend/scripts/data_cleaning.py",
+      "operations": [
+        "handle_missing",
+        "remove_duplicates",
+        "mask_pii",
+        "normalize_amounts",
+        "create_temporal_features",
+        "engineer_features"
+      ],
+      "metadata": {
+        "execution_time_sec": 45,
+        "features_created": 19,
+        "quality_checks_passed": true
+      },
+      "timestamp": "2025-12-29T00:37:59.630131"
+    },
+    {
+      "id": "fraud_explanation_generation",
+      "input_files": [
+        "data/processed/paysim_cleaned.csv"
+      ],
+      "output_files": [
+        "data/annotations/fraud_explanations.json"
+      ],
+      "input_version": "v2_cleaned",
+      "output_version": "v3_reasoning",
+      "script": "backend/scripts/generate_explanations.py",
+      "operations": [
+        "extract_fraud_cases",
+        "generate_llm_explanations"
+      ],
+      "metadata": {
+        "fraud_cases_processed": 100,
+        "avg_confidence": 0.8
+      },
+      "timestamp": "2025-12-29T00:37:59.630133"
+    },
+    {
+      "id": "weak_supervision_generation",
+      "input_files": [
+        "data/processed/paysim_cleaned.csv"
+      ],
+      "output_files": [
+        "data/annotations/weak_supervision_labels.json",
+        "data/annotations/preference_pairs.json"
+      ],
+      "input_version": "v2_cleaned",
+      "output_version": "v3_reasoning",
+      "script": "backend/scripts/generate_weak_supervision.py",
+      "operations": [
+        "apply_weak_supervision_rules",
+        "generate_preference_pairs"
+      ],
+      "metadata": {
+        "weak_supervision_accuracy": 0.9967,
+        "avg_rules_triggered": 2.83,
+        "preference_pairs_created": 491
+      },
+      "timestamp": "2025-12-29T00:37:59.630135"
+    }
+  ]
+}

@@ -63,7 +63,18 @@ desktop.ini
 *.env
 
 # Application Storage & Data
-data/
+# DVC manages data versioning - data files ignored, .dvc metadata committed
+/data/raw/*.csv
+/data/raw/*.parquet
+/data/processed/*.csv
+/data/processed/*.json
+/data/processed/*.parquet
+/data/annotations/*.json
+/data/annotations/*.csv
+/data/splits/*.csv
+# Keep DVC metadata files
+!/data/**/*.dvc
+!/data/**/.gitignore
 storage/
 uploads/
 temp/
@@ -82,13 +93,17 @@ vector_db/
 models/
 .ollama/
 
-# Datasets
+# Datasets (tracked by DVC)
 datasets/
+# DVC will manage data files - ignore large data files but keep .dvc metadata
 *.csv
 *.parquet
 *.jsonl
 !package.json
 !tsconfig.json
+# DVC metadata files should be committed
+!*.dvc
+!/data/.gitignore
 
 # Build & Release
 dist/

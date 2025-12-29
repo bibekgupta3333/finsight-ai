@@ -1,0 +1,82 @@
+{
+  "report_metadata": {
+    "generated_at": "2025-12-28T17:16:14.380727",
+    "dataset": "PS_20174392719_1491204439457_log.csv",
+    "dataset_size_mb": 470.67
+  },
+  "basic_stats": {
+    "total_transactions": 6362620,
+    "num_features": 16,
+    "memory_usage_mb": 988.84,
+    "load_time_seconds": 3.08
+  },
+  "data_quality": {
+    "missing_values": 0,
+    "duplicate_rows": 0,
+    "balance_consistency_rate": 42.1
+  },
+  "transaction_types": {
+    "CASH_OUT": 2237500,
+    "PAYMENT": 2151495,
+    "CASH_IN": 1399284,
+    "TRANSFER": 532909,
+    "DEBIT": 41432
+  },
+  "fraud_analysis": {
+    "total_fraud_cases": 8213,
+    "fraud_rate_percent": 0.1291,
+    "class_imbalance_ratio": "1:773",
+    "fraud_by_type": {
+      "TRANSFER": {
+        "fraud_count": 4097,
+        "fraud_rate_percent": 0.7688
+      },
+      "CASH_OUT": {
+        "fraud_count": 4116,
+        "fraud_rate_percent": 0.184
+      },
+      "CASH_IN": {
+        "fraud_count": 0,
+        "fraud_rate_percent": 0.0
+      },
+      "DEBIT": {
+        "fraud_count": 0,
+        "fraud_rate_percent": 0.0
+      },
+      "PAYMENT": {
+        "fraud_count": 0,
+        "fraud_rate_percent": 0.0
+      }
+    }
+  },
+  "amount_statistics": {
+    "min": 0.0,
+    "max": 92445520.0,
+    "mean": 179861.89,
+    "median": 74871.94,
+    "std": 603858.25,
+    "percentile_99": 1615979.5
+  },
+  "temporal_analysis": {
+    "total_days": 31,
+    "hours_range": "0-23",
+    "peak_hour": 19,
+    "peak_hour_transactions": 647814
+  },
+  "outliers": {
+    "amount_outliers_count": 338077,
+    "amount_outliers_percent": 5.31,
+    "fraud_in_outliers_percent": 1.14,
+    "high_value_threshold": 1615979.5,
+    "high_value_count": 63627,
+    "high_value_fraud_rate": 3.0946
+  },
+  "recommendations": [
+    "Apply SMOTE for handling severe class imbalance (1:769)",
+    "Focus fraud detection on TRANSFER and CASH_OUT transaction types",
+    "Use stratified splitting to maintain fraud rate across train/val/test",
+    "Consider temporal features (hour, day) for model training",
+    "Investigate balance inconsistencies as potential fraud signals",
+    "High-value transactions show elevated fraud rates - require special attention"
+  ]
+}

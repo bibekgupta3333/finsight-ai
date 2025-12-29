@@ -1,0 +1,5 @@
+outs:
+- md5: eb073d043a92e0d4c7f0eff28a16084a
+  size: 1732771
+  hash: md5
+  path: weak_supervision_labels.json

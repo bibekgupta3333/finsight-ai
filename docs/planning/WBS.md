@@ -96,13 +96,13 @@ This project demonstrates mastery across all 4 core AGI competencies:
 - [x] Inter-annotator agreement (if team)
 
 ### 2.5 Data Versioning & Tracking
-- [ ] Setup DVC (Data Version Control)
-- [ ] Initialize Weights & Biases project
-- [ ] Version raw data (v1_raw)
-- [ ] Version cleaned data (v2_cleaned)
-- [ ] Version processed data (v3_reasoning)
-- [ ] Track data lineage
-- [ ] Create data versioning documentation
+- [x] Setup DVC (Data Version Control)
+- [x] Initialize Weights & Biases project
+- [x] Version raw data (v1_raw)
+- [x] Version cleaned data (v2_cleaned)
+- [x] Version processed data (v3_reasoning)
+- [x] Track data lineage
+- [x] Create data versioning documentation
 
 ### 2.6 Dataset Splitting
 - [ ] Stratified split (maintain fraud rate)
