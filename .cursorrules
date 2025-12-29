@@ -1,0 +1,577 @@
+# FinSight AI - Cursor Rules
+
+## Project Overview
+FinSight AI is a multimodal personal finance reasoning agent built with FastAPI (backend), Next.js (frontend), LangGraph (agent orchestration), Ollama (local LLM), and ChromaDB (vector store).
+
+## Technology Stack
+
+### Backend
+- **Framework:** FastAPI with Python 3.11+
+- **Agent Framework:** LangGraph for agent orchestration
+- **LLM:** Ollama (Llama2/Mistral) for local inference
+- **Vector Store:** ChromaDB for embeddings
+- **Embedding Model:** sentence-transformers/all-MiniLM-L6-v2
+- **OCR:** EasyOCR/Tesseract
+- **PDF Processing:** pdfplumber
+- **Validation:** Pydantic v2
+
+### Frontend
+- **Framework:** Next.js 14 with App Router
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS
+- **UI Components:** shadcn/ui
+- **State Management:** Zustand
+- **Charts:** Recharts
+- **API Client:** Axios
+
+### Infrastructure
+- **Monorepo:** Turborepo
+- **Containerization:** Docker
+- **Orchestration:** Kubernetes + Helm
+- **IaC:** Terraform
+- **Cloud:** AWS (EKS, S3)
+
+---
+
+## Code Style Guidelines
+
+### Python (Backend)
+
+#### Formatting
+- **Line length:** 100 characters
+- **Formatter:** Black
+- **Import sorting:** isort with black profile
+- **Linting:** flake8, mypy
+- **Type hints:** Required for all functions
+- **Docstrings:** Google style
+
+#### Example:
+```python
+from typing import List, Optional
+from pydantic import BaseModel
+from fastapi import HTTPException, status
+
+
+class Transaction(BaseModel):
+    """Represents a financial transaction.
+
+    Attributes:
+        transaction_id: Unique identifier for the transaction
+        amount: Transaction amount in dollars
+        description: Human-readable description
+    """
+    transaction_id: str
+    amount: float
+    description: str
+
+
+async def process_transaction(
+    transaction: Transaction,
+    user_id: str,
+) -> dict:
+    """Process and categorize a financial transaction.
+
+    Args:
+        transaction: The transaction to process
+        user_id: ID of the user who owns the transaction
+
+    Returns:
+        dict: Processing results including category and confidence
+
+    Raises:
+        HTTPException: If processing fails
+    """
+    try:
+        # Implementation
+        pass
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process transaction: {str(e)}"
+        )
+```
+
+#### File Organization
+```
+backend/
+├── app/
+│   ├── api/          # API routes
+│   ├── core/         # Core functionality (config, security)
+│   ├── services/     # Business logic
+│   ├── agents/       # LangGraph agents
+│   ├── models/       # Pydantic models
+│   └── utils/        # Utility functions
+├── tests/            # Test files mirror app structure
+└── scripts/          # Utility scripts
+```
+
+### TypeScript/React (Frontend)
+
+#### Formatting
+- **Line length:** 100 characters
+- **Formatter:** Prettier
+- **Quotes:** Single quotes for TS/JS, double for JSX
+- **Semicolons:** Required
+- **Arrow functions:** Always use parentheses
+
+#### Example:
+```typescript
+import { useState, useEffect } from 'react';
+import { Transaction } from '@/types';
+import { api } from '@/lib/api';
+
+interface TransactionListProps {
+  userId: string;
+  limit?: number;
+}
+
+export function TransactionList({ userId, limit = 10 }: TransactionListProps) {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const data = await api.getTransactions(userId, limit);
+        setTransactions(data);
+      } catch (error) {
+        console.error('Failed to fetch transactions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTransactions();
+  }, [userId, limit]);
+
+  if (loading) return <LoadingSpinner />;
+
+  return (
+    <div className="space-y-4">
+      {transactions.map((transaction) => (
+        <TransactionCard key={transaction.id} transaction={transaction} />
+      ))}
+    </div>
+  );
+}
+```
+
+#### File Organization
+```
+frontend/
+├── app/              # Next.js app directory (routes)
+├── components/
+│   ├── ui/          # Base UI components (shadcn/ui)
+│   └── features/    # Feature-specific components
+├── lib/             # Utilities, API clients
+├── hooks/           # Custom React hooks
+├── types/           # TypeScript type definitions
+└── store/           # Zustand stores
+```
+
+### Component Structure
+```typescript
+// 1. Imports (external first, then internal)
+import React from 'react';
+import { Button } from '@/components/ui/button';
+
+// 2. Types/Interfaces
+interface Props {
+  title: string;
+}
+
+// 3. Component
+export function Component({ title }: Props) {
+  // 3a. Hooks
+  const [state, setState] = useState();
+
+  // 3b. Effects
+  useEffect(() => {}, []);
+
+  // 3c. Handlers
+  const handleClick = () => {};
+
+  // 3d. Render
+  return <div>{title}</div>;
+}
+```
+
+---
+
+## Naming Conventions
+
+### Python
+- **Files:** snake_case (e.g., `transaction_service.py`)
+- **Classes:** PascalCase (e.g., `TransactionProcessor`)
+- **Functions/Variables:** snake_case (e.g., `process_transaction`)
+- **Constants:** UPPER_SNAKE_CASE (e.g., `MAX_FILE_SIZE`)
+- **Private:** Leading underscore (e.g., `_internal_method`)
+
+### TypeScript/React
+- **Files:** kebab-case for utilities, PascalCase for components
+  - Components: `TransactionList.tsx`
+  - Utilities: `format-currency.ts`
+- **Components:** PascalCase (e.g., `TransactionCard`)
+- **Functions/Variables:** camelCase (e.g., `fetchTransactions`)
+- **Constants:** UPPER_SNAKE_CASE (e.g., `API_BASE_URL`)
+- **Types/Interfaces:** PascalCase (e.g., `Transaction`, `UserProfile`)
+
+---
+
+## Best Practices
+
+### Backend
+
+#### API Design
+- Use RESTful conventions
+- Versioning: `/api/v1/`
+- Status codes: Use appropriate HTTP status codes
+- Error responses: Consistent error format
+```python
+{
+  "error": {
+    "code": "TRANSACTION_NOT_FOUND",
+    "message": "Transaction with ID xyz not found",
+    "details": {}
+  }
+}
+```
+
+#### Async/Await
+- Always use async for I/O operations
+- Don't block the event loop
+```python
+# Good
+async def get_transactions(user_id: str) -> List[Transaction]:
+    return await db.fetch_transactions(user_id)
+
+# Bad
+def get_transactions(user_id: str) -> List[Transaction]:
+    return db.fetch_transactions_sync(user_id)
+```
+
+#### Error Handling
+```python
+try:
+    result = await risky_operation()
+except SpecificError as e:
+    logger.error(f"Specific error occurred: {e}")
+    raise HTTPException(status_code=400, detail=str(e))
+except Exception as e:
+    logger.exception("Unexpected error")
+    raise HTTPException(status_code=500, detail="Internal server error")
+```
+
+#### LangGraph Agents
+```python
+from langgraph.graph import StateGraph
+from typing import TypedDict
+
+class AgentState(TypedDict):
+    """Define agent state with clear types."""
+    transactions: List[Transaction]
+    category: Optional[str]
+    confidence: float
+
+# Clear node functions
+async def categorize_node(state: AgentState) -> AgentState:
+    """Categorize transactions using LLM."""
+    # Implementation
+    return state
+```
+
+### Frontend
+
+#### Server vs Client Components
+```typescript
+// Server Component (default in Next.js 14)
+export default async function TransactionsPage() {
+  const transactions = await fetchTransactions();
+  return <TransactionList transactions={transactions} />;
+}
+
+// Client Component (for interactivity)
+'use client';
+
+export function TransactionFilter() {
+  const [filter, setFilter] = useState('');
+  return <input value={filter} onChange={(e) => setFilter(e.target.value)} />;
+}
+```
+
+#### State Management
+```typescript
+// Zustand store
+import { create } from 'zustand';
+
+interface TransactionStore {
+  transactions: Transaction[];
+  addTransaction: (transaction: Transaction) => void;
+}
+
+export const useTransactionStore = create<TransactionStore>((set) => ({
+  transactions: [],
+  addTransaction: (transaction) =>
+    set((state) => ({ transactions: [...state.transactions, transaction] })),
+}));
+```
+
+#### API Calls
+```typescript
+// Centralized API client
+export const api = {
+  async getTransactions(userId: string): Promise<Transaction[]> {
+    const response = await fetch(`${API_BASE_URL}/transactions/${userId}`);
+    if (!response.ok) throw new Error('Failed to fetch transactions');
+    return response.json();
+  },
+};
+```
+
+---
+
+## Testing
+
+### Backend (pytest)
+```python
+import pytest
+from httpx import AsyncClient
+from app.main import app
+
+
+@pytest.mark.asyncio
+async def test_create_transaction():
+    """Test transaction creation endpoint."""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/transactions",
+            json={"amount": 100.0, "description": "Test"}
+        )
+        assert response.status_code == 201
+        assert response.json()["amount"] == 100.0
+```
+
+### Frontend (Jest/Vitest)
+```typescript
+import { render, screen } from '@testing-library/react';
+import { TransactionCard } from './TransactionCard';
+
+describe('TransactionCard', () => {
+  it('renders transaction amount', () => {
+    const transaction = { id: '1', amount: 100, description: 'Test' };
+    render(<TransactionCard transaction={transaction} />);
+    expect(screen.getByText('$100.00')).toBeInTheDocument();
+  });
+});
+```
+
+---
+
+## Git Commit Messages
+
+Follow Conventional Commits:
+
+```
+type(scope): subject
+
+[optional body]
+
+[optional footer]
+```
+
+**Types:**
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation
+- `style`: Formatting
+- `refactor`: Code restructuring
+- `test`: Adding tests
+- `chore`: Maintenance
+
+**Examples:**
+```
+feat(backend): add transaction categorization endpoint
+fix(frontend): resolve infinite loop in useEffect
+docs(deployment): update kubernetes setup guide
+```
+
+---
+
+## Security Guidelines
+
+### Backend
+- Never commit secrets (use environment variables)
+- Validate all inputs with Pydantic
+- Sanitize file uploads
+- Use parameterized queries
+- Implement rate limiting
+- Enable CORS selectively
+
+### Frontend
+- Sanitize user inputs
+- Use CSP headers
+- Avoid dangerouslySetInnerHTML
+- Validate API responses
+- Implement CSRF protection
+
+---
+
+## Performance
+
+### Backend
+- Use async/await for all I/O
+- Implement caching for vector searches
+- Batch database operations
+- Use connection pooling
+- Stream large responses
+
+### Frontend
+- Use Next.js Image component
+- Implement code splitting
+- Lazy load components
+- Debounce user inputs
+- Use React.memo for expensive renders
+- Implement pagination for large lists
+
+---
+
+## Documentation
+
+### Code Comments
+```python
+# Good: Explain WHY, not WHAT
+# Cache results for 1 hour to reduce LLM API calls
+@lru_cache(maxsize=100)
+def categorize_transaction(description: str) -> str:
+    ...
+
+# Bad: Obvious comment
+# Increment counter by 1
+counter += 1
+```
+
+### API Documentation
+- Use FastAPI's automatic OpenAPI generation
+- Add examples to Pydantic models
+- Document error responses
+- Include usage examples
+
+---
+
+## Environment-Specific Rules
+
+### Development
+- Enable debug mode
+- Use hot reload
+- Detailed logging
+- Mock external services when needed
+
+### Production
+- Disable debug mode
+- Set appropriate log levels
+- Enable monitoring
+- Use production-grade secrets
+- Enable rate limiting
+
+---
+
+## AI/LLM Specific
+
+### Prompt Engineering
+```python
+PROMPT_TEMPLATE = """You are a financial advisor AI.
+
+Task: Categorize this transaction
+Transaction: {transaction}
+Available Categories: {categories}
+
+Rules:
+1. Return only the category name
+2. If unsure, return "Other"
+3. Be concise
+
+Category:"""
+```
+
+### Vector Store Usage
+```python
+# Always filter by user_id to prevent data leakage
+results = vector_store.query(
+    query_text=description,
+    where={"user_id": user_id},  # Critical!
+    n_results=5
+)
+```
+
+### Ollama Integration
+```python
+# Set appropriate timeouts
+response = await ollama.generate(
+    model="llama2:7b",
+    prompt=prompt,
+    options={
+        "temperature": 0.7,
+        "num_predict": 256,  # Limit tokens
+    },
+    timeout=30  # Prevent hanging
+)
+```
+
+---
+
+## Deployment
+
+### Docker
+- Use multi-stage builds
+- Minimize layer count
+- Don't run as root
+- Use .dockerignore
+- Pin dependency versions
+
+### Kubernetes
+- Always set resource limits
+- Use health checks
+- Implement graceful shutdown
+- Use namespaces
+- Version ConfigMaps/Secrets
+
+---
+
+## Troubleshooting
+
+When encountering errors:
+1. Check logs first
+2. Verify environment variables
+3. Check service connectivity
+4. Validate input data
+5. Test with simplified inputs
+6. Check resource constraints
+
+---
+
+## Code Review Checklist
+
+- [ ] Follows naming conventions
+- [ ] Type hints/types added
+- [ ] Tests written and passing
+- [ ] Documentation updated
+- [ ] No hardcoded secrets
+- [ ] Error handling implemented
+- [ ] Performance considered
+- [ ] Security reviewed
+- [ ] Accessibility checked (frontend)
+- [ ] Mobile responsive (frontend)
+
+---
+
+**Remember:**
+- Code is read more than written - prioritize clarity
+- DRY (Don't Repeat Yourself) but avoid premature abstraction
+- YAGNI (You Aren't Gonna Need It) - implement what's needed now
+- Test early, test often
+- Security is not optional
+
+---
+
+**Version:** 1.0
+**Last Updated:** December 26, 2025

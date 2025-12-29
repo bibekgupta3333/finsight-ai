@@ -1,0 +1,44 @@
+1️⃣ FinSight AI — Multimodal Personal Finance Reasoning Agent
+
+Domain: FinTech + Multimodal
+
+What it does
+
+User uploads:
+
+Bank statement (PDF)
+
+Screenshots of transactions
+
+Optional voice explanation
+
+The agent:
+
+Parses transactions
+
+Categorizes spending
+
+Detects anomalies
+
+Explains spending habits in natural language
+
+Why it’s unique
+
+Most finance apps calculate.
+This one reasons + explains.
+
+SDLC Coverage
+
+Data: PDFs, images, text, synthetic transactions
+
+Multimodal: OCR + vision + text
+
+Modeling: LLM + vision encoder
+
+Agent: Tool-using agent (OCR → classify → explain)
+
+Post-training: Instruction tuning for explanations
+
+Evaluation: Reasoning correctness + hallucination checks
+
+Deployment: FastAPI + async inference
