@@ -77,23 +77,23 @@ This project demonstrates mastery across all 4 core AGI competencies:
 - [x] Create EDA Jupyter notebook
 
 ### 2.3 Data Cleaning & Preprocessing
-- [ ] Handle missing values (if any)
-- [ ] Remove duplicate transactions
-- [ ] PII masking (hash account IDs)
-- [ ] Normalize transaction amounts (StandardScaler/MinMaxScaler)
-- [ ] Time binning (hour of day, day of week)
-- [ ] Feature engineering (balance_diff, amount_ratio)
-- [ ] Create data cleaning pipeline script
-- [ ] Document cleaning decisions
+- [x] Handle missing values (if any)
+- [x] Remove duplicate transactions
+- [x] PII masking (hash account IDs)
+- [x] Normalize transaction amounts (StandardScaler/MinMaxScaler)
+- [x] Time binning (hour of day, day of week)
+- [x] Feature engineering (balance_diff, amount_ratio)
+- [x] Create data cleaning pipeline script
+- [x] Document cleaning decisions
 
 ### 2.4 Data Labeling & Annotation
-- [ ] Validate ground truth labels (isFraud)
-- [ ] Generate LLM explanations for fraud cases
-- [ ] Create weak supervision rules (flagged_fraud logic)
-- [ ] Generate preference pairs (good vs bad explanations)
-- [ ] Label edge cases manually
-- [ ] Create labeling guidelines document
-- [ ] Inter-annotator agreement (if team)
+- [x] Validate ground truth labels (isFraud)
+- [x] Generate LLM explanations for fraud cases
+- [x] Create weak supervision rules (flagged_fraud logic)
+- [x] Generate preference pairs (good vs bad explanations)
+- [x] Label edge cases manually
+- [x] Create labeling guidelines document
+- [x] Inter-annotator agreement (if team)
 
 ### 2.5 Data Versioning & Tracking
 - [ ] Setup DVC (Data Version Control)
