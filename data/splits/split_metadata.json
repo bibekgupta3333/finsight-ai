@@ -1,0 +1,82 @@
+{
+  "stratified": {
+    "split_type": "stratified",
+    "split_config": {
+      "train_size": 0.6,
+      "val_size": 0.2,
+      "test_size": 0.2,
+      "random_seed": 42
+    },
+    "split_statistics": {
+      "train": {
+        "total_count": 3817572,
+        "fraud_count": 4928,
+        "legitimate_count": 3812644,
+        "fraud_rate": 0.001290872837499856
+      },
+      "val": {
+        "total_count": 1272524,
+        "fraud_count": 1642,
+        "legitimate_count": 1270882,
+        "fraud_rate": 0.0012903489443028186
+      },
+      "test": {
+        "total_count": 1272524,
+        "fraud_count": 1643,
+        "legitimate_count": 1270881,
+        "fraud_rate": 0.0012911347840983745
+      }
+    },
+    "split_paths": {
+      "train": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/splits/stratified/train.csv",
+      "val": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/splits/stratified/val.csv",
+      "test": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/splits/stratified/test.csv"
+    }
+  },
+  "temporal": {
+    "split_type": "temporal",
+    "split_config": {
+      "train_size": 0.6,
+      "val_size": 0.2,
+      "test_size": 0.2,
+      "random_seed": 42
+    },
+    "split_statistics": {
+      "train": {
+        "total_count": 3817572,
+        "fraud_count": 3191,
+        "legitimate_count": 3814381,
+        "fraud_rate": 0.000835871595872979,
+        "time_range": {
+          "min_step": 1,
+          "max_step": 281
+        }
+      },
+      "val": {
+        "total_count": 1272524,
+        "fraud_count": 768,
+        "legitimate_count": 1271756,
+        "fraud_rate": 0.0006035249629869456,
+        "time_range": {
+          "min_step": 281,
+          "max_step": 355
+        }
+      },
+      "test": {
+        "total_count": 1272524,
+        "fraud_count": 4254,
+        "legitimate_count": 1268270,
+        "fraud_rate": 0.0033429624902948786,
+        "time_range": {
+          "min_step": 355,
+          "max_step": 743
+        }
+      }
+    },
+    "split_paths": {
+      "train": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/splits/temporal/train.csv",
+      "val": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/splits/temporal/val.csv",
+      "test": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/splits/temporal/test.csv"
+    }
+  }
+}

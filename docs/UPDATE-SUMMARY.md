@@ -350,7 +350,7 @@ After this update, you can confidently say:
 ## 📁 Updated Directory Structure
 
 ```
-finai/
+finsight-ai/
 ├── PROJECT-SCOPE.md                    # ✨ NEW: Comprehensive AGI overview
 ├── README.md                           # ✏️ UPDATED: Fraud detection focus
 ├── docs/

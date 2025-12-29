@@ -49,7 +49,7 @@ pip install dvc
 dvc init
 
 # Configure local storage backend
-dvc remote add -d local_storage /path/to/finai/.dvc_storage
+dvc remote add -d local_storage /path/to/finsight-ai/.dvc_storage
 
 # Enable auto-staging (automatically git add .dvc files)
 dvc config core.autostage true
@@ -58,7 +58,7 @@ dvc config core.autostage true
 ### Directory Structure
 
 ```
-finai/
+finsight-ai/
 ├── .dvc/                           # DVC configuration
 │   ├── config                      # DVC settings
 │   └── .gitignore                  # DVC internal files
@@ -449,7 +449,7 @@ Before versioning cleaned data:
 
 ### Current: Local Storage
 
-- Location: `/path/to/finai/.dvc_storage/`
+- Location: `/path/to/finsight-ai/.dvc_storage/`
 - Pros: Fast, simple, no cloud costs
 - Cons: Not shared across team, no backup
 
@@ -513,7 +513,7 @@ dvc remote add -d azure_storage azure://finsight-data/dvc-cache
 
 **Solution:** Use virtual environment path:
 ```bash
-/path/to/finai/.venv/bin/dvc add data/file.csv
+/path/to/finsight-ai/.venv/bin/dvc add data/file.csv
 ```
 
 Or activate venv:

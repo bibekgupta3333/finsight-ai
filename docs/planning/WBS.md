@@ -53,7 +53,7 @@ This project demonstrates mastery across all 4 core AGI competencies:
 
 ---
 
-## 2. Data Lifecycle & Preparation (Status: 🟢 In Progress - 25%)
+## 2. Data Lifecycle & Preparation (Status: 🟢 In Progress - 87%)
 **AGI Interview Signal:** "I practiced the entire data lifecycle end-to-end"
 
 ### 2.1 Data Collection & Loading
@@ -105,22 +105,22 @@ This project demonstrates mastery across all 4 core AGI competencies:
 - [x] Create data versioning documentation
 
 ### 2.6 Dataset Splitting
-- [ ] Stratified split (maintain fraud rate)
-- [ ] Train set (60% = ~3.8M)
-- [ ] Validation set (20% = ~1.3M)
-- [ ] Test set (20% = ~1.3M)
-- [ ] Temporal split (alternative strategy)
-- [ ] Save splits to data/splits/
-- [ ] Document split strategy
+- [x] Stratified split (maintain fraud rate)
+- [x] Train set (60% = ~3.8M)
+- [x] Validation set (20% = ~1.3M)
+- [x] Test set (20% = ~1.3M)
+- [x] Temporal split (alternative strategy)
+- [x] Save splits to data/splits/
+- [x] Document split strategy
 
 ### 2.7 Data Augmentation & Balancing
-- [ ] Analyze class imbalance (0.13% fraud)
-- [ ] Implement SMOTE for fraud oversampling
-- [ ] Implement undersampling for non-fraud
-- [ ] Create balanced training set
-- [ ] Synthetic fraud case generation
-- [ ] Validate augmented data quality
-- [ ] Document balancing strategy
+- [x] Analyze class imbalance (0.13% fraud)
+- [x] Implement SMOTE for fraud oversampling
+- [x] Implement undersampling for non-fraud
+- [x] Create balanced training set
+- [x] Synthetic fraud case generation
+- [x] Validate augmented data quality
+- [x] Document balancing strategy
 
 ### 2.8 Bias & Fairness Analysis
 - [ ] Audit high-amount ≠ fraud correlation

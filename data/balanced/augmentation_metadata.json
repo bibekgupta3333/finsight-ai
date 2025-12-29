@@ -1,0 +1,67 @@
+{
+  "original_stats": {
+    "total_samples": 3817572,
+    "fraud_count": 4928,
+    "legitimate_count": 3812644,
+    "fraud_rate": 0.001290872837499856,
+    "imbalance_ratio": 773.6696428571429
+  },
+  "target_fraud_rate": 0.5,
+  "random_seed": 42,
+  "strategies": {
+    "smote": {
+      "path": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/balanced/train_balanced_smote.csv",
+      "samples": 5718966,
+      "fraud_rate": 0.3333333333333333,
+      "validation": {
+        "passed": false,
+        "checks": {
+          "fraud_rate": {
+            "passed": false,
+            "actual": 0.3333333333333333,
+            "target": 0.5
+          },
+          "no_negative_amounts": {
+            "passed": true,
+            "negative_count": 0
+          },
+          "size_increased": {
+            "passed": true,
+            "original_size": 3817572,
+            "augmented_size": 5718966
+          }
+        }
+      }
+    },
+    "combined": {
+      "path": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/balanced/train_balanced_combined.csv",
+      "samples": 3431379,
+      "fraud_rate": 0.3333333333333333,
+      "validation": {
+        "passed": false,
+        "checks": {
+          "fraud_rate": {
+            "passed": false,
+            "actual": 0.3333333333333333,
+            "target": 0.5
+          },
+          "no_negative_amounts": {
+            "passed": true,
+            "negative_count": 0
+          },
+          "size_increased": {
+            "passed": false,
+            "original_size": 3817572,
+            "augmented_size": 3431379
+          }
+        }
+      }
+    },
+    "with_synthetic": {
+      "path": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/balanced/train_balanced_with_synthetic.csv",
+      "samples": 3818572,
+      "fraud_rate": 0.0015524127867695043,
+      "synthetic_fraud_added": 1000
+    }
+  }
+}
