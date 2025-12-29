@@ -1,0 +1,47 @@
+================================================================================
+BIAS AND FAIRNESS AUDIT REPORT
+================================================================================
+
+METADATA
+--------------------------------------------------------------------------------
+total_transactions: 6362620
+fraud_count: 8213
+fraud_rate: 0.001290820448180152
+data_path: /Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/processed/paysim_cleaned.csv
+
+
+KEY FINDINGS
+--------------------------------------------------------------------------------
+
+1. Amount-Fraud Correlation: WEAK - Little correlation between amount and fraud
+   Pearson r = 0.0767
+
+2. Transaction Type Bias: DETECTED
+   Chi-square p-value = 0.0000e+00
+
+3. Demographic Parity: VIOLATED
+4. Equalized Odds: VIOLATED
+
+
+RECOMMENDATIONS
+--------------------------------------------------------------------------------
+
+[1] Transaction Type Bias (HIGH)
+    Significant association between transaction type and fraud
+    → Apply demographic parity constraint: prediction rates should not vary by more than 10% across transaction types.
+
+[2] Demographic Parity (MEDIUM)
+    Demographic parity violated across transaction types
+    → Implement post-processing calibration or threshold optimization per group.
+
+[3] Equalized Odds (MEDIUM)
+    TPR/FPR not equal across groups
+    → Use equalized odds post-processing or train with fairness constraints (e.g., Fairlearn, AIF360).
+
+[4] Monitoring (MEDIUM)
+    Continuous monitoring needed
+    → Implement ongoing bias monitoring in production. Track fairness metrics per deployment and retrain if drift detected.
+
+[5] Data Collection (LOW)
+    Limited demographic attributes in dataset
+    → Consider collecting more granular features while respecting privacy. Analyze biases across account age, geography, time patterns.

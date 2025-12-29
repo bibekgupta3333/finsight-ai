@@ -1,0 +1,257 @@
+{
+  "metadata": {
+    "total_transactions": 6362620,
+    "fraud_count": 8213,
+    "fraud_rate": 0.001290820448180152,
+    "data_path": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/processed/paysim_cleaned.csv"
+  },
+  "correlations": {
+    "amount_fraud": {
+      "pearson_correlation": 0.07668842882517285,
+      "point_biserial_r": 0.07668842882517127,
+      "point_biserial_p": 0.0,
+      "fraud_mean_amount": 1467967.299772312,
+      "legit_mean_amount": 178197.0417389679,
+      "fraud_median_amount": 441423.44,
+      "legit_median_amount": 74684.72,
+      "mann_whitney_u": 41224999623.5,
+      "mann_whitney_p": 0.0,
+      "percentile_analysis": [
+        {
+          "percentile": 25,
+          "threshold": 13389.57,
+          "high_amount_fraud_rate": 0.0016511011077821787,
+          "low_amount_fraud_rate": 0.00020997665738536312,
+          "ratio": 7.863260270649838
+        },
+        {
+          "percentile": 50,
+          "threshold": 74871.94,
+          "high_amount_fraud_rate": 0.002139684595339656,
+          "low_amount_fraud_rate": 0.00044195630102064875,
+          "ratio": 4.841394025604552
+        },
+        {
+          "percentile": 75,
+          "threshold": 208721.4775,
+          "high_amount_fraud_rate": 0.0033973426041473483,
+          "low_amount_fraud_rate": 0.000588646396191087,
+          "ratio": 5.771448914204343
+        },
+        {
+          "percentile": 90,
+          "threshold": 365423.2990000001,
+          "high_amount_fraud_rate": 0.006934250355985427,
+          "low_amount_fraud_rate": 0.0006637726806462327,
+          "ratio": 10.44672454617206
+        },
+        {
+          "percentile": 95,
+          "threshold": 518634.205,
+          "high_amount_fraud_rate": 0.011954194969996636,
+          "low_amount_fraud_rate": 0.0007295902101898109,
+          "ratio": 16.384807256235828
+        },
+        {
+          "percentile": 99,
+          "threshold": 1615979.5239999916,
+          "high_amount_fraud_rate": 0.03094598205164474,
+          "low_amount_fraud_rate": 0.0009912695568958403,
+          "ratio": 31.218533683766154
+        }
+      ],
+      "interpretation": "WEAK - Little correlation between amount and fraud"
+    }
+  },
+  "biases": {
+    "transaction_type": {
+      "type_analysis": [
+        {
+          "type": "PAYMENT",
+          "count": 2151495,
+          "fraud_count": 0,
+          "fraud_rate": 0.0,
+          "percentage_of_total": 0.3381460781879163
+        },
+        {
+          "type": "TRANSFER",
+          "count": 532909,
+          "fraud_count": 4097,
+          "fraud_rate": 0.007687991758442811,
+          "percentage_of_total": 0.08375621992198183
+        },
+        {
+          "type": "CASH_OUT",
+          "count": 2237500,
+          "fraud_count": 4116,
+          "fraud_rate": 0.0018395530726256983,
+          "percentage_of_total": 0.35166330851127364
+        },
+        {
+          "type": "DEBIT",
+          "count": 41432,
+          "fraud_count": 0,
+          "fraud_rate": 0.0,
+          "percentage_of_total": 0.006511782881894566
+        },
+        {
+          "type": "CASH_IN",
+          "count": 1399284,
+          "fraud_count": 0,
+          "fraud_rate": 0.0,
+          "percentage_of_total": 0.21992261049693365
+        }
+      ],
+      "chi_square": {
+        "statistic": 22082.53571319108,
+        "p_value": 0.0,
+        "degrees_of_freedom": 4
+      },
+      "bias_detected": true
+    },
+    "false_positive_negative": {
+      "confusion_matrix": {
+        "true_negative": 5722557,
+        "false_positive": 631850,
+        "false_negative": 3800,
+        "true_positive": 4413
+      },
+      "metrics": {
+        "false_positive_rate": 0.0994349276022137,
+        "false_negative_rate": 0.4626811153050043,
+        "precision": 0.006935811134703731,
+        "recall": 0.5373188846949958
+      },
+      "quartile_analysis": [
+        {
+          "quartile": "Q1 (Low)",
+          "count": 1590656,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 1.0,
+          "fp_count": 0,
+          "fn_count": 334
+        },
+        {
+          "quartile": "Q4 (High)",
+          "count": 1590655,
+          "false_positive_rate": 0.3985804140795369,
+          "false_negative_rate": 0.18338267949666914,
+          "fp_count": 631850,
+          "fn_count": 991
+        },
+        {
+          "quartile": "Q2",
+          "count": 1590654,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 1.0,
+          "fp_count": 0,
+          "fn_count": 1072
+        },
+        {
+          "quartile": "Q3",
+          "count": 1590655,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 1.0,
+          "fp_count": 0,
+          "fn_count": 1403
+        }
+      ],
+      "disparate_impact": {
+        "high_amount_prediction_rate": 0.40000062867183644,
+        "low_amount_prediction_rate": 0.0,
+        "ratio": null
+      },
+      "disparate_impact_detected": false
+    }
+  },
+  "fairness_metrics": {
+    "group_metrics": [
+      {
+        "group": "PAYMENT",
+        "count": 2151495,
+        "prediction_rate": 0.0,
+        "true_positive_rate": 0.0,
+        "false_positive_rate": 0.0,
+        "precision": 0.0
+      },
+      {
+        "group": "TRANSFER",
+        "count": 532909,
+        "prediction_rate": 0.599742169863898,
+        "true_positive_rate": 0.5403954112765438,
+        "false_positive_rate": 0.6002019621339909,
+        "precision": 0.0069272358639333185
+      },
+      {
+        "group": "CASH_OUT",
+        "count": 2237500,
+        "prediction_rate": 0.09107039106145251,
+        "true_positive_rate": 0.5342565597667639,
+        "false_positive_rate": 0.09025362409688616,
+        "precision": 0.010791578740737105
+      },
+      {
+        "group": "DEBIT",
+        "count": 41432,
+        "prediction_rate": 0.00014481560146746477,
+        "true_positive_rate": 0.0,
+        "false_positive_rate": 0.00014481560146746477,
+        "precision": 0.0
+      },
+      {
+        "group": "CASH_IN",
+        "count": 1399284,
+        "prediction_rate": 0.08066911363240058,
+        "true_positive_rate": 0.0,
+        "false_positive_rate": 0.08066911363240058,
+        "precision": 0.0
+      }
+    ],
+    "parity_analysis": {
+      "demographic_parity_difference": 0.599742169863898,
+      "equalized_odds_tpr_diff": 0.5403954112765438,
+      "equalized_odds_fpr_diff": 0.6002019621339909,
+      "max_prediction_rate": 0.599742169863898,
+      "min_prediction_rate": 0.0
+    },
+    "demographic_parity_satisfied": false,
+    "equalized_odds_satisfied": false
+  },
+  "recommendations": [
+    {
+      "category": "Transaction Type Bias",
+      "severity": "HIGH",
+      "finding": "Significant association between transaction type and fraud",
+      "recommendation": "Apply demographic parity constraint: prediction rates should not vary by more than 10% across transaction types.",
+      "constraint": "max(P(\u0176=1|type=t)) - min(P(\u0176=1|type=t)) < 0.1"
+    },
+    {
+      "category": "Demographic Parity",
+      "severity": "MEDIUM",
+      "finding": "Demographic parity violated across transaction types",
+      "recommendation": "Implement post-processing calibration or threshold optimization per group.",
+      "constraint": "Prediction rate difference < 10% across all groups"
+    },
+    {
+      "category": "Equalized Odds",
+      "severity": "MEDIUM",
+      "finding": "TPR/FPR not equal across groups",
+      "recommendation": "Use equalized odds post-processing or train with fairness constraints (e.g., Fairlearn, AIF360).",
+      "constraint": "max(TPR_diff, FPR_diff) < 10% across groups"
+    },
+    {
+      "category": "Monitoring",
+      "severity": "MEDIUM",
+      "finding": "Continuous monitoring needed",
+      "recommendation": "Implement ongoing bias monitoring in production. Track fairness metrics per deployment and retrain if drift detected.",
+      "constraint": "Monthly fairness audits with automated alerts"
+    },
+    {
+      "category": "Data Collection",
+      "severity": "LOW",
+      "finding": "Limited demographic attributes in dataset",
+      "recommendation": "Consider collecting more granular features while respecting privacy. Analyze biases across account age, geography, time patterns.",
+      "constraint": "Annual bias audit across all available demographics"
+    }
+  ]
+}
