@@ -1,0 +1,70 @@
+"""
+Application configuration using Pydantic Settings.
+
+Manages environment variables and application settings.
+"""
+
+from functools import lru_cache
+from typing import Optional
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """
+    Application settings loaded from environment variables.
+
+    Attributes:
+        app_name: Application name
+        debug: Debug mode flag
+        api_v1_prefix: API version 1 prefix
+        max_workers: Maximum number of async workers
+        task_queue_max_size: Maximum task queue size
+        rate_limit_per_minute: Rate limit per minute per client
+        request_timeout: Request timeout in seconds
+        batch_size: Batch processing size
+    """
+
+    # Application
+    app_name: str = "FinSight AI"
+    debug: bool = False
+    api_v1_prefix: str = "/api/v1"
+    host: str = "0.0.0.0"
+    port: int = 8000
+
+    # Concurrency & Performance
+    max_workers: int = 10
+    task_queue_max_size: int = 1000
+    rate_limit_per_minute: int = 100
+    request_timeout: int = 60
+    batch_size: int = 100
+
+    # Redis (for task queue)
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+    redis_password: Optional[str] = None
+
+    # Security
+    secret_key: str = "dev-secret-key-change-in-production"
+    cors_origins: list[str] = ["http://localhost:3000"]
+
+    # Logging
+    log_level: str = "INFO"
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
+
+
+@lru_cache()
+def get_settings() -> Settings:
+    """
+    Get cached application settings.
+
+    Returns:
+        Settings instance
+    """
+    return Settings()
