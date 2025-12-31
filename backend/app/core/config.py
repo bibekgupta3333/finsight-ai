@@ -39,11 +39,19 @@ class Settings(BaseSettings):
     request_timeout: int = 60
     batch_size: int = 100
 
-    # Redis (for task queue)
+    # Redis (for sessions and caching)
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_db: int = 0
     redis_password: Optional[str] = None
+    session_ttl_seconds: int = 3600  # 1 hour
+
+    @property
+    def redis_url(self) -> str:
+        """Get Redis connection URL."""
+        if self.redis_password:
+            return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}/{self.redis_db}"
+        return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
     # Security
     secret_key: str = "dev-secret-key-change-in-production"

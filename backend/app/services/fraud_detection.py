@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import List, Optional
 
-from app.models.fraud import FraudAnalysisResponse, FraudPrediction, Transaction
+from app.models.fraud import FraudAnalysisResponse, FraudPrediction, RiskLevel, Transaction
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +156,16 @@ class FraudDetectionService:
         risk_score = sum(features.values()) * 100
         risk_score = min(100, risk_score)
 
+        # Determine risk level from risk score
+        if risk_score >= 80:
+            risk_level = RiskLevel.CRITICAL
+        elif risk_score >= 60:
+            risk_level = RiskLevel.HIGH
+        elif risk_score >= 40:
+            risk_level = RiskLevel.MEDIUM
+        else:
+            risk_level = RiskLevel.LOW
+
         # Determine fraud based on threshold
         is_fraud = risk_score > 50
         confidence = risk_score / 100 if is_fraud else (100 - risk_score) / 100
@@ -182,6 +192,7 @@ class FraudDetectionService:
             is_fraud=is_fraud,
             confidence=confidence,
             risk_score=risk_score,
+            risk_level=risk_level,
             explanation=explanation,
             features=features,
         )

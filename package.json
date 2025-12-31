@@ -20,7 +20,14 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:build": "docker-compose build",
-    "docker:logs": "docker-compose logs -f"
+    "docker:logs": "docker-compose logs -f",
+    "redis:start": "docker-compose up redis -d",
+    "redis:stop": "docker-compose stop redis",
+    "backend:install": "cd backend && make install",
+    "backend:dev": "cd backend && make dev",
+    "backend:run": "cd backend && make run",
+    "backend:stop": "cd backend && make stop",
+    "backend:clean": "cd backend && make clean"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

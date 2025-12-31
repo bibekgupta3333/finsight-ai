@@ -1,6 +1,23 @@
 version: "3.8"
 
 services:
+  # Redis Service - Session & Cache
+  redis:
+    image: redis:7-alpine
+    container_name: finsight-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
   # Ollama Service - Local LLM
   ollama:
     image: ollama/ollama:latest
@@ -32,6 +49,7 @@ services:
       - backend_data:/app/data
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
+      - REDIS_URL=redis://redis:6379/0
       - CHROMA_PERSIST_DIR=/app/data/chromadb
       - UPLOAD_DIR=/app/data/uploads
       - API_HOST=0.0.0.0
@@ -39,6 +57,8 @@ services:
       - DEBUG=True
     depends_on:
       ollama:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -71,6 +91,8 @@ services:
     restart: unless-stopped
 
 volumes:
+  redis_data:
+    driver: local
   ollama_data:
     driver: local
   backend_data:

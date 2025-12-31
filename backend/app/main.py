@@ -15,7 +15,9 @@ from fastapi.responses import JSONResponse
 from app import __version__
 from app.api import fraud
 from app.core.config import get_settings
+from app.core.session import get_session_manager
 from app.core.task_queue import get_task_queue
+from app.middleware import CorrelationIdMiddleware, IdempotencyMiddleware
 from app.models.fraud import HealthResponse
 
 # Configure logging
@@ -45,10 +47,18 @@ async def lifespan(app: FastAPI):
     logger.info(f"Max Workers: {settings.max_workers}")
     logger.info(f"Queue Max Size: {settings.task_queue_max_size}")
     logger.info(f"Rate Limit: {settings.rate_limit_per_minute}/min")
+    logger.info(f"Redis URL: {settings.redis_url}")
+    logger.info(f"Session TTL: {settings.session_ttl_seconds}s")
 
     # Initialize task queue
     task_queue = await get_task_queue()
     logger.info("✓ Task queue initialized")
+
+    # Initialize session manager (Redis)
+    session_manager = get_session_manager()
+    await session_manager.connect()
+    logger.info("✓ Session manager connected")
+
     logger.info("=" * 80)
 
     yield
@@ -61,6 +71,12 @@ async def lifespan(app: FastAPI):
     # Stop task queue gracefully
     await task_queue.stop_workers(timeout=30.0)
     logger.info("✓ Task queue stopped")
+
+    # Disconnect session manager
+    session_manager = get_session_manager()
+    await session_manager.disconnect()
+    logger.info("✓ Session manager disconnected")
+
     logger.info("=" * 80)
 
 
@@ -82,6 +98,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add custom middleware
+app.add_middleware(CorrelationIdMiddleware)
+app.add_middleware(IdempotencyMiddleware)
 
 
 # Health check endpoint
