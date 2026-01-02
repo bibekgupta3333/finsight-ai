@@ -27,7 +27,10 @@
     "backend:dev": "cd backend && make dev",
     "backend:run": "cd backend && make run",
     "backend:stop": "cd backend && make stop",
-    "backend:clean": "cd backend && make clean"
+    "backend:clean": "cd backend && make clean",
+    "backend:pylint": "cd backend && pylint app/",
+    "backend:pylint:full": "cd backend && pylint app/ --reports=y",
+    "backend:pylint:fix": "cd backend && pylint app/ --disable=line-too-long,logging-fstring-interpolation"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

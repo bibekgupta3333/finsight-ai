@@ -57,6 +57,20 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret-key-change-in-production"
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # LLM Configuration
+    ollama_base_url: str = "http://localhost:11434"
+    llm_model_name: str = "mistral:7b"
+    llm_fast_model: str = "mistral:7b-instruct-q4_0"
+    embedding_model_name: str = "bge-small-en-v1.5"
+    max_context_tokens: int = 8192  # Mistral context window
+    max_prompt_tokens: int = 1500  # Target prompt length
+    llm_timeout: int = 60  # LLM request timeout in seconds
+    llm_temperature_deterministic: float = 0.0  # For classification
+    llm_temperature_creative: float = 0.7  # For explanations
+    llm_top_p: float = 0.9  # Nucleus sampling
+    llm_top_k: int = 40  # Top-k sampling
+    embedding_dimension: int = 384  # bge-small embedding size
+
     # Logging
     log_level: str = "INFO"
 
