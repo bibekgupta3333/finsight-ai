@@ -43,9 +43,14 @@ class SamplingConfig(BaseModel):
         default=0.7,
         ge=0.0,
         le=2.0,
-        description="Sampling temperature (0.0 = deterministic, higher = more random)",
+        description="Randomness (0=deterministic, 2=max random)",
     )
-    top_p: float = Field(default=0.9, ge=0.0, le=1.0, description="Nucleus sampling threshold")
+    top_p: float = Field(
+        default=0.9,
+        ge=0.0,
+        le=1.0,
+        description="Nucleus sampling threshold",
+    )
     top_k: int = Field(default=40, ge=0, description="Top-k sampling (0 = disabled)")
     seed: Optional[int] = Field(default=None, description="Random seed for reproducibility")
     max_tokens: Optional[int] = Field(default=None, description="Maximum tokens to generate")
@@ -63,7 +68,7 @@ class SamplingConfig(BaseModel):
                     "top_p": 1.0,
                     "top_k": 0,
                     "seed": 42,
-                    "description": "Deterministic generation for classification",
+                    "description": ("Deterministic generation for " "classification"),
                 },
                 {
                     "temperature": 0.7,
@@ -80,7 +85,8 @@ def get_sampling_for_task(task_type: str) -> SamplingConfig:
     Get recommended sampling configuration for a task type.
 
     Args:
-        task_type: Type of task (e.g., 'classification', 'explanation', 'reasoning')
+        task_type: Type of task (e.g., 'classification', 'explanation',
+            'reasoning')
 
     Returns:
         SamplingConfig with appropriate parameters
@@ -122,10 +128,17 @@ def get_sampling_for_task(task_type: str) -> SamplingConfig:
 
     config = task_configs.get(task_type.lower())
     if config is None:
-        logger.warning(f"Unknown task type '{task_type}', using default config")
+        logger.warning(
+            "Unknown task type '%s', using default config",
+            task_type,
+        )
         return SamplingConfig()  # Default
 
-    logger.debug(f"Using sampling config for task '{task_type}': temp={config.temperature}")
+    logger.debug(
+        "Using sampling config for task '%s': temp=%s",
+        task_type,
+        config.temperature,
+    )
     return config
 
 
@@ -196,7 +209,7 @@ class MultiSampleGenerator:
             response = await llm_client.generate(
                 prompt=prompt,
                 temperature=temperature,
-                seed=42 + i if temperature > 0 else 42,  # Same seed if deterministic
+                seed=42 + i if temperature > 0 else 42,
                 **kwargs,
             )
             samples.append(response)
@@ -252,10 +265,14 @@ def explain_sampling_tradeoffs(config: SamplingConfig) -> dict:
         Dictionary explaining tradeoffs
     """
     tradeoffs = {
-        "temperature": {"value": config.temperature, "interpretation": "", "tradeoff": ""},
+        "temperature": {
+            "value": config.temperature,
+            "interpretation": "",
+            "tradeoff": "",
+        },
         "top_p": {"value": config.top_p, "interpretation": "", "tradeoff": ""},
         "reproducibility": {
-            "is_reproducible": config.seed is not None and config.temperature == 0.0,
+            "is_reproducible": (config.seed is not None and config.temperature == 0.0),
             "explanation": "",
         },
     }
