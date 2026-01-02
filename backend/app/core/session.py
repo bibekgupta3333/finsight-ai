@@ -32,7 +32,7 @@ class SessionManager:
         Args:
             redis_url: Redis connection URL (default: from settings)
         """
-        self.redis_url = redis_url or settings.redis_url
+        self.redis_url = redis_url or settings.get_redis_url()
         self.redis_client: Optional[redis.Redis] = None
         self.session_ttl = settings.session_ttl_seconds
 

@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"Max Workers: {settings.max_workers}")
     logger.info(f"Queue Max Size: {settings.task_queue_max_size}")
     logger.info(f"Rate Limit: {settings.rate_limit_per_minute}/min")
-    logger.info(f"Redis URL: {settings.redis_url}")
+    logger.info(f"Redis URL: {settings.get_redis_url()}")
     logger.info(f"Session TTL: {settings.session_ttl_seconds}s")
 
     # Initialize task queue

@@ -132,7 +132,6 @@ async def test_stateful_analysis():
                 print_success("Stateful analysis completed")
                 print_info(f"  Session ID: {session_id}")
                 print_info(f"  Current State: {result['current_state']}")
-                print_info(f"  Checkpoints: {result['checkpoints']}")
                 print_info(f"  Fraud: {result['result']['prediction']['is_fraud']}")
                 print_info(
                     f"  Risk Score: {result['result']['prediction']['risk_score']:.4f}"

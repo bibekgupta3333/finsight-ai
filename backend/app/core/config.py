@@ -40,15 +40,24 @@ class Settings(BaseSettings):
     batch_size: int = 100
 
     # Redis (for sessions and caching)
+    redis_url: Optional[str] = None  # Direct Redis URL (takes precedence)
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_db: int = 0
     redis_password: Optional[str] = None
     session_ttl_seconds: int = 3600  # 1 hour
 
-    @property
-    def redis_url(self) -> str:
-        """Get Redis connection URL."""
+    def get_redis_url(self) -> str:
+        """
+        Get Redis connection URL.
+
+        Uses REDIS_URL env var if set, otherwise constructs from host/port/password.
+        """
+        # If REDIS_URL is explicitly set, use it
+        if self.redis_url:
+            return self.redis_url
+
+        # Otherwise construct from individual components
         if self.redis_password:
             return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}/{self.redis_db}"
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
