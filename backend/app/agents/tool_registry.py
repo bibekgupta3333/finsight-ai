@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class ToolParameter(BaseModel):
     """Tool parameter specification."""
-    
+
     name: str
     type: str  # "string", "number", "boolean", "object"
     description: str
@@ -25,7 +25,7 @@ class ToolParameter(BaseModel):
 
 class ToolSchema(BaseModel):
     """Structured schema for a tool."""
-    
+
     name: str
     description: str
     parameters: List[ToolParameter]
@@ -36,7 +36,7 @@ class ToolSchema(BaseModel):
 
 class ToolResult(BaseModel):
     """Result from tool execution."""
-    
+
     tool_name: str
     success: bool
     result: Optional[Any] = None
@@ -47,17 +47,17 @@ class ToolResult(BaseModel):
 class ToolRegistry:
     """
     Registry for agent tools.
-    
+
     Manages tool registration, validation, and execution with
     timeout handling and error recovery.
     """
-    
+
     def __init__(self):
         """Initialize tool registry."""
         self._tools: Dict[str, Callable] = {}
         self._schemas: Dict[str, ToolSchema] = {}
         self._register_default_tools()
-    
+
     def register(
         self,
         schema: ToolSchema,
@@ -65,7 +65,7 @@ class ToolRegistry:
     ) -> None:
         """
         Register a tool.
-        
+
         Args:
             schema: Tool schema
             function: Tool function
@@ -73,19 +73,19 @@ class ToolRegistry:
         self._schemas[schema.name] = schema
         self._tools[schema.name] = function
         logger.info(f"Registered tool: {schema.name}")
-    
+
     def get_schema(self, tool_name: str) -> Optional[ToolSchema]:
         """Get tool schema."""
         return self._schemas.get(tool_name)
-    
+
     def list_tools(self) -> List[str]:
         """List all available tools."""
         return list(self._tools.keys())
-    
+
     def list_schemas(self) -> List[ToolSchema]:
         """List all tool schemas."""
         return list(self._schemas.values())
-    
+
     async def execute(
         self,
         tool_name: str,
@@ -93,18 +93,18 @@ class ToolRegistry:
     ) -> ToolResult:
         """
         Execute a tool with validation and timeout.
-        
+
         Args:
             tool_name: Name of tool to execute
             parameters: Tool parameters
-        
+
         Returns:
             Tool execution result
         """
         import time
-        
+
         start_time = time.time()
-        
+
         # Validate tool exists
         if tool_name not in self._tools:
             return ToolResult(
@@ -113,11 +113,11 @@ class ToolRegistry:
                 error=f"Tool '{tool_name}' not found",
                 execution_time=0.0,
             )
-        
+
         # Get schema and function
         schema = self._schemas[tool_name]
         function = self._tools[tool_name]
-        
+
         # Validate parameters
         validation_error = self._validate_parameters(schema, parameters)
         if validation_error:
@@ -127,21 +127,21 @@ class ToolRegistry:
                 error=validation_error,
                 execution_time=time.time() - start_time,
             )
-        
+
         # Execute with timeout
         try:
             result = await asyncio.wait_for(
                 self._execute_function(function, parameters),
                 timeout=schema.timeout,
             )
-            
+
             return ToolResult(
                 tool_name=tool_name,
                 success=True,
                 result=result,
                 execution_time=time.time() - start_time,
             )
-        
+
         except asyncio.TimeoutError:
             return ToolResult(
                 tool_name=tool_name,
@@ -149,7 +149,7 @@ class ToolRegistry:
                 error=f"Tool execution timeout after {schema.timeout}s",
                 execution_time=time.time() - start_time,
             )
-        
+
         except Exception as e:
             logger.error(f"Tool {tool_name} failed: {e}")
             return ToolResult(
@@ -158,17 +158,17 @@ class ToolRegistry:
                 error=str(e),
                 execution_time=time.time() - start_time,
             )
-    
+
     async def execute_parallel(
         self,
         tool_calls: List[Dict[str, Any]],
     ) -> List[ToolResult]:
         """
         Execute multiple tools in parallel.
-        
+
         Args:
             tool_calls: List of {tool_name, parameters} dicts
-        
+
         Returns:
             List of tool results
         """
@@ -177,7 +177,7 @@ class ToolRegistry:
             for call in tool_calls
         ]
         return await asyncio.gather(*tasks)
-    
+
     def _validate_parameters(
         self,
         schema: ToolSchema,
@@ -185,7 +185,7 @@ class ToolRegistry:
     ) -> Optional[str]:
         """
         Validate parameters against schema.
-        
+
         Returns:
             Error message or None if valid
         """
@@ -193,21 +193,21 @@ class ToolRegistry:
             # Check required parameters
             if param.required and param.name not in parameters:
                 return f"Missing required parameter: {param.name}"
-            
+
             # Type validation (basic)
             if param.name in parameters:
                 value = parameters[param.name]
                 expected_type = param.type
-                
+
                 if expected_type == "string" and not isinstance(value, str):
                     return f"Parameter {param.name} should be string, got {type(value)}"
                 elif expected_type == "number" and not isinstance(value, (int, float)):
                     return f"Parameter {param.name} should be number, got {type(value)}"
                 elif expected_type == "boolean" and not isinstance(value, bool):
                     return f"Parameter {param.name} should be boolean, got {type(value)}"
-        
+
         return None
-    
+
     async def _execute_function(
         self,
         function: Callable,
@@ -218,19 +218,19 @@ class ToolRegistry:
             return await function(**parameters)
         else:
             return function(**parameters)
-    
+
     def _register_default_tools(self) -> None:
         """Register default fraud detection tools."""
-        
+
         # Tool 1: Calculate risk score
         async def calculate_risk_score(transaction: Dict[str, Any]) -> float:
             """Calculate fraud risk score for transaction."""
             # Simple heuristic-based risk score
             score = 0.0
-            
+
             amount = transaction.get("amount", 0)
             txn_type = transaction.get("type", "")
-            
+
             # High amount = higher risk
             if amount > 100000:
                 score += 40
@@ -238,23 +238,23 @@ class ToolRegistry:
                 score += 20
             elif amount > 1000:
                 score += 10
-            
+
             # Risky transaction types
             if txn_type in ["TRANSFER", "CASH_OUT"]:
                 score += 20
-            
+
             # Balance inconsistencies
             new_balance_orig = transaction.get("newbalanceOrig", 0)
             new_balance_dest = transaction.get("newbalanceDest", 0)
-            
+
             if new_balance_orig == 0 and amount > 10000:
                 score += 30  # Account drained
-            
+
             if new_balance_dest == 0 and amount > 10000:
                 score += 20  # Money disappeared
-            
+
             return min(score, 100.0)
-        
+
         self.register(
             schema=ToolSchema(
                 name="calculate_risk_score",
@@ -277,7 +277,7 @@ class ToolRegistry:
             ),
             function=calculate_risk_score,
         )
-        
+
         # Tool 2: Query fraud policy
         async def query_fraud_policy(transaction_type: str) -> str:
             """Get fraud policy for transaction type."""
@@ -289,7 +289,7 @@ class ToolRegistry:
                 "CASH_IN": "CASH_IN is low-risk.",
             }
             return policies.get(transaction_type, "No specific policy found.")
-        
+
         self.register(
             schema=ToolSchema(
                 name="query_fraud_policy",
@@ -312,7 +312,7 @@ class ToolRegistry:
             ),
             function=query_fraud_policy,
         )
-        
+
         # Tool 3: Check account history
         async def check_account_history(account_id: str) -> Dict[str, Any]:
             """Check account transaction history (mock)."""
@@ -325,7 +325,7 @@ class ToolRegistry:
                 "account_age_days": 365,
                 "risk_level": "LOW",
             }
-        
+
         self.register(
             schema=ToolSchema(
                 name="check_account_history",
@@ -349,7 +349,7 @@ class ToolRegistry:
             ),
             function=check_account_history,
         )
-        
+
         # Tool 4: Escalate to human
         async def escalate_to_human(
             transaction_id: str,
@@ -364,7 +364,7 @@ class ToolRegistry:
                 "ticket_id": f"TICKET-{transaction_id}",
                 "priority": "HIGH" if "fraud" in reason.lower() else "MEDIUM",
             }
-        
+
         self.register(
             schema=ToolSchema(
                 name="escalate_to_human",

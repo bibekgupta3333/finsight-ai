@@ -1023,7 +1023,7 @@ class AgentAnalysisRequest(BaseModel):
 async def analyze_with_single_agent(request: AgentAnalysisRequest):
     """
     Analyze transaction using single-agent architecture.
-    
+
     The agent follows a complete reasoning loop:
     1. Observation: Parse transaction and identify anomalies
     2. Planning: Create execution plan
@@ -1033,7 +1033,7 @@ async def analyze_with_single_agent(request: AgentAnalysisRequest):
     6. Reflection: Self-critique and escalation logic
     """
     agent = FraudDetectionAgent(max_steps=20)
-    
+
     transaction = {
         "amount": request.amount,
         "type": request.type,
@@ -1044,9 +1044,9 @@ async def analyze_with_single_agent(request: AgentAnalysisRequest):
         "nameOrig": request.nameOrig,
         "nameDest": request.nameDest,
     }
-    
+
     result = await agent.analyze(transaction, request.transaction_id)
-    
+
     return {
         "agent_type": "single",
         "transaction_id": result.transaction_id,
@@ -1076,12 +1076,12 @@ async def analyze_with_single_agent(request: AgentAnalysisRequest):
 async def analyze_with_manager_worker(request: AgentAnalysisRequest):
     """
     Analyze using manager-worker pattern.
-    
+
     Manager delegates to 3 worker agents who analyze in parallel.
     Results are aggregated using majority voting.
     """
     system = ManagerWorkerSystem(num_workers=3)
-    
+
     transaction = {
         "amount": request.amount,
         "type": request.type,
@@ -1092,9 +1092,9 @@ async def analyze_with_manager_worker(request: AgentAnalysisRequest):
         "nameOrig": request.nameOrig,
         "nameDest": request.nameDest,
     }
-    
+
     result = await system.analyze(transaction, request.transaction_id)
-    
+
     return {
         "agent_type": "manager-worker",
         "transaction_id": result.transaction_id,
@@ -1117,14 +1117,14 @@ async def analyze_with_manager_worker(request: AgentAnalysisRequest):
 async def analyze_with_planner_executor_critic(request: AgentAnalysisRequest):
     """
     Analyze using planner-executor-critic pattern.
-    
+
     Three specialized agents:
     - Planner: Creates analysis strategy
     - Executor: Performs detailed analysis
     - Critic: Validates executor's results
     """
     system = PlannerExecutorCriticSystem()
-    
+
     transaction = {
         "amount": request.amount,
         "type": request.type,
@@ -1135,9 +1135,9 @@ async def analyze_with_planner_executor_critic(request: AgentAnalysisRequest):
         "nameOrig": request.nameOrig,
         "nameDest": request.nameDest,
     }
-    
+
     result = await system.analyze(transaction, request.transaction_id)
-    
+
     return {
         "agent_type": "planner-executor-critic",
         "transaction_id": result.transaction_id,
@@ -1159,14 +1159,14 @@ async def analyze_with_planner_executor_critic(request: AgentAnalysisRequest):
 async def analyze_with_debate(request: AgentAnalysisRequest):
     """
     Analyze using debate pattern.
-    
+
     Three agents debate the fraud classification:
     - Prosecutor: Argues transaction IS fraud
     - Defense: Argues transaction is legitimate
     - Judge: Makes final ruling based on arguments
     """
     system = DebateSystem()
-    
+
     transaction = {
         "amount": request.amount,
         "type": request.type,
@@ -1177,9 +1177,9 @@ async def analyze_with_debate(request: AgentAnalysisRequest):
         "nameOrig": request.nameOrig,
         "nameDest": request.nameDest,
     }
-    
+
     result = await system.analyze(transaction, request.transaction_id)
-    
+
     return {
         "agent_type": "debate",
         "transaction_id": result.transaction_id,
@@ -1201,16 +1201,16 @@ async def analyze_with_debate(request: AgentAnalysisRequest):
 async def analyze_with_role_specialized(request: AgentAnalysisRequest):
     """
     Analyze using role-specialized pattern.
-    
+
     Three domain experts collaborate:
     - Transaction Analyst: Examines transaction patterns
     - Account Specialist: Analyzes account history
     - Policy Expert: Checks compliance and policies
-    
+
     Uses weighted voting with expertise weights.
     """
     system = RoleSpecializedSystem()
-    
+
     transaction = {
         "amount": request.amount,
         "type": request.type,
@@ -1221,9 +1221,9 @@ async def analyze_with_role_specialized(request: AgentAnalysisRequest):
         "nameOrig": request.nameOrig,
         "nameDest": request.nameDest,
     }
-    
+
     result = await system.analyze(transaction, request.transaction_id)
-    
+
     return {
         "agent_type": "role-specialized",
         "transaction_id": result.transaction_id,
@@ -1245,13 +1245,13 @@ async def analyze_with_role_specialized(request: AgentAnalysisRequest):
 async def analyze_with_swarm(request: AgentAnalysisRequest, swarm_size: int = 5, threshold: float = 0.6):
     """
     Analyze using swarm intelligence pattern.
-    
+
     Multiple agents (default 5) analyze in parallel and vote on result.
     Consensus requires threshold fraction agreement (default 60%).
     Demonstrates emergent intelligence from collective.
     """
     system = SwarmSystem(swarm_size=swarm_size, consensus_threshold=threshold)
-    
+
     transaction = {
         "amount": request.amount,
         "type": request.type,
@@ -1262,9 +1262,9 @@ async def analyze_with_swarm(request: AgentAnalysisRequest, swarm_size: int = 5,
         "nameOrig": request.nameOrig,
         "nameDest": request.nameDest,
     }
-    
+
     result = await system.analyze(transaction, request.transaction_id)
-    
+
     return {
         "agent_type": "swarm",
         "transaction_id": result.transaction_id,
@@ -1288,12 +1288,12 @@ async def analyze_with_swarm(request: AgentAnalysisRequest, swarm_size: int = 5,
 async def get_agent_memory(transaction_id: str, memory_type: Optional[str] = None):
     """
     Get agent memory contents.
-    
+
     Useful for debugging and understanding agent reasoning.
     Memory types: SHORT_TERM, WORKING, LONG_TERM
     """
     agent = FraudDetectionAgent()
-    
+
     # Convert string to MemoryType if provided
     mem_type = None
     if memory_type:
@@ -1304,10 +1304,10 @@ async def get_agent_memory(transaction_id: str, memory_type: Optional[str] = Non
                 status_code=400,
                 detail=f"Invalid memory type. Must be one of: SHORT_TERM, WORKING, LONG_TERM"
             )
-    
+
     memories = agent.get_memory_contents(mem_type)
     stats = agent.get_memory_stats()
-    
+
     return {
         "transaction_id": transaction_id,
         "memory_type": memory_type or "all",
@@ -1324,11 +1324,11 @@ async def get_agent_memory(transaction_id: str, memory_type: Optional[str] = Non
 async def list_agent_tools():
     """List all registered agent tools with schemas."""
     from app.agents.tool_registry import get_tool_registry
-    
+
     registry = get_tool_registry()
     tools = registry.list_tools()
     schemas = registry.list_schemas()
-    
+
     return {
         "total_tools": len(tools),
         "tools": tools,
@@ -1344,12 +1344,12 @@ async def list_agent_tools():
 async def execute_agent_tool(tool_name: str, parameters: dict):
     """Execute an agent tool manually."""
     from app.agents.tool_registry import get_tool_registry
-    
+
     registry = get_tool_registry()
-    
+
     try:
         result = await registry.execute(tool_name, parameters)
-        
+
         return {
             "tool_name": result.tool_name,
             "success": result.success,

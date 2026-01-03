@@ -56,20 +56,20 @@ TEST_TRANSACTIONS = {
 async def test_single_agent():
     """Test single-agent fraud detection."""
     from app.agents import FraudDetectionAgent
-    
+
     logger.info("=" * 70)
     logger.info("TESTING SINGLE-AGENT ARCHITECTURE")
     logger.info("=" * 70)
-    
+
     agent = FraudDetectionAgent(max_steps=20)
-    
+
     for test_name, transaction in TEST_TRANSACTIONS.items():
         logger.info(f"\nTest: {test_name}")
         logger.info(f"Amount: ${transaction['amount']:,.2f}")
         logger.info(f"Type: {transaction['type']}")
-        
+
         result = await agent.analyze(transaction, f"test_{test_name}")
-        
+
         logger.info(f"\n=== RESULT ===")
         logger.info(f"Fraud: {result.is_fraud}")
         logger.info(f"Risk Score: {result.risk_score:.1f}/100")
@@ -97,7 +97,7 @@ async def test_single_agent():
         logger.info(f"  Termination: {result.termination_reason}")
         logger.info(f"  Time: {result.execution_time:.2f}s")
         logger.info("-" * 70)
-    
+
     # Test memory
     logger.info("\n=== MEMORY STATISTICS ===")
     stats = agent.get_memory_stats()
@@ -107,18 +107,18 @@ async def test_single_agent():
 async def test_manager_worker():
     """Test manager-worker multi-agent system."""
     from app.agents import ManagerWorkerSystem
-    
+
     logger.info("\n" + "=" * 70)
     logger.info("TESTING MANAGER-WORKER MULTI-AGENT SYSTEM")
     logger.info("=" * 70)
-    
+
     system = ManagerWorkerSystem(num_workers=3)
-    
+
     transaction = TEST_TRANSACTIONS["suspicious_transfer"]
     logger.info(f"Testing with suspicious transfer: ${transaction['amount']:,.2f}")
-    
+
     result = await system.analyze(transaction, "test_manager_worker")
-    
+
     logger.info(f"\n=== CONSENSUS RESULT ===")
     logger.info(f"Fraud: {result.is_fraud}")
     logger.info(f"Risk Score: {result.risk_score:.1f}/100")
@@ -135,18 +135,18 @@ async def test_manager_worker():
 async def test_planner_executor_critic():
     """Test planner-executor-critic system."""
     from app.agents import PlannerExecutorCriticSystem
-    
+
     logger.info("\n" + "=" * 70)
     logger.info("TESTING PLANNER-EXECUTOR-CRITIC SYSTEM")
     logger.info("=" * 70)
-    
+
     system = PlannerExecutorCriticSystem()
-    
+
     transaction = TEST_TRANSACTIONS["obvious_fraud"]
     logger.info(f"Testing with obvious fraud: ${transaction['amount']:,.2f}")
-    
+
     result = await system.analyze(transaction, "test_pec")
-    
+
     logger.info(f"\n=== RESULT ===")
     logger.info(f"Fraud: {result.is_fraud}")
     logger.info(f"Risk Score: {result.risk_score:.1f}/100")
@@ -162,18 +162,18 @@ async def test_planner_executor_critic():
 async def test_debate():
     """Test debate system."""
     from app.agents import DebateSystem
-    
+
     logger.info("\n" + "=" * 70)
     logger.info("TESTING DEBATE SYSTEM (Prosecutor vs Defense)")
     logger.info("=" * 70)
-    
+
     system = DebateSystem()
-    
+
     transaction = TEST_TRANSACTIONS["suspicious_transfer"]
     logger.info(f"Testing with suspicious transfer: ${transaction['amount']:,.2f}")
-    
+
     result = await system.analyze(transaction, "test_debate")
-    
+
     logger.info(f"\n=== JUDGE'S RULING ===")
     logger.info(f"Fraud: {result.is_fraud}")
     logger.info(f"Risk Score: {result.risk_score:.1f}/100")
@@ -189,18 +189,18 @@ async def test_debate():
 async def test_role_specialized():
     """Test role-specialized system."""
     from app.agents import RoleSpecializedSystem
-    
+
     logger.info("\n" + "=" * 70)
     logger.info("TESTING ROLE-SPECIALIZED SYSTEM (Domain Experts)")
     logger.info("=" * 70)
-    
+
     system = RoleSpecializedSystem()
-    
+
     transaction = TEST_TRANSACTIONS["suspicious_transfer"]
     logger.info(f"Testing with suspicious transfer: ${transaction['amount']:,.2f}")
-    
+
     result = await system.analyze(transaction, "test_specialists")
-    
+
     logger.info(f"\n=== EXPERT CONSENSUS ===")
     logger.info(f"Fraud: {result.is_fraud}")
     logger.info(f"Risk Score: {result.risk_score:.1f}/100 (weighted)")
@@ -217,18 +217,18 @@ async def test_role_specialized():
 async def test_swarm():
     """Test swarm intelligence system."""
     from app.agents import SwarmSystem
-    
+
     logger.info("\n" + "=" * 70)
     logger.info("TESTING SWARM INTELLIGENCE (5 agents, 60% threshold)")
     logger.info("=" * 70)
-    
+
     system = SwarmSystem(swarm_size=5, consensus_threshold=0.6)
-    
+
     transaction = TEST_TRANSACTIONS["obvious_fraud"]
     logger.info(f"Testing with obvious fraud: ${transaction['amount']:,.2f}")
-    
+
     result = await system.analyze(transaction, "test_swarm")
-    
+
     logger.info(f"\n=== SWARM CONSENSUS ===")
     logger.info(f"Fraud: {result.is_fraud}")
     logger.info(f"Risk Score: {result.risk_score:.1f}/100 (average)")
@@ -245,46 +245,46 @@ async def test_swarm():
 async def test_tool_registry():
     """Test tool registry and individual tools."""
     from app.agents.tool_registry import get_tool_registry
-    
+
     logger.info("\n" + "=" * 70)
     logger.info("TESTING TOOL REGISTRY")
     logger.info("=" * 70)
-    
+
     registry = get_tool_registry()
-    
+
     # List tools
     logger.info("\n=== REGISTERED TOOLS ===")
     tools = registry.list_tools()
     logger.info(f"Total: {len(tools)}")
     for tool in tools:
         logger.info(f"  - {tool}")
-    
+
     # Test each tool
     logger.info("\n=== TESTING TOOLS ===")
-    
+
     transaction = TEST_TRANSACTIONS["suspicious_transfer"]
-    
+
     # Test calculate_risk_score
     logger.info("\n1. calculate_risk_score")
     result = await registry.execute("calculate_risk_score", {"transaction": transaction})
     logger.info(f"   Success: {result.success}")
     logger.info(f"   Result: {result.result}")
     logger.info(f"   Time: {result.execution_time:.3f}s")
-    
+
     # Test query_fraud_policy
     logger.info("\n2. query_fraud_policy")
     result = await registry.execute("query_fraud_policy", {"transaction_type": "TRANSFER"})
     logger.info(f"   Success: {result.success}")
     logger.info(f"   Result: {result.result}")
     logger.info(f"   Time: {result.execution_time:.3f}s")
-    
+
     # Test check_account_history
     logger.info("\n3. check_account_history")
     result = await registry.execute("check_account_history", {"account_id": "C_suspicious"})
     logger.info(f"   Success: {result.success}")
     logger.info(f"   Result: {result.result}")
     logger.info(f"   Time: {result.execution_time:.3f}s")
-    
+
     # Test escalate_to_human
     logger.info("\n4. escalate_to_human")
     result = await registry.execute(
@@ -294,7 +294,7 @@ async def test_tool_registry():
     logger.info(f"   Success: {result.success}")
     logger.info(f"   Result: {result.result}")
     logger.info(f"   Time: {result.execution_time:.3f}s")
-    
+
     # Test parallel execution
     logger.info("\n=== TESTING PARALLEL EXECUTION ===")
     tool_calls = [
@@ -302,11 +302,11 @@ async def test_tool_registry():
         {"tool_name": "query_fraud_policy", "parameters": {"transaction_type": "TRANSFER"}},
         {"tool_name": "check_account_history", "parameters": {"account_id": "C_suspicious"}},
     ]
-    
+
     start = datetime.now()
     results = await registry.execute_parallel(tool_calls)
     total_time = (datetime.now() - start).total_seconds()
-    
+
     logger.info(f"Executed {len(results)} tools in {total_time:.3f}s (parallel)")
     for i, result in enumerate(results, 1):
         logger.info(f"  {i}. {result.tool_name}: success={result.success}, time={result.execution_time:.3f}s")
@@ -315,31 +315,31 @@ async def test_tool_registry():
 async def run_all_tests():
     """Run all tests."""
     start_time = datetime.now()
-    
+
     logger.info("\n" + "#" * 70)
     logger.info("# AGENT-BASED FRAUD DETECTION TEST SUITE")
     logger.info("#" * 70)
-    
+
     try:
         # Test infrastructure first
         await test_tool_registry()
-        
+
         # Test single-agent
         await test_single_agent()
-        
+
         # Test multi-agent systems
         await test_manager_worker()
         await test_planner_executor_critic()
         await test_debate()
         await test_role_specialized()
         await test_swarm()
-        
+
         total_time = (datetime.now() - start_time).total_seconds()
-        
+
         logger.info("\n" + "#" * 70)
         logger.info(f"# ALL TESTS COMPLETE - Total Time: {total_time:.2f}s")
         logger.info("#" * 70)
-        
+
     except Exception as e:
         logger.error(f"Test failed: {e}", exc_info=True)
         raise

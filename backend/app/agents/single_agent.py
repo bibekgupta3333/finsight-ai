@@ -35,26 +35,26 @@ class AgentResult(BaseModel):
     """
     Final result from agent execution.
     """
-    
+
     # Decision
     is_fraud: bool
     risk_score: float
     risk_level: str
     confidence: float
     explanation: str
-    
+
     # Metadata
     transaction_id: str
     total_steps: int
     termination_reason: str
     execution_time: float
-    
+
     # Transparency
     observations: list[str]
     anomalies: list[str]
     reasoning_steps: list[str]
     tool_results: Dict[str, Any]
-    
+
     # Escalation
     should_escalate: bool
     escalation_reason: Optional[str] = None
@@ -64,7 +64,7 @@ class AgentResult(BaseModel):
 class FraudDetectionAgent:
     """
     Single-agent fraud detection system.
-    
+
     Follows LangGraph-style node-based architecture with:
     1. Observation → Parse transaction features
     2. Planning → Decompose into tasks
@@ -73,11 +73,11 @@ class FraudDetectionAgent:
     5. Decision → Make final determination
     6. Reflection → Self-critique and escalation
     7. Termination → Check stopping conditions
-    
+
     Example:
         ```python
         agent = FraudDetectionAgent(max_steps=20)
-        
+
         transaction = {
             "amount": 150000,
             "type": "TRANSFER",
@@ -86,22 +86,22 @@ class FraudDetectionAgent:
             "nameOrig": "C123456789",
             "nameDest": "D987654321",
         }
-        
+
         result = await agent.analyze(transaction, "txn_001")
         print(f"Fraud: {result.is_fraud}, Risk: {result.risk_score}")
         ```
     """
-    
+
     def __init__(self, max_steps: int = 20):
         """
         Initialize fraud detection agent.
-        
+
         Args:
             max_steps: Maximum reasoning steps before timeout
         """
         self.max_steps = max_steps
         self.memory = AgentMemory()
-        
+
         # Initialize nodes
         self.observation_node = ObservationNode()
         self.planning_node = PlanningNode()
@@ -110,9 +110,9 @@ class FraudDetectionAgent:
         self.decision_node = DecisionNode()
         self.reflection_node = ReflectionNode()
         self.termination_node = TerminationNode()
-        
+
         logger.info(f"Initialized FraudDetectionAgent (max_steps={max_steps})")
-    
+
     async def analyze(
         self,
         transaction: Dict[str, Any],
@@ -120,31 +120,31 @@ class FraudDetectionAgent:
     ) -> AgentResult:
         """
         Analyze transaction for fraud using agent reasoning loop.
-        
+
         This implements the core agent loop:
         1. Observe → 2. Plan → 3. Execute → 4. Reason → 5. Decide → 6. Reflect → 7. Terminate
-        
+
         Args:
             transaction: Transaction data
             transaction_id: Unique transaction identifier
-        
+
         Returns:
             AgentResult with fraud determination and reasoning trace
-        
+
         Raises:
             ValueError: If transaction is invalid
         """
         start_time = datetime.now()
-        
+
         # Validate input
         if not transaction:
             raise ValueError("Transaction cannot be empty")
-        
+
         if not transaction_id:
             raise ValueError("Transaction ID is required")
-        
+
         logger.info(f"Starting analysis for transaction {transaction_id}")
-        
+
         # Initialize state
         state = AgentState(
             transaction=transaction,
@@ -152,20 +152,20 @@ class FraudDetectionAgent:
             max_steps=self.max_steps,
             start_time=start_time,
         )
-        
+
         # Clear memory for fresh analysis
         self.memory.clear()
-        
+
         try:
             # Execute agent loop
             state = await self._agent_loop(state)
-            
+
             # Calculate execution time
             execution_time = (datetime.now() - start_time).total_seconds()
-            
+
             # Check termination reason
             _, termination_reason = self.termination_node.should_terminate(state)
-            
+
             # Build result
             result = AgentResult(
                 # Decision
@@ -189,7 +189,7 @@ class FraudDetectionAgent:
                 escalation_reason=state.escalation_reason,
                 self_critique=state.self_critique,
             )
-            
+
             # Store result in long-term memory for future reference
             self.memory.store(
                 f"result_{transaction_id}",
@@ -197,18 +197,18 @@ class FraudDetectionAgent:
                 MemoryType.LONG_TERM,
                 metadata={"timestamp": datetime.now().isoformat()},
             )
-            
+
             logger.info(
                 f"Analysis complete: fraud={result.is_fraud}, "
                 f"risk={result.risk_score:.1f}, steps={result.total_steps}, "
                 f"time={execution_time:.2f}s"
             )
-            
+
             return result
-            
+
         except Exception as e:
             logger.error(f"Agent execution failed: {e}", exc_info=True)
-            
+
             # Return safe default
             execution_time = (datetime.now() - start_time).total_seconds()
             return AgentResult(
@@ -229,16 +229,16 @@ class FraudDetectionAgent:
                 escalation_reason=f"Agent error: {str(e)}",
                 self_critique="Execution failed",
             )
-    
+
     async def _agent_loop(self, state: AgentState) -> AgentState:
         """
         Main agent reasoning loop.
-        
+
         Executes nodes in sequence until termination condition is met.
-        
+
         Args:
             state: Current agent state
-        
+
         Returns:
             Final agent state
         """
@@ -249,69 +249,69 @@ class FraudDetectionAgent:
             if should_stop:
                 logger.info(f"Agent terminated: {reason}")
                 break
-            
+
             # Execute node pipeline
             try:
                 # 1. Observation
                 if state.step_count == 0:
                     state = await self.observation_node.execute(state, self.memory)
                     logger.debug(f"Observation complete: {len(state.observations)} observations")
-                
+
                 # 2. Planning
                 if state.step_count == 1:
                     state = await self.planning_node.execute(state, self.memory)
                     logger.debug(f"Planning complete: {len(state.plan)} steps")
-                
+
                 # 3. Execution
                 if state.step_count == 2:
                     state = await self.execution_node.execute(state, self.memory)
                     logger.debug(f"Execution complete: {len(state.tool_results)} results")
-                
+
                 # 4. Reasoning
                 if state.step_count == 3:
                     state = await self.reasoning_node.execute(state, self.memory)
                     logger.debug(f"Reasoning complete: {len(state.reasoning_steps)} steps")
-                
+
                 # 5. Decision
                 if state.step_count == 4:
                     state = await self.decision_node.execute(state, self.memory)
                     logger.debug(f"Decision complete: fraud={state.is_fraud}")
-                
+
                 # 6. Reflection
                 if state.step_count == 5:
                     state = await self.reflection_node.execute(state, self.memory)
                     logger.debug(f"Reflection complete: escalate={state.should_escalate}")
                     # After reflection, we're done
                     break
-                
+
             except Exception as e:
                 logger.error(f"Node execution error at step {state.step_count}: {e}")
                 state.execution_errors.append(str(e))
                 # Don't break - let termination logic handle it
-        
+
         return state
-    
+
     def get_memory_stats(self) -> Dict[str, Any]:
         """
         Get current memory statistics.
-        
+
         Returns:
             Memory usage statistics
         """
         return self.memory.get_stats()
-    
+
     def get_memory_contents(self, memory_type: Optional[MemoryType] = None) -> list:
         """
         Get memory contents for inspection.
-        
+
         Args:
             memory_type: Type of memory to retrieve (None for all)
-        
+
         Returns:
             List of memory entries
         """
         return self.memory.list_memories(memory_type)
-    
+
     def reset_memory(self):
         """Reset all agent memory."""
         self.memory.clear()
