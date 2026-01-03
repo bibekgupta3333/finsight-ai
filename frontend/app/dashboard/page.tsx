@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  ConfidenceDistributionChart,
+  FraudTrendChart,
+  RiskDistributionChart,
+  TransactionTypeChart,
+} from '@/components/fraud-charts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -332,6 +338,17 @@ export default function DashboardPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Visualization Charts */}
+      <div className="grid gap-6 lg:grid-cols-2 mb-8">
+        <FraudTrendChart />
+        <RiskDistributionChart />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2 mb-8">
+        <TransactionTypeChart />
+        <ConfidenceDistributionChart />
+      </div>
     </div>
   );
 }

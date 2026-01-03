@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { BarChart3, Home, Shield, Upload } from 'lucide-react';
+import { BarChart3, Brain, Home, Layers, Shield, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -50,6 +50,26 @@ export function Navigation() {
               <Link href="/dashboard">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Dashboard
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant={isActive('/batch') ? 'default' : 'ghost'}
+              size="sm"
+            >
+              <Link href="/batch">
+                <Layers className="h-4 w-4 mr-2" />
+                Batch
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant={isActive('/agents') ? 'default' : 'ghost'}
+              size="sm"
+            >
+              <Link href="/agents">
+                <Brain className="h-4 w-4 mr-2" />
+                Agents
               </Link>
             </Button>
           </div>

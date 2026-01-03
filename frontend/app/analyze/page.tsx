@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useBatchAnalysis, useFraudAnalysis } from '@/hooks/use-fraud-analysis';
+import { exportToCSV, exportToPDF } from '@/lib/export-utils';
 import type { FraudAnalysisResult, Transaction } from '@/lib/types';
 import { transactionSchema } from '@/lib/validations';
-import { AlertCircle, CheckCircle2, FileText, Upload, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Download, FileDown, FileText, Upload, XCircle } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 
@@ -204,7 +205,27 @@ export default function AnalyzePage() {
       {/* Results */}
       {results.length > 0 && (
         <div>
-          <h2 className="text-2xl font-bold mb-4">Analysis Results</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Analysis Results</h2>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => exportToCSV(results)}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Export CSV
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => exportToPDF(results)}
+                className="gap-2"
+              >
+                <FileDown className="h-4 w-4" />
+                Export PDF
+              </Button>
+            </div>
+          </div>
           <div className="grid gap-4">
             {results.map((result, index) => (
               <Card key={index}>
