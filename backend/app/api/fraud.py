@@ -65,6 +65,22 @@ _resource_manager = ResourceManager()
         "Analyzes a single transaction for fraud using async processing. "
         "Returns fraud prediction with confidence score and explanation."
     ),
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "transaction_id": "TX_12345",
+                    "fraud": True,
+                    "risk": 85.0,
+                    "level": "HIGH",
+                    "time_ms": 105.3
+}
+                }
+            }
+        }
+    },
 )
 async def analyze_transaction(
     request: FraudAnalysisRequest,
@@ -116,6 +132,20 @@ async def analyze_transaction(
         "Submits a batch of transactions for asynchronous fraud analysis. "
         "Returns a task ID that can be used to check status and retrieve results."
     ),
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "task_id": "fa7fba20-1859-42a2-87e4-2c54a65fba3b",
+                    "status": "pending",
+                    "message": "Batch analysis of 10 transactions submitted"
+}
+                }
+            }
+        }
+    },
 )
 async def analyze_batch(
     request: BatchFraudAnalysisRequest,
@@ -296,6 +326,21 @@ async def get_circuit_breakers():
         "Analyzes transaction with full state management, checkpointing, "
         "circuit breakers, retries, and correlation tracking."
     ),
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "session_id": "853d13b0-d60f-4079-b30e-717f81af0d02",
+                    "state": "normal",
+                    "is_fraud": False,
+                    "risk": 45.0
+}
+                }
+            }
+        }
+    },
 )
 async def analyze_transaction_stateful(
     request: FraudAnalysisRequest,
@@ -582,6 +627,21 @@ async def get_session_checkpoints(session_id: str):
     "/sessions/{session_id}/resume",
     summary="Resume failed session from checkpoint",
     description="Resume a failed session from the last successful checkpoint.",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "session_id": "853d13b0-d60f-4079-b30e-717f81af0d02",
+                    "state": "high_risk_sequence",
+                    "is_fraud": True,
+                    "risk": 88.5
+}
+                }
+            }
+        }
+    },
 )
 async def resume_session(session_id: str):
     """
@@ -686,6 +746,24 @@ class PromptBuildRequest(BaseModel):
     "/prompts/build",
     summary="Build hierarchical prompt",
     description="Build complete prompt with system/developer/user hierarchy",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "prompt": "You are a fraud detection specialist...",
+                    "token_estimate": 972,
+                    "hierarchical_structure": {
+                                        "system": "System context...",
+                                        "developer": "Technical instructions...",
+                                        "user": "Transaction data..."
+                    }
+}
+                }
+            }
+        }
+    },
 )
 async def build_hierarchical_prompt(request: PromptBuildRequest):
     """Build hierarchical prompt for a transaction."""
@@ -743,8 +821,56 @@ async def build_hierarchical_prompt(request: PromptBuildRequest):
 
 @router.post(
     "/analyze/react",
-    summary="Analyze with ReAct pattern",
-    description="Use ReAct (Reasoning + Acting) pattern for fraud analysis",
+    summary="Analyze transaction using ReAct (Reasoning + Acting) pattern",
+    description=(
+        "Executes fraud analysis using the ReAct pattern which interleaves reasoning steps with tool-based actions. "
+        "The agent reasons about what to do next, executes tools to gather information, and combines insights iteratively. "
+        "Supports up to 5 reasoning-action cycles for thorough analysis."
+    ),
+    responses={
+        200: {
+            "description": "ReAct analysis completed successfully",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "high_risk_fraud": {
+                            "summary": "High-risk fraud detected",
+                            "value": {
+                                "pattern": "ReAct",
+                                "result": {
+                                    "is_fraud": True,
+                                    "risk_score": 88.5,
+                                    "confidence": 0.91,
+                                    "reasoning_trace": [
+                                        "Thought: Need to check transaction amount against policy",
+                                        "Action: query_fraud_policy -> threshold_exceeded: True",
+                                        "Thought: Check account history for similar patterns",
+                                        "Action: check_history -> no similar legitimate transactions",
+                                        "Thought: Calculate final risk score",
+                                        "Action: calculate_risk_score -> 88.5 (HIGH)"
+                                    ]
+                                },
+                                "steps_taken": 6
+                            }
+                        },
+                        "normal_transaction": {
+                            "summary": "Normal transaction cleared",
+                            "value": {
+                                "pattern": "ReAct",
+                                "result": {
+                                    "is_fraud": False,
+                                    "risk_score": 25.0,
+                                    "confidence": 0.85
+                                },
+                                "steps_taken": 3
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        500: {"description": "Internal server error - LLM service unavailable"}
+    },
 )
 async def analyze_with_react(request: FraudAnalysisRequest):
     """
@@ -789,8 +915,41 @@ async def analyze_with_react(request: FraudAnalysisRequest):
 
 @router.post(
     "/analyze/cot",
-    summary="Analyze with Chain-of-Thought",
-    description="Use Chain-of-Thought reasoning for fraud analysis",
+    summary="Analyze transaction using Chain-of-Thought reasoning",
+    description=(
+        "Performs fraud analysis using explicit Chain-of-Thought prompting. "
+        "The LLM breaks down complex fraud detection into intermediate reasoning steps, "
+        "showing its work before reaching a final decision. Increases transparency and accuracy."
+    ),
+    responses={
+        200: {
+            "description": "Chain-of-Thought analysis completed",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "detailed_analysis": {
+                            "summary": "Full reasoning chain",
+                            "value": {
+                                "pattern": "ChainOfThought",
+                                "result": {
+                                    "is_fraud": True,
+                                    "risk_score": 92.0,
+                                    "reasoning_chain": [
+                                        "Step 1: Transaction is CASH_OUT for $95,000",
+                                        "Step 2: Drains 95% of account balance (95,000/100,000)",
+                                        "Step 3: Destination balance remains 0 after transaction",
+                                        "Step 4: Money disappears without arriving at destination",
+                                        "Step 5: Pattern matches fraud indicator: money laundering",
+                                        "Conclusion: HIGH RISK - Recommend blocking"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
 )
 async def analyze_with_cot(request: FraudAnalysisRequest):
     """Analyze transaction using Chain-of-Thought pattern."""
@@ -813,8 +972,40 @@ async def analyze_with_cot(request: FraudAnalysisRequest):
 
 @router.post(
     "/analyze/tot",
-    summary="Analyze with Tree-of-Thought",
-    description="Explore multiple reasoning paths and select the best one",
+    summary="Analyze using Tree-of-Thought (multi-path exploration)",
+    description=(
+        "Explores multiple parallel reasoning paths before selecting the most promising one. "
+        "Evaluates different fraud hypotheses simultaneously, scores each path, and commits to the highest-scoring analysis. "
+        "Useful for ambiguous cases requiring exploration of alternative explanations."
+    ),
+    responses={
+        200: {
+            "description": "Tree-of-Thought exploration completed",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "multi_path_analysis": {
+                            "summary": "Evaluated 3 reasoning paths",
+                            "value": {
+                                "pattern": "TreeOfThought",
+                                "result": {
+                                    "is_fraud": True,
+                                    "risk_score": 85.0,
+                                    "best_path": "money_laundering_hypothesis",
+                                    "paths_explored": 3,
+                                    "path_scores": {
+                                        "account_takeover": 0.72,
+                                        "money_laundering_hypothesis": 0.89,
+                                        "legitimate_withdrawal": 0.15
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
 )
 async def analyze_with_tot(request: FraudAnalysisRequest):
     """Analyze transaction using Tree-of-Thought pattern."""
@@ -837,8 +1028,37 @@ async def analyze_with_tot(request: FraudAnalysisRequest):
 
 @router.post(
     "/analyze/debate",
-    summary="Analyze with Debate pattern",
-    description="Prosecutor vs Defense agents debate, judge decides",
+    summary="Analyze using adversarial Debate pattern",
+    description=(
+        "Three LLM agents engage in structured debate: Prosecutor argues the transaction IS fraud, "
+        "Defense argues it's legitimate, and Judge evaluates both arguments to reach final verdict. "
+        "Reduces confirmation bias and surfaces overlooked evidence through adversarial reasoning."
+    ),
+    responses={
+        200: {
+            "description": "Debate completed with verdict",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "fraud_verdict": {
+                            "summary": "Prosecutor wins debate",
+                            "value": {
+                                "pattern": "Debate",
+                                "result": {
+                                    "is_fraud": True,
+                                    "risk_score": 87.5,
+                                    "prosecutor_score": 9.2,
+                                    "defense_score": 4.1,
+                                    "judge_reasoning": "Prosecutor presented stronger evidence: balance drain 95%, destination account suspicious, no prior transaction history.",
+                                    "verdict": "FRAUD"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
 )
 async def analyze_with_debate(request: FraudAnalysisRequest):
     """Analyze transaction using Debate pattern."""
@@ -862,8 +1082,37 @@ async def analyze_with_debate(request: FraudAnalysisRequest):
 
 @router.post(
     "/analyze/self-critique",
-    summary="Analyze with Self-Critique",
-    description="Generate → Critique → Revise loop for better accuracy",
+    summary="Analyze using Self-Critique iterative refinement",
+    description=(
+        "Implements Generate-Critique-Revise cycle: First generates initial fraud assessment, "
+        "critiques its own reasoning for flaws, then revises the decision based on critique. "
+        "Typically runs 2-3 iterations for improved accuracy and reduced errors."
+    ),
+    responses={
+        200: {
+            "description": "Self-critique loop completed",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "improved_decision": {
+                            "summary": "Revised after finding flaw",
+                            "value": {
+                                "pattern": "SelfCritique",
+                                "result": {
+                                    "is_fraud": True,
+                                    "risk_score": 91.0,
+                                    "iterations": 2,
+                                    "initial_decision": {"is_fraud": False, "risk_score": 45.0},
+                                    "critique": "Overlooked destination balance anomaly - money didn't arrive",
+                                    "final_decision": {"is_fraud": True, "risk_score": 91.0}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
 )
 async def analyze_with_self_critique(request: FraudAnalysisRequest):
     """Analyze transaction using Self-Critique pattern."""
@@ -895,7 +1144,7 @@ class ReflectionRequest(BaseModel):
             "examples": [
                 {
                     "transaction": {
-                        "transaction_id": "TX_REFLECTION_001",
+                        "transaction_id": "TX_REFLECTION_HIGH_CONF_001",
                         "type": "TRANSFER",
                         "amount": 145000.0,
                         "oldbalanceOrg": 160000.0,
@@ -909,6 +1158,34 @@ class ReflectionRequest(BaseModel):
                         "confidence": 0.87,
                         "reasoning": "Large transfer draining 91% of origin balance"
                     }
+                },
+                {
+                    "transaction": {
+                        "transaction_id": "TX_REFLECTION_CASHOUT_002",
+                        "type": "CASH_OUT",
+                        "amount": 78000.0,
+                        "oldbalanceOrg": 82000.0,
+                        "newbalanceOrig": 4000.0,
+                        "oldbalanceDest": 0.0,
+                        "newbalanceDest": 0.0
+                    },
+                    "initial_decision": {
+                        "is_fraud": False,
+                        "risk_score": 45.2,
+                        "confidence": 0.62,
+                        "reasoning": "CASH_OUT within normal range for account"
+                    }
+                },
+                {
+                    "transaction": {
+                        "transaction_id": "TX_REFLECTION_NO_DECISION_003",
+                        "type": "PAYMENT",
+                        "amount": 3500.0,
+                        "oldbalanceOrg": 25000.0,
+                        "newbalanceOrig": 21500.0,
+                        "oldbalanceDest": 8000.0,
+                        "newbalanceDest": 11500.0
+                    }
                 }
             ]
         }
@@ -918,6 +1195,26 @@ class ReflectionRequest(BaseModel):
     "/analyze/reflection",
     summary="Validate decision with Reflection",
     description="Reflect on decision against policies and reasoning chain",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "decision": {
+                                        "is_fraud": True,
+                                        "risk_score": 93.0
+                    },
+                    "reflections": [
+                                        "Reconsidered destination account anomaly",
+                                        "Updated confidence: 0.93"
+                    ],
+                    "iterations": 2
+}
+                }
+            }
+        }
+    },
 )
 async def analyze_with_reflection(
     request: ReflectionRequest,
@@ -992,6 +1289,14 @@ class PromptCompressRequest(BaseModel):
                 {
                     "text": "You are a fraud detection expert with 15 years of experience as a Certified Fraud Examiner. Analyze the following transaction for potential fraud: Transaction ID TX_001, Amount $125,000, Type TRANSFER, from account A to account B. Consider balance changes, transaction patterns, and policy compliance. Provide detailed reasoning.",
                     "max_tokens": 1500
+                },
+                {
+                    "text": "As a senior financial crime investigator with expertise in money laundering detection, please perform a comprehensive analysis of this transaction. Transaction details: ID=TX_COMPRESS_002, Amount=$45,000, Type=CASH_OUT, Origin balance before=$52,000, Origin balance after=$7,000, Destination balance before=$0, Destination balance after=$0. Evaluate risk factors including balance drain percentage, transaction type risk profile, destination account history, timing patterns, and compliance with AML regulations. Consider historical patterns from similar accounts.",
+                    "max_tokens": 800
+                },
+                {
+                    "text": "Analyze transaction TX_003 for fraud. Amount: $2,500. Type: PAYMENT.",
+                    "max_tokens": 200
                 }
             ]
         }
@@ -1001,6 +1306,21 @@ class PromptCompressRequest(BaseModel):
     "/prompts/compress",
     summary="Compress prompt",
     description="Compress prompt while preserving critical information",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "compressed_prompt": "Fraud detection: CASH_OUT $95K...",
+                    "original_tokens": 972,
+                    "compressed_tokens": 456,
+                    "compression_ratio": 0.47
+}
+                }
+            }
+        }
+    },
 )
 async def compress_prompt(request: PromptCompressRequest):
     """Compress a prompt to fit token budget."""
@@ -1054,6 +1374,29 @@ class ValidateOutputRequest(BaseModel):
                             "Reviewed fraud policies: Exceeds high-risk threshold"
                         ]
                     }
+                },
+                {
+                    "output": {
+                        "is_fraud": False,
+                        "risk_score": 28,
+                        "confidence": 0.75,
+                        "risk_level": "LOW",
+                        "explanation": "Normal payment transaction within typical spending patterns",
+                        "reasoning_steps": [
+                            "Amount $2,500 within normal range",
+                            "Merchant account verified",
+                            "Transaction history shows regular similar payments"
+                        ]
+                    }
+                },
+                {
+                    "output": {
+                        "is_fraud": True,
+                        "risk_score": 78,
+                        "confidence": 0.81,
+                        "risk_level": "HIGH",
+                        "explanation": "CASH_OUT transaction with unusual timing and amount pattern"
+                    }
                 }
             ]
         }
@@ -1063,6 +1406,20 @@ class ValidateOutputRequest(BaseModel):
     "/prompts/validate-output",
     summary="Validate LLM output",
     description="Validate LLM output against fraud decision schema",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "is_valid": True,
+                    "error": None,
+                    "schema_name": "FraudDecisionSchema"
+}
+                }
+            }
+        }
+    },
 )
 async def validate_llm_output(request: ValidateOutputRequest):
     """Validate LLM output against schema."""
@@ -1130,7 +1487,7 @@ class AgentAnalysisRequest(BaseModel):
         json_schema_extra = {
             "examples": [
                 {
-                    "transaction_id": "TX_AGENT_001",
+                    "transaction_id": "TX_AGENT_HIGH_RISK_001",
                     "amount": 165000.0,
                     "type": "TRANSFER",
                     "oldbalanceOrg": 180000.0,
@@ -1139,6 +1496,39 @@ class AgentAnalysisRequest(BaseModel):
                     "newbalanceDest": 170000.0,
                     "nameOrig": "C1231231230",
                     "nameDest": "C9879879870"
+                },
+                {
+                    "transaction_id": "TX_AGENT_CASHOUT_002",
+                    "amount": 89000.0,
+                    "type": "CASH_OUT",
+                    "oldbalanceOrg": 95000.0,
+                    "newbalanceOrig": 6000.0,
+                    "oldbalanceDest": 0.0,
+                    "newbalanceDest": 0.0,
+                    "nameOrig": "C4444444444",
+                    "nameDest": "C0000000000"
+                },
+                {
+                    "transaction_id": "TX_AGENT_PAYMENT_003",
+                    "amount": 3200.0,
+                    "type": "PAYMENT",
+                    "oldbalanceOrg": 18500.0,
+                    "newbalanceOrig": 15300.0,
+                    "oldbalanceDest": 12000.0,
+                    "newbalanceDest": 15200.0,
+                    "nameOrig": "C6666666666",
+                    "nameDest": "M2222222222"
+                },
+                {
+                    "transaction_id": "TX_AGENT_DEBIT_004",
+                    "amount": 450.0,
+                    "type": "DEBIT",
+                    "oldbalanceOrg": 5000.0,
+                    "newbalanceOrig": 4550.0,
+                    "oldbalanceDest": 0.0,
+                    "newbalanceDest": 0.0,
+                    "nameOrig": "C8888888888",
+                    "nameDest": "C0000000000"
                 }
             ]
         }
@@ -1148,6 +1538,24 @@ class AgentAnalysisRequest(BaseModel):
     "/agents/single",
     summary="Single-agent fraud analysis",
     description="Analyze transaction using single autonomous agent with observation, planning, execution, reasoning, decision, and reflection",
+    responses={
+        200: {
+            "description": "Single agent analysis completed",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "agent_type": "single",
+                        "is_fraud": True,
+                        "risk_score": 85.0,
+                        "confidence": 0.89,
+                        "tools_used": ["query_fraud_policy", "calculate_risk_score"],
+                        "execution_time_ms": 142.5,
+                        "reasoning": "Transaction exceeds policy threshold and balance drain is critical"
+                    }
+                }
+            }
+        }
+    },
 )
 async def analyze_with_single_agent(request: AgentAnalysisRequest):
     """
@@ -1201,6 +1609,30 @@ async def analyze_with_single_agent(request: AgentAnalysisRequest):
     "/agents/manager-worker",
     summary="Manager-Worker multi-agent analysis",
     description="Analyze using manager coordinating multiple worker agents in parallel",
+    responses={
+        200: {
+            "description": "Manager-worker coordination completed",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "agent_type": "manager-worker",
+                        "is_fraud": True,
+                        "risk_score": 90.0,
+                        "confidence": 0.95,
+                        "workers": 3,
+                        "agreement_score": 1.0,
+                        "aggregation_method": "majority_vote",
+                        "worker_results": [
+                            {"worker": "policy_checker", "verdict": "fraud", "score": 92.0},
+                            {"worker": "balance_analyzer", "verdict": "fraud", "score": 88.0},
+                            {"worker": "velocity_monitor", "verdict": "fraud", "score": 90.0}
+                        ],
+                        "execution_time_ms": 256.3
+                    }
+                }
+            }
+        }
+    },
 )
 async def analyze_with_manager_worker(request: AgentAnalysisRequest):
     """
@@ -1242,6 +1674,26 @@ async def analyze_with_manager_worker(request: AgentAnalysisRequest):
     "/agents/planner-executor-critic",
     summary="Planner-Executor-Critic analysis",
     description="Analyze using three specialized roles: planner creates strategy, executor performs analysis, critic validates results",
+    responses={
+        200: {
+            "description": "PEC pipeline completed",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "agent_type": "planner-executor-critic",
+                        "is_fraud": True,
+                        "risk_score": 87.0,
+                        "confidence": 0.92,
+                        "iterations": 2,
+                        "plan_quality": 0.85,
+                        "execution_quality": 0.90,
+                        "critic_approval": True,
+                        "execution_time_ms": 412.7
+                    }
+                }
+            }
+        }
+    },
 )
 async def analyze_with_planner_executor_critic(request: AgentAnalysisRequest):
     """
@@ -1284,6 +1736,22 @@ async def analyze_with_planner_executor_critic(request: AgentAnalysisRequest):
     "/agents/debate",
     summary="Debate-based analysis",
     description="Analyze using adversarial debate: prosecutor argues for fraud, defense argues legitimate, judge makes final ruling",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "agent_type": "debate",
+                    "is_fraud": True,
+                    "risk_score": 87.5,
+                    "verdict": "FRAUD",
+                    "execution_time_ms": 298.4
+}
+                }
+            }
+        }
+    },
 )
 async def analyze_with_debate(request: AgentAnalysisRequest):
     """
@@ -1326,6 +1794,22 @@ async def analyze_with_debate(request: AgentAnalysisRequest):
     "/agents/role-specialized",
     summary="Role-specialized multi-agent analysis",
     description="Analyze using domain expert agents: transaction analyst, account specialist, and policy expert",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "agent_type": "role-specialized",
+                    "is_fraud": True,
+                    "risk_score": 88.5,
+                    "confidence": 0.91,
+                    "execution_time_ms": 378.2
+}
+                }
+            }
+        }
+    },
 )
 async def analyze_with_role_specialized(request: AgentAnalysisRequest):
     """
@@ -1370,6 +1854,22 @@ async def analyze_with_role_specialized(request: AgentAnalysisRequest):
     "/agents/swarm",
     summary="Swarm intelligence analysis",
     description="Analyze using swarm of 5 agents with consensus voting",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "agent_type": "swarm",
+                    "is_fraud": True,
+                    "risk_score": 91.0,
+                    "agents_active": 5,
+                    "consensus_rounds": 3
+}
+                }
+            }
+        }
+    },
 )
 async def analyze_with_swarm(request: AgentAnalysisRequest, swarm_size: int = 5, threshold: float = 0.6):
     """
@@ -1489,6 +1989,23 @@ class ToolExecutionRequest(BaseModel):
     "/agents/tools/execute",
     summary="Execute agent tool manually",
     description="Execute a specific agent tool for testing/debugging",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "success": True,
+                    "result": {
+                                        "tool": "query_fraud_policy",
+                                        "outcome": "threshold_exceeded"
+                    },
+                    "execution_time_ms": 15.2
+}
+                }
+            }
+        }
+    },
 )
 async def execute_agent_tool(request: ToolExecutionRequest):
     """Execute an agent tool manually."""
@@ -1520,6 +2037,27 @@ async def execute_agent_tool(request: ToolExecutionRequest):
     "/planning/create-plan",
     summary="Create task execution plan",
     description="Generate DAG-based execution plan for fraud analysis",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "plan_id": "plan_abc123",
+                    "tasks": [
+                                        {
+                                                            "id": "t1",
+                                                            "action": "query_fraud_policy"
+                                        }
+                    ],
+                    "execution_order": [
+                                        "t1"
+                    ]
+}
+                }
+            }
+        }
+    },
 )
 async def create_task_plan(request: AgentAnalysisRequest):
     """Create task execution plan with dependency tracking."""
@@ -1577,6 +2115,26 @@ async def create_task_plan(request: AgentAnalysisRequest):
     "/reasoning/test-hypothesis",
     summary="Test fraud hypothesis",
     description="Test hypothesis against evidence using structured reasoning",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "hypothesis": "Account takeover fraud",
+                    "evidence_for": [
+                                        "unusual_amount",
+                                        "balance_drain"
+                    ],
+                    "evidence_against": [
+                                        "normal_time_of_day"
+                    ],
+                    "confidence": 0.78
+}
+                }
+            }
+        }
+    },
 )
 async def test_hypothesis(
     hypothesis: str,
@@ -1615,6 +2173,21 @@ async def test_hypothesis(
     "/reasoning/counterfactual",
     summary="Counterfactual reasoning",
     description="Perform what-if analysis on transaction",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "original_decision": "fraud",
+                    "counterfactual_scenario": "If amount was $100 instead of $95000",
+                    "new_decision": "legitimate",
+                    "causal_factor": "amount"
+}
+                }
+            }
+        }
+    },
 )
 async def counterfactual_analysis(
     request: AgentAnalysisRequest,
@@ -1671,6 +2244,24 @@ async def counterfactual_analysis(
     "/reasoning/self-critique",
     summary="Self-critique reasoning",
     description="Critique agent's reasoning for soundness and completeness",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "initial_decision": {
+                                        "is_fraud": False
+                    },
+                    "critique": "Missed destination balance anomaly",
+                    "revised_decision": {
+                                        "is_fraud": True
+                    }
+}
+                }
+            }
+        }
+    },
 )
 async def self_critique(
     reasoning_steps: list,
@@ -1708,6 +2299,24 @@ async def self_critique(
     "/reasoning/estimate-uncertainty",
     summary="Estimate decision uncertainty",
     description="Quantify uncertainty from multiple sources",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "point_estimate": 0.85,
+                    "confidence_interval": [
+                                        0.78,
+                                        0.92
+                    ],
+                    "epistemic_uncertainty": 0.07,
+                    "aleatoric_uncertainty": 0.05
+}
+                }
+            }
+        }
+    },
 )
 async def estimate_uncertainty(
     evidence: dict,
@@ -1743,6 +2352,23 @@ async def estimate_uncertainty(
     "/reasoning/check-constraints",
     summary="Check constraint satisfaction",
     description="Validate decision against hard and soft constraints",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "constraints_satisfied": True,
+                    "violations": [],
+                    "constraint_results": {
+                                        "balance_positive": True,
+                                        "amount_valid": True
+                    }
+}
+                }
+            }
+        }
+    },
 )
 async def check_constraints(
     decision: dict,
@@ -1802,6 +2428,23 @@ async def check_constraints(
     "/autonomy/get-level",
     summary="Get autonomy level",
     description="Determine appropriate autonomy level for decision",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "level": 3,
+                    "description": "High Autonomy - Agent can make final decisions",
+                    "capabilities": [
+                                        "tool_execution",
+                                        "decision_making"
+                    ]
+}
+                }
+            }
+        }
+    },
 )
 async def get_autonomy_level(
     decision: dict,
@@ -1835,6 +2478,20 @@ async def get_autonomy_level(
     "/autonomy/check-escalation",
     summary="Check if should escalate",
     description="Determine if decision should be escalated to human",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "should_escalate": True,
+                    "reason": "Risk score 95.0 exceeds escalation threshold",
+                    "escalation_to": "human_analyst"
+}
+                }
+            }
+        }
+    },
 )
 async def check_escalation(
     request: AgentAnalysisRequest,
@@ -1898,6 +2555,22 @@ async def check_escalation(
     "/autonomy/check-stop-conditions",
     summary="Check stop conditions",
     description="Check if agent should stop execution",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "should_stop": True,
+                    "reason": "Reached max iterations (10)",
+                    "stopping_criteria_met": [
+                                        "max_iterations"
+                    ]
+}
+                }
+            }
+        }
+    },
 )
 async def check_stop_conditions(
     step_count: int,
@@ -1941,6 +2614,21 @@ async def check_stop_conditions(
     "/autonomy/check-goal-drift",
     summary="Check goal drift",
     description="Detect if agent has drifted from original goal",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "drift_detected": False,
+                    "alignment_score": 0.95,
+                    "original_goal": "fraud_detection",
+                    "current_behavior": "fraud_detection"
+}
+                }
+            }
+        }
+    },
 )
 async def check_goal_drift(
     goal: str,
@@ -1983,6 +2671,22 @@ async def check_goal_drift(
     "/recovery/check-health",
     summary="Check tool health",
     description="Run health check for a tool",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "healthy": True,
+                    "checks": {
+                                        "llm_responsive": True,
+                                        "tools_available": True
+                    }
+}
+                }
+            }
+        }
+    },
 )
 async def check_tool_health(
     tool_name: str,
@@ -2011,6 +2715,20 @@ async def check_tool_health(
     "/recovery/analyze-failure",
     summary="Analyze failure root cause",
     description="Perform root cause analysis on a failure",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "root_cause": "LLM timeout",
+                    "recovery_strategy": "retry_with_backoff",
+                    "can_recover": True
+}
+                }
+            }
+        }
+    },
 )
 async def analyze_failure_root_cause(
     tool_name: str,
@@ -2044,6 +2762,20 @@ async def analyze_failure_root_cause(
     "/recovery/register-fallback",
     summary="Register fallback chain",
     description="Register fallback chain for a tool",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "fallback_id": "fb_12345",
+                    "registered": True,
+                    "priority": 1
+}
+                }
+            }
+        }
+    },
 )
 async def register_fallback_chain(
     primary: str,
@@ -2081,6 +2813,23 @@ async def register_fallback_chain(
     "/recovery/aggregate-partial",
     summary="Aggregate partial results",
     description="Aggregate partial results from failed operations",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "aggregated_result": {
+                                        "is_fraud": True,
+                                        "confidence": 0.72
+                    },
+                    "partial_results_used": 3,
+                    "missing_results": 1
+}
+                }
+            }
+        }
+    },
 )
 async def aggregate_partial_results(
     tool_name: str,
@@ -2194,6 +2943,20 @@ async def get_worker_pool() -> WorkerPool:
     "/async/submit-task",
     summary="Submit background task",
     description="Submit a task for background processing",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "task_id": "task_abc123",
+                    "status": "queued",
+                    "estimated_completion_ms": 5000
+}
+                }
+            }
+        }
+    },
 )
 async def submit_background_task(
     task_name: str,
@@ -2329,6 +3092,20 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     "/async/broadcast",
     summary="Broadcast to WebSocket clients",
     description="Broadcast message to WebSocket subscribers",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "broadcast_id": "bc_xyz789",
+                    "recipients": 5,
+                    "status": "sent"
+}
+                }
+            }
+        }
+    },
 )
 async def broadcast_message(
     topic: str,
@@ -2408,6 +3185,20 @@ async def get_resource_statistics():
     "/async/cleanup-resources",
     summary="Cleanup idle resources",
     description="Cleanup idle resources",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "cleaned_tasks": 12,
+                    "freed_memory_mb": 45.3,
+                    "status": "complete"
+}
+                }
+            }
+        }
+    },
 )
 async def cleanup_idle_resources(idle_timeout: float = 300.0):
     """Cleanup idle resources."""
@@ -2504,7 +3295,7 @@ class ToolExecuteRequest(BaseModel):
                 {
                     "tool_name": "calculate_risk_score",
                     "parameters": {
-                        "transaction_id": "TX_TOOL_TEST_001",
+                        "transaction_id": "TX_TOOL_CALC_001",
                         "amount": 125000.0,
                         "transaction_type": "TRANSFER",
                         "oldbalance_org": 150000.0,
@@ -2514,6 +3305,31 @@ class ToolExecuteRequest(BaseModel):
                         "step": 120,
                     },
                     "max_retries": 3,
+                },
+                {
+                    "tool_name": "query_fraud_policy",
+                    "parameters": {
+                        "transaction_type": "CASH_OUT",
+                        "amount": 95000.0
+                    },
+                    "max_retries": 2,
+                },
+                {
+                    "tool_name": "fetch_account_history",
+                    "parameters": {
+                        "account_id": "C9876543210",
+                        "lookback_days": 30
+                    },
+                    "max_retries": 3,
+                },
+                {
+                    "tool_name": "escalate_to_human",
+                    "parameters": {
+                        "transaction_id": "TX_ESCALATE_HIGH_001",
+                        "reason": "Unusual pattern detected requiring manual review",
+                        "priority": "high"
+                    },
+                    "max_retries": 1,
                 }
             ]
         }
@@ -2523,6 +3339,27 @@ class ToolExecuteRequest(BaseModel):
     "/tools/execute",
     summary="Execute a tool",
     description="Execute tool with retry and confidence tracking (Section 3.3.1)",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "tool_name": "query_fraud_policy",
+                    "success": True,
+                    "result": {
+                                        "transaction_type": "TRANSFER",
+                                        "thresholds": {
+                                                            "max_amount": 100000
+                                        }
+                    },
+                    "execution_time_ms": 0.06,
+                    "retries": 0
+}
+                }
+            }
+        }
+    },
 )
 async def execute_tool(request: ToolExecuteRequest):
     """Execute a tool with validation and retry logic."""
@@ -2585,6 +3422,20 @@ class SetAllowedToolsRequest(BaseModel):
                         "query_fraud_policy",
                         "fetch_account_history",
                     ]
+                },
+                {
+                    "tool_names": [
+                        "calculate_risk_score",
+                        "escalate_to_human"
+                    ]
+                },
+                {
+                    "tool_names": [
+                        "query_fraud_policy"
+                    ]
+                },
+                {
+                    "tool_names": []
                 }
             ]
         }
@@ -2594,6 +3445,23 @@ class SetAllowedToolsRequest(BaseModel):
     "/tools/set-allowed",
     summary="Set allowed tools",
     description="Restrict tool set to prevent hallucination (Section 3.3.1)",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "allowed_tools": [
+                                        "query_fraud_policy",
+                                        "calculate_risk_score"
+                    ],
+                    "count": 2,
+                    "updated_at": "2024-01-15T10:30:00Z"
+}
+                }
+            }
+        }
+    },
 )
 async def set_allowed_tools(request: SetAllowedToolsRequest):
     """Set allowed tools for execution."""
@@ -2621,7 +3489,12 @@ class ReadFileRequest(BaseModel):
 
     class Config:
         json_schema_extra = {
-            "examples": [{"file_path": "transfer_fraud_policy.md"}]
+            "examples": [
+                {"file_path": "transfer_fraud_policy.md"},
+                {"file_path": "cashout_fraud_policy.md"},
+                {"file_path": "lowrisk_types_policy.md"},
+                {"file_path": "policies/high_value_transactions.md"}
+            ]
         }
 
 
@@ -2629,6 +3502,20 @@ class ReadFileRequest(BaseModel):
     "/environment/read-file",
     summary="Read policy file (sandboxed)",
     description="Read fraud policy file from sandboxed directory (Section 3.3.2)",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "filepath": "data/fraud_policies/transfer_fraud_policy.md",
+                    "content": "TRANSFER transactions exceeding $100,000...",
+                    "size_bytes": 1247
+}
+                }
+            }
+        }
+    },
 )
 async def read_policy_file(request: ReadFileRequest):
     """Read file from sandboxed file system."""
@@ -2681,6 +3568,16 @@ class ExecuteCodeRequest(BaseModel):
                     "code": "# Calculate balance drain ratio\noldbalance = 150000.0\nnewbalance = 25000.0\nbalance_drain = (oldbalance - newbalance) / oldbalance if oldbalance > 0 else 0\nrisk_score = min(balance_drain * 100, 100)\nresult = {'balance_drain_ratio': balance_drain, 'risk_score': risk_score}",
                     "context": {},
                     "timeout_seconds": 5,
+                },
+                {
+                    "code": "# Calculate transaction velocity\nimport datetime\ntransactions = [95000, 82000, 150000]\ntotal = sum(transactions)\navg = total / len(transactions)\nresult = {'total_amount': total, 'avg_amount': avg, 'transaction_count': len(transactions)}",
+                    "context": {},
+                    "timeout_seconds": 3,
+                },
+                {
+                    "code": "# Analyze destination account risk\nnew_account = True\nzero_balance = True\nrisk_multiplier = 1.5 if new_account and zero_balance else 1.0\nresult = {'risk_multiplier': risk_multiplier, 'is_high_risk_dest': new_account and zero_balance}",
+                    "context": {"new_account": True, "zero_balance": True},
+                    "timeout_seconds": 2,
                 }
             ]
         }
@@ -2690,6 +3587,22 @@ class ExecuteCodeRequest(BaseModel):
     "/environment/execute-code",
     summary="Execute Python code (sandboxed)",
     description="Execute Python code for risk calculations with strict sandboxing (Section 3.3.2)",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "result": {
+                                        "balance_drain_ratio": 0.833,
+                                        "risk_score": 83.33
+                    },
+                    "execution_time_ms": 0.12
+}
+                }
+            }
+        }
+    },
 )
 async def execute_python_code(request: ExecuteCodeRequest):
     """Execute Python code in sandbox."""
@@ -2726,6 +3639,18 @@ class ExecuteSQLRequest(BaseModel):
                 {
                     "query": "SELECT type, COUNT(*) as count, AVG(amount) as avg_amount FROM transactions WHERE is_fraud = TRUE GROUP BY type ORDER BY count DESC LIMIT 10",
                     "timeout_seconds": 10,
+                },
+                {
+                    "query": "SELECT COUNT(*) as total, SUM(CASE WHEN is_fraud THEN 1 ELSE 0 END) as fraud_count FROM transactions WHERE amount > 100000",
+                    "timeout_seconds": 15,
+                },
+                {
+                    "query": "SELECT DATE(timestamp) as date, COUNT(*) as transactions, SUM(amount) as total_amount FROM transactions WHERE type = 'TRANSFER' GROUP BY DATE(timestamp) ORDER BY date DESC LIMIT 30",
+                    "timeout_seconds": 20,
+                },
+                {
+                    "query": "SELECT account_id, COUNT(*) as transaction_count, AVG(amount) as avg_amount, MAX(amount) as max_amount FROM transactions GROUP BY account_id HAVING COUNT(*) > 10 ORDER BY transaction_count DESC LIMIT 50",
+                    "timeout_seconds": 25,
                 }
             ]
         }
@@ -2735,6 +3660,20 @@ class ExecuteSQLRequest(BaseModel):
     "/environment/execute-sql",
     summary="Execute SQL query (read-only)",
     description="Execute read-only SQL query with validation (Section 3.3.2)",
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                    "row_count": 5,
+                    "execution_time_ms": 51.58,
+                    "cached": False
+}
+                }
+            }
+        }
+    },
 )
 async def execute_sql_query(request: ExecuteSQLRequest):
     """Execute read-only SQL query."""
