@@ -11,8 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { apiClient } from '@/lib/api-client';
-import type { HealthStatus } from '@/lib/types';
+import { useHealthCheck } from '@/hooks/use-fraud-analysis';
 import {
   Activity,
   AlertTriangle,
@@ -23,27 +22,9 @@ import {
   TrendingUp,
   XCircle,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
 
 export default function DashboardPage() {
-  const [health, setHealth] = useState<HealthStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    checkHealth();
-  }, []);
-
-  const checkHealth = async () => {
-    setLoading(true);
-    try {
-      const status = await apiClient.checkHealth();
-      setHealth(status);
-    } catch (error) {
-      console.error('Health check failed:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: health, isLoading, refetch } = useHealthCheck();
 
   // Mock data for demo
   const mockStats = {
@@ -165,7 +146,7 @@ export default function DashboardPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {isLoading ? (
             <p className="text-center text-zinc-500">Checking system health...</p>
           ) : health ? (
             <div className="grid gap-4 md:grid-cols-3">
@@ -185,7 +166,7 @@ export default function DashboardPage() {
           ) : (
             <div className="text-center">
               <p className="text-red-600 mb-4">Unable to connect to backend</p>
-              <Button onClick={checkHealth}>Retry</Button>
+              <Button onClick={() => refetch()}>Retry</Button>
             </div>
           )}
         </CardContent>

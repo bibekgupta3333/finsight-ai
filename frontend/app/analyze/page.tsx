@@ -5,18 +5,24 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { apiClient } from '@/lib/api-client';
+import { useBatchAnalysis, useFraudAnalysis } from '@/hooks/use-fraud-analysis';
 import type { FraudAnalysisResult, Transaction } from '@/lib/types';
+import { transactionSchema } from '@/lib/validations';
 import { AlertCircle, CheckCircle2, FileText, Upload, XCircle } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 
 export default function AnalyzePage() {
   const [file, setFile] = useState<File | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<FraudAnalysisResult[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Use React Query mutation hooks
+  const fraudAnalysis = useFraudAnalysis();
+  const batchAnalysis = useBatchAnalysis();
+
+  const analyzing = fraudAnalysis.isPending || batchAnalysis.isPending;
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -41,7 +47,7 @@ export default function AnalyzePage() {
 
     return lines.slice(1).map((line) => {
       const values = line.split(',');
-      return {
+      const transaction = {
         step: parseInt(values[0]) || 0,
         type: values[1] || '',
         amount: parseFloat(values[2]) || 0,
@@ -54,13 +60,15 @@ export default function AnalyzePage() {
         isFraud: parseInt(values[9]) || 0,
         isFlaggedFraud: parseInt(values[10]) || 0,
       };
+
+      // Validate with Zod
+      return transactionSchema.parse(transaction);
     });
   };
 
   const analyzeFile = async () => {
     if (!file) return;
 
-    setAnalyzing(true);
     setError(null);
     setProgress(0);
 
@@ -77,7 +85,7 @@ export default function AnalyzePage() {
       const analysisResults: FraudAnalysisResult[] = [];
 
       for (let i = 0; i < transactionsToAnalyze.length; i++) {
-        const result = await apiClient.analyzeFraud(transactionsToAnalyze[i]);
+        const result = await fraudAnalysis.mutateAsync(transactionsToAnalyze[i]);
         analysisResults.push(result);
         setProgress(((i + 1) / transactionsToAnalyze.length) * 100);
       }
@@ -85,8 +93,6 @@ export default function AnalyzePage() {
       setResults(analysisResults);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
-    } finally {
-      setAnalyzing(false);
     }
   };
 
