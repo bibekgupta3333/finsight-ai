@@ -10,10 +10,10 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 from fastapi import APIRouter, Header, HTTPException, Request, status, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 try:
     from sse_starlette.sse import EventSourceResponse
@@ -656,12 +656,40 @@ async def list_prompt_templates():
     return {"templates": prompt_mgr.list_templates()}
 
 
+class PromptBuildRequest(BaseModel):
+    """Request for building hierarchical prompt."""
+    transaction_id: str
+    amount: float
+    type: str
+    nameOrig: Optional[str] = None
+    nameDest: Optional[str] = None
+    currency: Optional[str] = "USD"
+    timestamp: Optional[str] = None
+
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "transaction_id": "TX_PROMPT_BUILD_001",
+                    "amount": 185000.0,
+                    "type": "TRANSFER",
+                    "nameOrig": "C1234567890",
+                    "nameDest": "C9876543210",
+                    "currency": "USD",
+                    "timestamp": "2026-01-02T10:30:00Z"
+                }
+            ]
+        }
+
+
 @router.post(
     "/prompts/build",
     summary="Build hierarchical prompt",
     description="Build complete prompt with system/developer/user hierarchy",
 )
-async def build_hierarchical_prompt(transaction: dict):
+async def build_hierarchical_prompt(request: PromptBuildRequest):
+    """Build hierarchical prompt for a transaction."""
+    transaction = request.model_dump()
     """Build hierarchical prompt for a transaction."""
     prompt_mgr = get_prompt_manager()
     few_shot_mgr = get_few_shot_manager()
@@ -862,6 +890,29 @@ class ReflectionRequest(BaseModel):
     transaction: dict
     initial_decision: Optional[dict] = None
 
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "transaction": {
+                        "transaction_id": "TX_REFLECTION_001",
+                        "type": "TRANSFER",
+                        "amount": 145000.0,
+                        "oldbalanceOrg": 160000.0,
+                        "newbalanceOrig": 15000.0,
+                        "oldbalanceDest": 5000.0,
+                        "newbalanceDest": 150000.0
+                    },
+                    "initial_decision": {
+                        "is_fraud": True,
+                        "risk_score": 88.5,
+                        "confidence": 0.87,
+                        "reasoning": "Large transfer draining 91% of origin balance"
+                    }
+                }
+            ]
+        }
+
 
 @router.post(
     "/analyze/reflection",
@@ -930,15 +981,31 @@ async def get_few_shot_examples(count: int = 5, ensure_diversity: bool = True):
     }
 
 
+class PromptCompressRequest(BaseModel):
+    """Request for prompt compression."""
+    text: str = Field(..., description="Prompt text to compress")
+    max_tokens: int = Field(1500, ge=100, le=8000, description="Maximum tokens allowed")
+
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "text": "You are a fraud detection expert with 15 years of experience as a Certified Fraud Examiner. Analyze the following transaction for potential fraud: Transaction ID TX_001, Amount $125,000, Type TRANSFER, from account A to account B. Consider balance changes, transaction patterns, and policy compliance. Provide detailed reasoning.",
+                    "max_tokens": 1500
+                }
+            ]
+        }
+
+
 @router.post(
     "/prompts/compress",
     summary="Compress prompt",
     description="Compress prompt while preserving critical information",
 )
-async def compress_prompt(prompt_text: dict):
+async def compress_prompt(request: PromptCompressRequest):
     """Compress a prompt to fit token budget."""
-    text = prompt_text.get("text", "")
-    max_tokens = prompt_text.get("max_tokens", 1500)
+    text = request.text
+    max_tokens = request.max_tokens
 
     compressed = PromptCompressor.compress(text, max_tokens=max_tokens)
 
@@ -967,14 +1034,39 @@ async def get_output_schema():
     }
 
 
+class ValidateOutputRequest(BaseModel):
+    """Request for validating LLM output."""
+    output: dict = Field(..., description="LLM output to validate")
+
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "output": {
+                        "is_fraud": True,
+                        "risk_score": 92,
+                        "confidence": 0.88,
+                        "risk_level": "CRITICAL",
+                        "explanation": "Large transfer draining account with suspicious destination",
+                        "reasoning_steps": [
+                            "Analyzed transaction amount: $125,000",
+                            "Checked balance changes: 94% drain detected",
+                            "Reviewed fraud policies: Exceeds high-risk threshold"
+                        ]
+                    }
+                }
+            ]
+        }
+
+
 @router.post(
     "/prompts/validate-output",
     summary="Validate LLM output",
     description="Validate LLM output against fraud decision schema",
 )
-async def validate_llm_output(output: dict):
+async def validate_llm_output(request: ValidateOutputRequest):
     """Validate LLM output against schema."""
-    output_json = json.dumps(output.get("output", {}))
+    output_json = json.dumps(request.output)
     schema = OutputFormatter.FRAUD_DECISION_SCHEMA
 
     is_valid, error = OutputFormatter.validate_output(output_json, schema)
@@ -1033,6 +1125,23 @@ class AgentAnalysisRequest(BaseModel):
     newbalanceDest: float
     nameOrig: str
     nameDest: str
+
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "transaction_id": "TX_AGENT_001",
+                    "amount": 165000.0,
+                    "type": "TRANSFER",
+                    "oldbalanceOrg": 180000.0,
+                    "newbalanceOrig": 15000.0,
+                    "oldbalanceDest": 5000.0,
+                    "newbalanceDest": 170000.0,
+                    "nameOrig": "C1231231230",
+                    "nameDest": "C9879879870"
+                }
+            ]
+        }
 
 
 @router.post(
@@ -1356,19 +1465,39 @@ async def list_agent_tools():
     }
 
 
+class ToolExecutionRequest(BaseModel):
+    """Request for executing an agent tool."""
+    tool_name: str = Field(..., description="Name of the tool to execute")
+    parameters: dict = Field(..., description="Tool parameters")
+
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "tool_name": "calculate_risk_score",
+                    "parameters": {
+                        "amount": 125000.0,
+                        "type": "TRANSFER",
+                        "balance_drain_ratio": 0.92
+                    }
+                }
+            ]
+        }
+
+
 @router.post(
     "/agents/tools/execute",
     summary="Execute agent tool manually",
     description="Execute a specific agent tool for testing/debugging",
 )
-async def execute_agent_tool(tool_name: str, parameters: dict):
+async def execute_agent_tool(request: ToolExecutionRequest):
     """Execute an agent tool manually."""
     from app.agents.tool_registry import get_tool_registry
 
     registry = get_tool_registry()
 
     try:
-        result = await registry.execute(tool_name, parameters)
+        result = await registry.execute(request.tool_name, request.parameters)
 
         return {
             "tool_name": result.tool_name,
@@ -2294,3 +2423,337 @@ async def cleanup_idle_resources(idle_timeout: float = 300.0):
             detail=f"Resource cleanup failed: {str(e)}"
         )
 
+
+# =============================================================================
+# TOOL USE & ENVIRONMENT CONTROL (Section 3.3)
+# =============================================================================
+
+from app.agents.tool_registry import get_tool_registry
+from app.agents.environment_tools import (
+    get_file_system,
+    get_python_sandbox,
+    get_database_tools,
+)
+
+
+@router.get(
+    "/tools/list",
+    summary="List all available tools",
+    description="Get list of registered tools with metadata (Section 3.3.1)",
+)
+async def list_available_tools():
+    """List all tools in the registry."""
+    try:
+        registry = get_tool_registry()
+        tools = registry.list_tools()
+        metadata = registry.list_metadata()
+
+        return {
+            "total_tools": len(tools),
+            "tools": tools,
+            "metadata": [
+                {
+                    "name": m.name,
+                    "description": m.description,
+                    "category": m.category,
+                    "requires_auth": m.requires_auth,
+                    "timeout_seconds": m.timeout_seconds,
+                }
+                for m in metadata
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Tool listing failed: {str(e)}")
+
+
+@router.get(
+    "/tools/{tool_name}/schema",
+    summary="Get tool schema",
+    description="Get JSON schema for a specific tool (hallucination prevention)",
+)
+async def get_tool_schema(tool_name: str):
+    """Get schema for specific tool."""
+    try:
+        registry = get_tool_registry()
+
+        if not registry.validate_tool_exists(tool_name):
+            raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
+
+        metadata = registry.get_tool_metadata(tool_name)
+
+        return {
+            "tool_name": tool_name,
+            "metadata": metadata.model_dump() if metadata else None,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Schema retrieval failed: {str(e)}")
+
+
+class ToolExecuteRequest(BaseModel):
+    """Request to execute a tool."""
+
+    tool_name: str = Field(..., description="Name of tool to execute")
+    parameters: Dict[str, Any] = Field(..., description="Tool parameters")
+    max_retries: int = Field(default=3, description="Maximum retry attempts", ge=1, le=5)
+
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "tool_name": "calculate_risk_score",
+                    "parameters": {
+                        "transaction_id": "TX_TOOL_TEST_001",
+                        "amount": 125000.0,
+                        "transaction_type": "TRANSFER",
+                        "oldbalance_org": 150000.0,
+                        "newbalance_orig": 25000.0,
+                        "oldbalance_dest": 0.0,
+                        "newbalance_dest": 125000.0,
+                        "step": 120,
+                    },
+                    "max_retries": 3,
+                }
+            ]
+        }
+
+
+@router.post(
+    "/tools/execute",
+    summary="Execute a tool",
+    description="Execute tool with retry and confidence tracking (Section 3.3.1)",
+)
+async def execute_tool(request: ToolExecuteRequest):
+    """Execute a tool with validation and retry logic."""
+    try:
+        registry = get_tool_registry()
+
+        # Validate tool exists (hallucination prevention)
+        if not registry.validate_tool_exists(request.tool_name):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Tool '{request.tool_name}' does not exist or is not allowed",
+            )
+
+        # Execute tool with retry
+        result = await registry.execute_tool(
+            tool_name=request.tool_name,
+            parameters=request.parameters,
+            max_retries=request.max_retries,
+        )
+
+        return result.to_dict()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Tool execution failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Tool execution failed: {str(e)}")
+
+
+@router.get(
+    "/tools/confidence",
+    summary="Get tool confidence statistics",
+    description="Get success rates and confidence scores for all tools (Section 3.3.1)",
+)
+async def get_tool_confidence_stats():
+    """Get confidence statistics for tools."""
+    try:
+        registry = get_tool_registry()
+        stats = registry.get_confidence_stats()
+
+        return {
+            "tools_tracked": len(stats),
+            "statistics": stats,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Stats retrieval failed: {str(e)}")
+
+
+class SetAllowedToolsRequest(BaseModel):
+    """Request to set allowed tools (restrict tool set)."""
+
+    tool_names: List[str] = Field(..., description="List of allowed tool names")
+
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "tool_names": [
+                        "calculate_risk_score",
+                        "query_fraud_policy",
+                        "fetch_account_history",
+                    ]
+                }
+            ]
+        }
+
+
+@router.post(
+    "/tools/set-allowed",
+    summary="Set allowed tools",
+    description="Restrict tool set to prevent hallucination (Section 3.3.1)",
+)
+async def set_allowed_tools(request: SetAllowedToolsRequest):
+    """Set allowed tools for execution."""
+    try:
+        registry = get_tool_registry()
+        registry.set_allowed_tools(request.tool_names)
+
+        return {
+            "allowed_tools": request.tool_names,
+            "total_allowed": len(request.tool_names),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Setting allowed tools failed: {str(e)}")
+
+
+# =============================================================================
+# ENVIRONMENT INTERACTION ENDPOINTS (Section 3.3.2)
+# =============================================================================
+
+
+class ReadFileRequest(BaseModel):
+    """Request to read a policy file."""
+
+    file_path: str = Field(..., description="Relative path to policy file", max_length=200)
+
+    class Config:
+        json_schema_extra = {
+            "examples": [{"file_path": "transfer_fraud_policy.md"}]
+        }
+
+
+@router.post(
+    "/environment/read-file",
+    summary="Read policy file (sandboxed)",
+    description="Read fraud policy file from sandboxed directory (Section 3.3.2)",
+)
+async def read_policy_file(request: ReadFileRequest):
+    """Read file from sandboxed file system."""
+    try:
+        fs = get_file_system()
+        result = await fs.read_file(request.file_path)
+
+        return result
+
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"File read failed: {str(e)}")
+
+
+@router.get(
+    "/environment/list-files",
+    summary="List policy files",
+    description="List available policy files in sandbox (Section 3.3.2)",
+)
+async def list_policy_files(pattern: str = "*.md"):
+    """List files in sandboxed directory."""
+    try:
+        fs = get_file_system()
+        files = await fs.list_files(pattern=pattern)
+
+        return {
+            "base_directory": "data/fraud_policies",
+            "pattern": pattern,
+            "files": files,
+            "count": len(files),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"File listing failed: {str(e)}")
+
+
+class ExecuteCodeRequest(BaseModel):
+    """Request to execute Python code."""
+
+    code: str = Field(..., description="Python code for risk calculations", max_length=5000)
+    context: Optional[Dict[str, Any]] = Field(default=None, description="Optional context variables")
+    timeout_seconds: int = Field(default=5, description="Execution timeout", ge=1, le=10)
+
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "code": "# Calculate balance drain ratio\noldbalance = 150000.0\nnewbalance = 25000.0\nbalance_drain = (oldbalance - newbalance) / oldbalance if oldbalance > 0 else 0\nrisk_score = min(balance_drain * 100, 100)\nresult = {'balance_drain_ratio': balance_drain, 'risk_score': risk_score}",
+                    "context": {},
+                    "timeout_seconds": 5,
+                }
+            ]
+        }
+
+
+@router.post(
+    "/environment/execute-code",
+    summary="Execute Python code (sandboxed)",
+    description="Execute Python code for risk calculations with strict sandboxing (Section 3.3.2)",
+)
+async def execute_python_code(request: ExecuteCodeRequest):
+    """Execute Python code in sandbox."""
+    try:
+        sandbox = get_python_sandbox()
+
+        # Validate code first
+        sandbox.validate_code(request.code)
+
+        # Execute with timeout and memory limit
+        result = await sandbox.execute(
+            code=request.code,
+            context=request.context,
+        )
+
+        return result
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Code validation failed: {str(e)}")
+    except Exception as e:
+        logger.error(f"Code execution failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Code execution failed: {str(e)}")
+
+
+class ExecuteSQLRequest(BaseModel):
+    """Request to execute SQL query."""
+
+    query: str = Field(..., description="SQL query (SELECT only)", max_length=2000)
+    timeout_seconds: int = Field(default=10, description="Query timeout", ge=1, le=30)
+
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "query": "SELECT type, COUNT(*) as count, AVG(amount) as avg_amount FROM transactions WHERE is_fraud = TRUE GROUP BY type ORDER BY count DESC LIMIT 10",
+                    "timeout_seconds": 10,
+                }
+            ]
+        }
+
+
+@router.post(
+    "/environment/execute-sql",
+    summary="Execute SQL query (read-only)",
+    description="Execute read-only SQL query with validation (Section 3.3.2)",
+)
+async def execute_sql_query(request: ExecuteSQLRequest):
+    """Execute read-only SQL query."""
+    try:
+        db_tools = get_database_tools()
+
+        # Validate query is read-only
+        db_tools.validate_query(request.query)
+
+        # Execute query
+        result = await db_tools.execute_query(
+            query=request.query,
+            timeout_seconds=request.timeout_seconds,
+        )
+
+        return result
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Query validation failed: {str(e)}")
+    except Exception as e:
+        logger.error(f"SQL execution failed: {e}")
+        raise HTTPException(status_code=500, detail=f"SQL execution failed: {str(e)}")

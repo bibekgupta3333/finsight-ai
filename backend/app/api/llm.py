@@ -47,6 +47,23 @@ class TokenAnalysisResponse(BaseModel):
     optimization_suggestions: List[str]
     complexity: str
 
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "token_count": 23,
+                    "max_tokens": 32768,
+                    "context_usage_percent": 0.07,
+                    "is_within_limit": True,
+                    "optimization_suggestions": [
+                        "Prompt is concise and within limits",
+                        "Consider caching for repeated queries"
+                    ],
+                    "complexity": "low"
+                }
+            ]
+        }
+
 
 class SamplingConfigRequest(BaseModel):
     """Sampling configuration request."""
@@ -56,6 +73,19 @@ class SamplingConfigRequest(BaseModel):
     top_k: Optional[int] = Field(None, ge=0)
     seed: Optional[int] = None
     mode: Optional[str] = None
+
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "temperature": 0.0,
+                    "top_p": 1.0,
+                    "top_k": 50,
+                    "seed": 42,
+                    "mode": "deterministic",
+                }
+            ]
+        }
 
 
 class TransactionRequest(BaseModel):
@@ -69,6 +99,21 @@ class TransactionRequest(BaseModel):
     oldbalanceDest: Optional[float] = None
     newbalanceDest: Optional[float] = None
 
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "transaction_id": "TX_LLM_TEST_001",
+                    "type": "CASH_OUT",
+                    "amount": 175000.0,
+                    "oldbalanceOrg": 190000.0,
+                    "newbalanceOrig": 15000.0,
+                    "oldbalanceDest": 0.0,
+                    "newbalanceDest": 0.0,
+                }
+            ]
+        }
+
 
 class ModelRoutingResponse(BaseModel):
     """Model routing response."""
@@ -80,12 +125,48 @@ class ModelRoutingResponse(BaseModel):
     reasoning: List[str]
     use_streaming: bool
 
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "selected_model": "qwen3:0.6b",
+                    "recommendation": "Use fast model for quick fraud detection",
+                    "complexity_score": 3,
+                    "estimated_latency_ms": 2000,
+                    "reasoning": [
+                        "High transaction amount ($175,000) requires analysis",
+                        "Balance inconsistency detected (92% drain)",
+                        "Fast model sufficient for pattern matching"
+                    ],
+                    "use_streaming": True
+                }
+            ]
+        }
+
 
 class SafetyCheckRequest(BaseModel):
     """Safety check request."""
 
     transaction: TransactionRequest
     llm_response: str
+
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "transaction": {
+                        "transaction_id": "TX_SAFETY_001",
+                        "type": "TRANSFER",
+                        "amount": 85000.0,
+                        "oldbalanceOrg": 100000.0,
+                        "newbalanceOrig": 15000.0,
+                        "oldbalanceDest": 20000.0,
+                        "newbalanceDest": 105000.0,
+                    },
+                    "llm_response": "This transaction appears fraudulent. The large transfer of $85,000 from an account with $100,000 to a destination account is suspicious. CONFIDENCE: 0.95",
+                }
+            ]
+        }
 
 
 class SafetyCheckResponse(BaseModel):
@@ -97,6 +178,20 @@ class SafetyCheckResponse(BaseModel):
     hallucinations: List[dict]
     injections: List[dict]
     recommendation: str
+
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "hallucination_detected": False,
+                    "injection_detected": False,
+                    "refusal_detected": False,
+                    "hallucinations": [],
+                    "injections": [],
+                    "recommendation": "Response is safe and accurate. No hallucinations or injection attempts detected."
+                }
+            ]
+        }
 
 
 # ============================================================================

@@ -68,10 +68,10 @@ class Settings(BaseSettings):
 
     # LLM Configuration
     ollama_base_url: str = "http://localhost:11434"
-    llm_model_name: str = "mistral:7b"
-    llm_fast_model: str = "mistral:7b-instruct-q4_0"
+    llm_model_name: str = "qwen3:0.6b"  # Updated to use qwen model
+    llm_fast_model: str = "qwen3:0.6b"  # Fast model for quick responses
     embedding_model_name: str = "bge-small-en-v1.5"
-    max_context_tokens: int = 8192  # Mistral context window
+    max_context_tokens: int = 32768  # Qwen3 context window
     max_prompt_tokens: int = 1500  # Target prompt length
     llm_timeout: int = 60  # LLM request timeout in seconds
     llm_temperature_deterministic: float = 0.0  # For classification
