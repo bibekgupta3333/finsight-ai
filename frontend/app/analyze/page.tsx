@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { Upload, FileText, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
-import type { Transaction, FraudAnalysisResult } from '@/lib/types';
+import type { FraudAnalysisResult, Transaction } from '@/lib/types';
+import { AlertCircle, CheckCircle2, FileText, Upload, XCircle } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { useDropzone } from 'react-dropzone';
 
 export default function AnalyzePage() {
   const [file, setFile] = useState<File | null>(null);
@@ -38,7 +38,7 @@ export default function AnalyzePage() {
   const parseCSV = (text: string): Transaction[] => {
     const lines = text.trim().split('\n');
     const headers = lines[0].split(',');
-    
+
     return lines.slice(1).map((line) => {
       const values = line.split(',');
       return {

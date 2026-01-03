@@ -1,7 +1,7 @@
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Brain, Zap, Target, GitBranch, Users } from 'lucide-react';
+import { Brain, GitBranch, Shield, Target, Users, Zap } from 'lucide-react';
+import Link from 'next/link';
 
 export default function Home() {
   return (
@@ -13,19 +13,19 @@ export default function Home() {
             <Shield className="h-4 w-4" />
             <span>AI-Powered Fraud Detection</span>
           </div>
-          
+
           <h1 className="max-w-4xl text-5xl font-bold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-6xl md:text-7xl">
             FinSight AI
             <span className="block text-blue-600 dark:text-blue-400">
               Advanced Fraud Detection
             </span>
           </h1>
-          
+
           <p className="max-w-2xl text-xl text-zinc-600 dark:text-zinc-400">
-            Leverage multi-agent reasoning systems with ReAct, Chain-of-Thought, and Tree-of-Thought 
+            Leverage multi-agent reasoning systems with ReAct, Chain-of-Thought, and Tree-of-Thought
             patterns to detect financial fraud with unprecedented accuracy and transparency.
           </p>
-          
+
           <div className="flex flex-col gap-4 sm:flex-row">
             <Button asChild size="lg" className="text-base">
               <Link href="/analyze">
@@ -193,7 +193,7 @@ export default function Home() {
           Ready to detect fraud with AI?
         </h2>
         <p className="text-lg text-zinc-600 dark:text-zinc-400 mb-8 max-w-2xl mx-auto">
-          Upload transactions, get instant risk assessments, and see the complete reasoning trace 
+          Upload transactions, get instant risk assessments, and see the complete reasoning trace
           from our multi-agent system.
         </p>
         <Button asChild size="lg" className="text-base">

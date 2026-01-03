@@ -1,9 +1,9 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+import { BarChart3, Home, Shield, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Shield, Home, BarChart3, Upload } from 'lucide-react';
 
 export function Navigation() {
   const pathname = usePathname();

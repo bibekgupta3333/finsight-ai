@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -12,18 +11,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Activity,
-  TrendingUp,
-  TrendingDown,
-  Shield,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Brain,
-} from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import type { HealthStatus } from '@/lib/types';
+import {
+  Activity,
+  AlertTriangle,
+  Brain,
+  CheckCircle,
+  Shield,
+  TrendingDown,
+  TrendingUp,
+  XCircle,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 export default function DashboardPage() {
   const [health, setHealth] = useState<HealthStatus | null>(null);

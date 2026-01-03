@@ -1,11 +1,11 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios, { AxiosError, AxiosInstance } from 'axios';
 import type {
-  Transaction,
-  FraudAnalysisResult,
   BatchAnalysisRequest,
   BatchAnalysisResult,
-  StatefulSession,
+  FraudAnalysisResult,
   HealthStatus,
+  StatefulSession,
+  Transaction,
 } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';

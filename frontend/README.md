@@ -18,7 +18,7 @@ Next.js 14 frontend for the FinSight AI fraud detection system with multi-agent 
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or pnpm
 - Backend API running on `localhost:8000`
 
