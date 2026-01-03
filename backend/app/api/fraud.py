@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
+from pydantic import BaseModel
 
 from app.core.checkpoint import Checkpoint
 from app.core.circuit_breaker import get_circuit_breaker
@@ -600,3 +601,387 @@ async def resume_session(session_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {str(e)}",
         )
+
+
+# =============================================================================
+# ADVANCED PROMPTING PATTERNS (Section 3.2)
+# =============================================================================
+
+from app.core.prompt_manager import get_prompt_manager
+from app.services.prompt_engineering import (
+    get_few_shot_manager,
+    OutputFormatter,
+    PromptCompressor,
+    RolePlayingInstructor,
+)
+from app.services.reasoning_patterns import (
+    ReActPattern,
+    ChainOfThoughtPattern,
+    TreeOfThoughtPattern,
+    DebatePattern,
+    SelfCritiquePattern,
+    ReflectionPattern,
+)
+from app.services.llm_client import get_llm_client
+
+
+@router.get(
+    "/prompts/templates",
+    summary="List prompt templates",
+    description="Get all registered prompt templates with versioning info",
+)
+async def list_prompt_templates():
+    """List all prompt templates."""
+    prompt_mgr = get_prompt_manager()
+    return {"templates": prompt_mgr.list_templates()}
+
+
+@router.post(
+    "/prompts/build",
+    summary="Build hierarchical prompt",
+    description="Build complete prompt with system/developer/user hierarchy",
+)
+async def build_hierarchical_prompt(transaction: dict):
+    """Build hierarchical prompt for a transaction."""
+    prompt_mgr = get_prompt_manager()
+    few_shot_mgr = get_few_shot_manager()
+
+    # Get few-shot examples
+    examples = few_shot_mgr.select_examples(transaction, count=3)
+    few_shot_text = few_shot_mgr.format_examples(examples)
+
+    # Build prompt
+    user_vars = {
+        "transaction_id": transaction.get("transaction_id", "TXN_UNKNOWN"),
+        "amount": transaction.get("amount", 0),
+        "currency": transaction.get("currency", "USD"),
+        "type": transaction.get("type", "UNKNOWN"),
+        "sender": transaction.get("nameOrig", "UNKNOWN"),
+        "receiver": transaction.get("nameDest", "UNKNOWN"),
+        "timestamp": transaction.get("timestamp", datetime.now().isoformat()),
+        "additional_fields": json.dumps(
+            {k: v for k, v in transaction.items() if k not in ["transaction_id", "amount", "type"]}
+        ),
+        "task_description": "Determine if this transaction is fraudulent",
+        "output_schema": json.dumps(OutputFormatter.FRAUD_DECISION_SCHEMA.example_output),
+    }
+
+    dev_vars = {
+        "fraud_policies": """
+1. TRANSFER/CASH_OUT with amount > 100,000 = High risk
+2. Balance inconsistencies (math doesn't add up) = Critical fraud indicator
+3. Destination balance = 0 after receiving funds = Fraud
+4. Multiple rapid transactions = Suspicious pattern
+        """,
+        "risk_rules": """
+- Amount risk: >200k = +40 points, 100k-200k = +25, 50k-100k = +15
+- Balance inconsistency = +50 points
+- Type risk: TRANSFER/CASH_OUT = +10, PAYMENT/DEBIT = +5
+        """,
+        "tool_permissions": "calculate_risk_score, query_fraud_policy, check_balance_consistency",
+    }
+
+    prompt = prompt_mgr.build_hierarchical_prompt(
+        user_variables=user_vars,
+        developer_variables=dev_vars,
+    )
+
+    return {
+        "full_prompt": prompt,
+        "few_shot_examples_count": len(examples),
+        "estimated_tokens": len(prompt) // 4,
+    }
+
+
+@router.post(
+    "/analyze/react",
+    summary="Analyze with ReAct pattern",
+    description="Use ReAct (Reasoning + Acting) pattern for fraud analysis",
+)
+async def analyze_with_react(request: FraudAnalysisRequest):
+    """
+    Analyze transaction using ReAct pattern.
+
+    Interleaves reasoning (thoughts) with actions (tool calls).
+    """
+    logger.info("Starting ReAct analysis")
+
+    # Mock tools for ReAct
+    async def calculate_risk_score(**kwargs):
+        return {"risk_score": 75.0, "factors": ["high_amount", "balance_inconsistency"]}
+
+    async def query_fraud_policy(**kwargs):
+        return {"policy": "TRANSFER > 100k = high risk", "threshold_exceeded": True}
+
+    async def check_history(**kwargs):
+        return {"similar_transactions": 0, "fraud_history": False}
+
+    tools = {
+        "calculate_risk_score": calculate_risk_score,
+        "query_fraud_policy": query_fraud_policy,
+        "check_history": check_history,
+    }
+
+    # Execute ReAct
+    react = ReActPattern(max_steps=5)
+    llm_client = get_llm_client()
+
+    result = await react.execute(
+        initial_context={"transaction": request.transaction.model_dump()},
+        available_tools=tools,
+        llm_client=llm_client,
+    )
+
+    return {
+        "pattern": "ReAct",
+        "result": result,
+        "steps_taken": result.get("reasoning_steps", 0),
+    }
+
+
+@router.post(
+    "/analyze/cot",
+    summary="Analyze with Chain-of-Thought",
+    description="Use Chain-of-Thought reasoning for fraud analysis",
+)
+async def analyze_with_cot(request: FraudAnalysisRequest):
+    """Analyze transaction using Chain-of-Thought pattern."""
+    logger.info("Starting CoT analysis")
+
+    cot = ChainOfThoughtPattern(steps_required=5)
+    llm_client = get_llm_client()
+
+    result = await cot.execute(
+        transaction=request.transaction.model_dump(),
+        llm_client=llm_client,
+    )
+
+    return {
+        "pattern": "Chain-of-Thought",
+        "result": result,
+        "reasoning_steps": len(result.get("steps", [])),
+    }
+
+
+@router.post(
+    "/analyze/tot",
+    summary="Analyze with Tree-of-Thought",
+    description="Explore multiple reasoning paths and select the best one",
+)
+async def analyze_with_tot(request: FraudAnalysisRequest):
+    """Analyze transaction using Tree-of-Thought pattern."""
+    logger.info("Starting ToT analysis")
+
+    tot = TreeOfThoughtPattern(branching_factor=3, max_depth=3)
+    llm_client = get_llm_client()
+
+    result = await tot.execute(
+        transaction=request.transaction.model_dump(),
+        llm_client=llm_client,
+    )
+
+    return {
+        "pattern": "Tree-of-Thought",
+        "result": result,
+        "paths_explored": result.get("alternatives_explored", 0),
+    }
+
+
+@router.post(
+    "/analyze/debate",
+    summary="Analyze with Debate pattern",
+    description="Prosecutor vs Defense agents debate, judge decides",
+)
+async def analyze_with_debate(request: FraudAnalysisRequest):
+    """Analyze transaction using Debate pattern."""
+    logger.info("Starting Debate analysis")
+
+    debate = DebatePattern(rounds=2)
+    llm_client = get_llm_client()
+
+    result = await debate.execute(
+        transaction=request.transaction.model_dump(),
+        llm_client=llm_client,
+    )
+
+    return {
+        "pattern": "Debate",
+        "result": result,
+        "debate_rounds": result.get("debate_rounds", 0),
+        "arguments_count": len(result.get("arguments", [])),
+    }
+
+
+@router.post(
+    "/analyze/self-critique",
+    summary="Analyze with Self-Critique",
+    description="Generate → Critique → Revise loop for better accuracy",
+)
+async def analyze_with_self_critique(request: FraudAnalysisRequest):
+    """Analyze transaction using Self-Critique pattern."""
+    logger.info("Starting Self-Critique analysis")
+
+    self_critique = SelfCritiquePattern()
+    llm_client = get_llm_client()
+
+    result = await self_critique.execute(
+        transaction=request.transaction.model_dump(),
+        llm_client=llm_client,
+        max_iterations=2,
+    )
+
+    return {
+        "pattern": "Self-Critique",
+        "result": result,
+        "revisions": result.get("revision_count", 0),
+    }
+
+
+class ReflectionRequest(BaseModel):
+    """Request for reflection pattern."""
+    transaction: dict
+    initial_decision: Optional[dict] = None
+
+
+@router.post(
+    "/analyze/reflection",
+    summary="Validate decision with Reflection",
+    description="Reflect on decision against policies and reasoning chain",
+)
+async def analyze_with_reflection(
+    request: ReflectionRequest,
+):
+    """Validate decision using Reflection pattern."""
+    logger.info("Starting Reflection validation")
+
+    llm_client = get_llm_client()
+
+    # If no initial decision provided, make a quick one
+    if not request.initial_decision:
+        fraud_service = get_fraud_service()
+        from app.models.fraud import Transaction
+        txn = Transaction(**request.transaction)
+        analysis = await fraud_service.analyze_transaction(txn)
+        initial_decision = {
+            "is_fraud": analysis.prediction.is_fraud,
+            "risk_score": analysis.prediction.risk_score,
+            "confidence": analysis.prediction.confidence,
+            "reasoning": analysis.prediction.explanation,
+        }
+    else:
+        initial_decision = request.initial_decision
+
+    # Reflection
+    reflection = ReflectionPattern()
+    policies = [
+        "TRANSFER > 100k requires verification",
+        "Balance inconsistencies = automatic fraud flag",
+        "CASH_OUT inherently risky",
+    ]
+
+    result = await reflection.execute(
+        decision=initial_decision,
+        transaction=request.transaction,  # Already a dict
+        policies=policies,
+        llm_client=llm_client,
+    )
+
+    return {
+        "pattern": "Reflection",
+        "result": result,
+        "should_escalate": result.get("should_escalate", False),
+    }
+
+
+@router.get(
+    "/prompts/few-shot-examples",
+    summary="Get few-shot examples",
+    description="Get curated few-shot examples for fraud detection",
+)
+async def get_few_shot_examples(count: int = 5, ensure_diversity: bool = True):
+    """Get few-shot learning examples."""
+    few_shot_mgr = get_few_shot_manager()
+    examples = few_shot_mgr.select_examples(count=count, ensure_diversity=ensure_diversity)
+
+    return {
+        "examples": [e.model_dump() for e in examples],
+        "count": len(examples),
+        "formatted": few_shot_mgr.format_examples(examples),
+    }
+
+
+@router.post(
+    "/prompts/compress",
+    summary="Compress prompt",
+    description="Compress prompt while preserving critical information",
+)
+async def compress_prompt(prompt_text: dict):
+    """Compress a prompt to fit token budget."""
+    text = prompt_text.get("text", "")
+    max_tokens = prompt_text.get("max_tokens", 1500)
+
+    compressed = PromptCompressor.compress(text, max_tokens=max_tokens)
+
+    return {
+        "original_length": len(text),
+        "compressed_length": len(compressed),
+        "compression_ratio": len(compressed) / len(text) if text else 0,
+        "estimated_tokens": len(compressed) // 4,
+        "compressed_text": compressed,
+    }
+
+
+@router.get(
+    "/prompts/output-schema",
+    summary="Get output schema specification",
+    description="Get JSON schema for fraud decision output",
+)
+async def get_output_schema():
+    """Get fraud decision output schema."""
+    schema = OutputFormatter.FRAUD_DECISION_SCHEMA
+    formatted = OutputFormatter.format_schema_prompt(schema)
+
+    return {
+        "schema": schema.model_dump(),
+        "formatted_prompt": formatted,
+    }
+
+
+@router.post(
+    "/prompts/validate-output",
+    summary="Validate LLM output",
+    description="Validate LLM output against fraud decision schema",
+)
+async def validate_llm_output(output: dict):
+    """Validate LLM output against schema."""
+    output_json = json.dumps(output.get("output", {}))
+    schema = OutputFormatter.FRAUD_DECISION_SCHEMA
+
+    is_valid, error = OutputFormatter.validate_output(output_json, schema)
+
+    return {
+        "is_valid": is_valid,
+        "error": error,
+        "schema_name": schema.schema_name,
+    }
+
+
+@router.get(
+    "/prompts/role-playing",
+    summary="Get role-playing instruction",
+    description="Get fraud specialist role-playing prompt",
+)
+async def get_role_playing_prompt():
+    """Get role-playing instruction for LLM."""
+    role_prompt = RolePlayingInstructor.fraud_specialist_role()
+
+    return {
+        "role": "Fraud Detection Specialist",
+        "prompt": role_prompt,
+        "benefits": [
+            "Better alignment with expert behavior",
+            "More structured analysis",
+            "Clearer explanations",
+            "Systematic evidence gathering",
+        ],
+    }
