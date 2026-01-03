@@ -985,3 +985,381 @@ async def get_role_playing_prompt():
             "Systematic evidence gathering",
         ],
     }
+
+
+# =====================================================================
+# AGENT-BASED ENDPOINTS
+# =====================================================================
+
+from app.agents import (
+    FraudDetectionAgent,
+    ManagerWorkerSystem,
+    PlannerExecutorCriticSystem,
+    DebateSystem,
+    RoleSpecializedSystem,
+    SwarmSystem,
+    MemoryType,
+)
+
+
+class AgentAnalysisRequest(BaseModel):
+    """Request for agent-based analysis."""
+    transaction_id: str
+    amount: float
+    type: str
+    oldbalanceOrg: float
+    newbalanceOrig: float
+    oldbalanceDest: float
+    newbalanceDest: float
+    nameOrig: str
+    nameDest: str
+
+
+@router.post(
+    "/agents/single",
+    summary="Single-agent fraud analysis",
+    description="Analyze transaction using single autonomous agent with observation, planning, execution, reasoning, decision, and reflection",
+)
+async def analyze_with_single_agent(request: AgentAnalysisRequest):
+    """
+    Analyze transaction using single-agent architecture.
+    
+    The agent follows a complete reasoning loop:
+    1. Observation: Parse transaction and identify anomalies
+    2. Planning: Create execution plan
+    3. Execution: Run tools (risk scoring, policy lookup, history check)
+    4. Reasoning: Chain-of-thought analysis
+    5. Decision: Make fraud determination
+    6. Reflection: Self-critique and escalation logic
+    """
+    agent = FraudDetectionAgent(max_steps=20)
+    
+    transaction = {
+        "amount": request.amount,
+        "type": request.type,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+        "oldbalanceDest": request.oldbalanceDest,
+        "newbalanceDest": request.newbalanceDest,
+        "nameOrig": request.nameOrig,
+        "nameDest": request.nameDest,
+    }
+    
+    result = await agent.analyze(transaction, request.transaction_id)
+    
+    return {
+        "agent_type": "single",
+        "transaction_id": result.transaction_id,
+        "is_fraud": result.is_fraud,
+        "risk_score": result.risk_score,
+        "risk_level": result.risk_level,
+        "confidence": result.confidence,
+        "explanation": result.explanation,
+        "observations": result.observations,
+        "anomalies": result.anomalies,
+        "reasoning_steps": result.reasoning_steps,
+        "tool_results": result.tool_results,
+        "should_escalate": result.should_escalate,
+        "escalation_reason": result.escalation_reason,
+        "self_critique": result.self_critique,
+        "total_steps": result.total_steps,
+        "termination_reason": result.termination_reason,
+        "execution_time": result.execution_time,
+    }
+
+
+@router.post(
+    "/agents/manager-worker",
+    summary="Manager-Worker multi-agent analysis",
+    description="Analyze using manager coordinating multiple worker agents in parallel",
+)
+async def analyze_with_manager_worker(request: AgentAnalysisRequest):
+    """
+    Analyze using manager-worker pattern.
+    
+    Manager delegates to 3 worker agents who analyze in parallel.
+    Results are aggregated using majority voting.
+    """
+    system = ManagerWorkerSystem(num_workers=3)
+    
+    transaction = {
+        "amount": request.amount,
+        "type": request.type,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+        "oldbalanceDest": request.oldbalanceDest,
+        "newbalanceDest": request.newbalanceDest,
+        "nameOrig": request.nameOrig,
+        "nameDest": request.nameDest,
+    }
+    
+    result = await system.analyze(transaction, request.transaction_id)
+    
+    return {
+        "agent_type": "manager-worker",
+        "transaction_id": result.transaction_id,
+        "is_fraud": result.is_fraud,
+        "risk_score": result.risk_score,
+        "confidence": result.confidence,
+        "explanation": result.explanation,
+        "consensus_strategy": result.consensus_strategy,
+        "agreement_level": result.agreement_level,
+        "num_agents": len(result.agent_results),
+        "total_time": result.total_time,
+    }
+
+
+@router.post(
+    "/agents/planner-executor-critic",
+    summary="Planner-Executor-Critic analysis",
+    description="Analyze using three specialized roles: planner creates strategy, executor performs analysis, critic validates results",
+)
+async def analyze_with_planner_executor_critic(request: AgentAnalysisRequest):
+    """
+    Analyze using planner-executor-critic pattern.
+    
+    Three specialized agents:
+    - Planner: Creates analysis strategy
+    - Executor: Performs detailed analysis
+    - Critic: Validates executor's results
+    """
+    system = PlannerExecutorCriticSystem()
+    
+    transaction = {
+        "amount": request.amount,
+        "type": request.type,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+        "oldbalanceDest": request.oldbalanceDest,
+        "newbalanceDest": request.newbalanceDest,
+        "nameOrig": request.nameOrig,
+        "nameDest": request.nameDest,
+    }
+    
+    result = await system.analyze(transaction, request.transaction_id)
+    
+    return {
+        "agent_type": "planner-executor-critic",
+        "transaction_id": result.transaction_id,
+        "is_fraud": result.is_fraud,
+        "risk_score": result.risk_score,
+        "confidence": result.confidence,
+        "explanation": result.explanation,
+        "consensus_strategy": result.consensus_strategy,
+        "agreement_level": result.agreement_level,
+        "total_time": result.total_time,
+    }
+
+
+@router.post(
+    "/agents/debate",
+    summary="Debate-based analysis",
+    description="Analyze using adversarial debate: prosecutor argues for fraud, defense argues legitimate, judge makes final ruling",
+)
+async def analyze_with_debate(request: AgentAnalysisRequest):
+    """
+    Analyze using debate pattern.
+    
+    Three agents debate the fraud classification:
+    - Prosecutor: Argues transaction IS fraud
+    - Defense: Argues transaction is legitimate
+    - Judge: Makes final ruling based on arguments
+    """
+    system = DebateSystem()
+    
+    transaction = {
+        "amount": request.amount,
+        "type": request.type,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+        "oldbalanceDest": request.oldbalanceDest,
+        "newbalanceDest": request.newbalanceDest,
+        "nameOrig": request.nameOrig,
+        "nameDest": request.nameDest,
+    }
+    
+    result = await system.analyze(transaction, request.transaction_id)
+    
+    return {
+        "agent_type": "debate",
+        "transaction_id": result.transaction_id,
+        "is_fraud": result.is_fraud,
+        "risk_score": result.risk_score,
+        "confidence": result.confidence,
+        "explanation": result.explanation,
+        "consensus_strategy": result.consensus_strategy,
+        "agreement_level": result.agreement_level,
+        "total_time": result.total_time,
+    }
+
+
+@router.post(
+    "/agents/role-specialized",
+    summary="Role-specialized multi-agent analysis",
+    description="Analyze using domain expert agents: transaction analyst, account specialist, and policy expert",
+)
+async def analyze_with_role_specialized(request: AgentAnalysisRequest):
+    """
+    Analyze using role-specialized pattern.
+    
+    Three domain experts collaborate:
+    - Transaction Analyst: Examines transaction patterns
+    - Account Specialist: Analyzes account history
+    - Policy Expert: Checks compliance and policies
+    
+    Uses weighted voting with expertise weights.
+    """
+    system = RoleSpecializedSystem()
+    
+    transaction = {
+        "amount": request.amount,
+        "type": request.type,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+        "oldbalanceDest": request.oldbalanceDest,
+        "newbalanceDest": request.newbalanceDest,
+        "nameOrig": request.nameOrig,
+        "nameDest": request.nameDest,
+    }
+    
+    result = await system.analyze(transaction, request.transaction_id)
+    
+    return {
+        "agent_type": "role-specialized",
+        "transaction_id": result.transaction_id,
+        "is_fraud": result.is_fraud,
+        "risk_score": result.risk_score,
+        "confidence": result.confidence,
+        "explanation": result.explanation,
+        "consensus_strategy": result.consensus_strategy,
+        "agreement_level": result.agreement_level,
+        "total_time": result.total_time,
+    }
+
+
+@router.post(
+    "/agents/swarm",
+    summary="Swarm intelligence analysis",
+    description="Analyze using swarm of 5 agents with consensus voting",
+)
+async def analyze_with_swarm(request: AgentAnalysisRequest, swarm_size: int = 5, threshold: float = 0.6):
+    """
+    Analyze using swarm intelligence pattern.
+    
+    Multiple agents (default 5) analyze in parallel and vote on result.
+    Consensus requires threshold fraction agreement (default 60%).
+    Demonstrates emergent intelligence from collective.
+    """
+    system = SwarmSystem(swarm_size=swarm_size, consensus_threshold=threshold)
+    
+    transaction = {
+        "amount": request.amount,
+        "type": request.type,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+        "oldbalanceDest": request.oldbalanceDest,
+        "newbalanceDest": request.newbalanceDest,
+        "nameOrig": request.nameOrig,
+        "nameDest": request.nameDest,
+    }
+    
+    result = await system.analyze(transaction, request.transaction_id)
+    
+    return {
+        "agent_type": "swarm",
+        "transaction_id": result.transaction_id,
+        "is_fraud": result.is_fraud,
+        "risk_score": result.risk_score,
+        "confidence": result.confidence,
+        "explanation": result.explanation,
+        "consensus_strategy": result.consensus_strategy,
+        "agreement_level": result.agreement_level,
+        "swarm_size": swarm_size,
+        "consensus_threshold": threshold,
+        "total_time": result.total_time,
+    }
+
+
+@router.get(
+    "/agents/memory/{transaction_id}",
+    summary="Get agent memory contents",
+    description="Inspect agent memory for debugging and transparency",
+)
+async def get_agent_memory(transaction_id: str, memory_type: Optional[str] = None):
+    """
+    Get agent memory contents.
+    
+    Useful for debugging and understanding agent reasoning.
+    Memory types: SHORT_TERM, WORKING, LONG_TERM
+    """
+    agent = FraudDetectionAgent()
+    
+    # Convert string to MemoryType if provided
+    mem_type = None
+    if memory_type:
+        try:
+            mem_type = MemoryType[memory_type.upper()]
+        except KeyError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid memory type. Must be one of: SHORT_TERM, WORKING, LONG_TERM"
+            )
+    
+    memories = agent.get_memory_contents(mem_type)
+    stats = agent.get_memory_stats()
+    
+    return {
+        "transaction_id": transaction_id,
+        "memory_type": memory_type or "all",
+        "memories": memories,
+        "statistics": stats,
+    }
+
+
+@router.get(
+    "/agents/tools",
+    summary="List available agent tools",
+    description="Get list of tools available to agents",
+)
+async def list_agent_tools():
+    """List all registered agent tools with schemas."""
+    from app.agents.tool_registry import get_tool_registry
+    
+    registry = get_tool_registry()
+    tools = registry.list_tools()
+    schemas = registry.list_schemas()
+    
+    return {
+        "total_tools": len(tools),
+        "tools": tools,
+        "schemas": [schema.dict() for schema in schemas],
+    }
+
+
+@router.post(
+    "/agents/tools/execute",
+    summary="Execute agent tool manually",
+    description="Execute a specific agent tool for testing/debugging",
+)
+async def execute_agent_tool(tool_name: str, parameters: dict):
+    """Execute an agent tool manually."""
+    from app.agents.tool_registry import get_tool_registry
+    
+    registry = get_tool_registry()
+    
+    try:
+        result = await registry.execute(tool_name, parameters)
+        
+        return {
+            "tool_name": result.tool_name,
+            "success": result.success,
+            "result": result.result,
+            "error": result.error,
+            "execution_time": result.execution_time,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Tool execution failed: {str(e)}"
+        )
+
