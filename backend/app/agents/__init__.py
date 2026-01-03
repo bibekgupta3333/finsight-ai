@@ -33,6 +33,17 @@ from app.agents.autonomy_controller import (
     EscalationTicket,
     StopCondition,
 )
+from app.agents.tool_recovery import (
+    ToolRecoveryManager,
+    ToolHealth,
+    FailureCategory,
+    RecoveryStrategy,
+    ToolHealthCheck,
+    FailureRootCause,
+    Incident,
+    FallbackChain,
+    PartialResult,
+)
 
 __all__ = [
     # Single Agent
@@ -70,4 +81,14 @@ __all__ = [
     "EscalationReason",
     "EscalationTicket",
     "StopCondition",
+    # Tool Recovery
+    "ToolRecoveryManager",
+    "ToolHealth",
+    "FailureCategory",
+    "RecoveryStrategy",
+    "ToolHealthCheck",
+    "FailureRootCause",
+    "Incident",
+    "FallbackChain",
+    "PartialResult",
 ]

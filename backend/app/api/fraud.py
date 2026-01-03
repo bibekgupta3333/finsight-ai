@@ -12,8 +12,15 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Header, HTTPException, Request, status
+from fastapi import APIRouter, Header, HTTPException, Request, status, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
+
+try:
+    from sse_starlette.sse import EventSourceResponse
+    SSE_AVAILABLE = True
+except ImportError:
+    EventSourceResponse = None
+    SSE_AVAILABLE = False
 
 from app.core.checkpoint import Checkpoint
 from app.core.circuit_breaker import get_circuit_breaker
@@ -21,6 +28,14 @@ from app.core.retry import RetryConfig, retry_with_backoff
 from app.core.session import get_session_manager
 from app.core.state_machine import AgentState
 from app.core.task_queue import get_task_queue
+from app.core.async_patterns import (
+    WorkerPool,
+    WorkerPoolConfig,
+    WebSocketManager,
+    ResourceManager,
+    TaskPriority,
+    sse_event_generator,
+)
 from app.middleware import get_correlation_id
 from app.models.fraud import (
     BatchFraudAnalysisRequest,
@@ -34,6 +49,11 @@ from app.services.fraud_detection import get_fraud_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/fraud", tags=["fraud-detection"])
+
+# Global instances for async patterns
+_worker_pool: Optional[WorkerPool] = None
+_websocket_manager = WebSocketManager()
+_resource_manager = ResourceManager()
 
 
 @router.post(
@@ -1823,5 +1843,454 @@ async def check_goal_drift(
         raise HTTPException(
             status_code=500,
             detail=f"Goal drift check failed: {str(e)}"
+        )
+
+
+# ============================================================================
+# Section 3.7: Tool & Failure Recovery Endpoints
+# ============================================================================
+
+@router.post(
+    "/recovery/check-health",
+    summary="Check tool health",
+    description="Run health check for a tool",
+)
+async def check_tool_health(
+    tool_name: str,
+):
+    """Check health of a tool."""
+    from app.agents.tool_recovery import ToolRecoveryManager
+
+    recovery_manager = ToolRecoveryManager()
+
+    # Simple health check function
+    async def health_check():
+        await asyncio.sleep(0.1)  # Simulate check
+        return True
+
+    try:
+        health = await recovery_manager.check_tool_health(tool_name, health_check)
+        return health.dict()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Health check failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/recovery/analyze-failure",
+    summary="Analyze failure root cause",
+    description="Perform root cause analysis on a failure",
+)
+async def analyze_failure_root_cause(
+    tool_name: str,
+    error_message: str,
+    context: dict = None,
+):
+    """Analyze root cause of a failure."""
+    from app.agents.tool_recovery import ToolRecoveryManager
+
+    recovery_manager = ToolRecoveryManager()
+
+    try:
+        # Create exception from message
+        exception = Exception(error_message)
+
+        root_cause = recovery_manager.analyze_failure_root_cause(
+            tool_name=tool_name,
+            exception=exception,
+            context=context or {},
+        )
+
+        return root_cause.dict()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Root cause analysis failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/recovery/register-fallback",
+    summary="Register fallback chain",
+    description="Register fallback chain for a tool",
+)
+async def register_fallback_chain(
+    primary: str,
+    secondary: str = None,
+    tertiary: str = None,
+    cache_fallback: bool = True,
+):
+    """Register fallback chain."""
+    from app.agents.tool_recovery import ToolRecoveryManager, FallbackChain
+
+    recovery_manager = ToolRecoveryManager()
+
+    try:
+        chain = FallbackChain(
+            primary=primary,
+            secondary=secondary,
+            tertiary=tertiary,
+            cache_fallback=cache_fallback,
+        )
+
+        recovery_manager.register_fallback_chain(chain)
+
+        return {
+            "status": "registered",
+            "chain": chain.dict(),
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Fallback registration failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/recovery/aggregate-partial",
+    summary="Aggregate partial results",
+    description="Aggregate partial results from failed operations",
+)
+async def aggregate_partial_results(
+    tool_name: str,
+    completed_parts: list,
+    failed_parts: list,
+    total_parts: int,
+):
+    """Aggregate partial results."""
+    from app.agents.tool_recovery import ToolRecoveryManager
+
+    recovery_manager = ToolRecoveryManager()
+
+    try:
+        partial = recovery_manager.aggregate_partial_results(
+            tool_name=tool_name,
+            completed_parts=completed_parts,
+            failed_parts=failed_parts,
+            total_parts=total_parts,
+        )
+
+        return partial.dict()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Partial result aggregation failed: {str(e)}"
+        )
+
+
+@router.get(
+    "/recovery/health-status",
+    summary="Get health status",
+    description="Get health status for all tools",
+)
+async def get_health_status(
+    tool_name: str = None,
+):
+    """Get health status."""
+    from app.agents.tool_recovery import ToolRecoveryManager
+
+    recovery_manager = ToolRecoveryManager()
+
+    try:
+        return recovery_manager.get_health_status(tool_name)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Health status retrieval failed: {str(e)}"
+        )
+
+
+@router.get(
+    "/recovery/incidents",
+    summary="Get incidents",
+    description="Get incident reports",
+)
+async def get_incidents(
+    severity: str = None,
+):
+    """Get incident reports."""
+    from app.agents.tool_recovery import ToolRecoveryManager
+
+    recovery_manager = ToolRecoveryManager()
+
+    try:
+        incidents = recovery_manager.get_incidents(severity=severity)
+        return {
+            "total_incidents": len(incidents),
+            "incidents": [i.dict() for i in incidents],
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Incident retrieval failed: {str(e)}"
+        )
+
+
+@router.get(
+    "/recovery/statistics",
+    summary="Get recovery statistics",
+    description="Get recovery and incident statistics",
+)
+async def get_recovery_statistics():
+    """Get recovery statistics."""
+    from app.agents.tool_recovery import ToolRecoveryManager
+
+    recovery_manager = ToolRecoveryManager()
+
+    try:
+        return recovery_manager.get_recovery_statistics()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Statistics retrieval failed: {str(e)}"
+        )
+
+
+# ============================================================================
+# Section 3.8: Async & Production Patterns Endpoints
+# ============================================================================
+
+async def get_worker_pool() -> WorkerPool:
+    """Get or create worker pool."""
+    global _worker_pool
+    if _worker_pool is None:
+        _worker_pool = WorkerPool(WorkerPoolConfig(max_workers=5))
+        await _worker_pool.start()
+    return _worker_pool
+
+
+@router.post(
+    "/async/submit-task",
+    summary="Submit background task",
+    description="Submit a task for background processing",
+)
+async def submit_background_task(
+    task_name: str,
+    priority: str = "NORMAL",
+    metadata: dict = None,
+):
+    """Submit background task."""
+    pool = await get_worker_pool()
+
+    try:
+        # Example task function
+        async def example_task():
+            await asyncio.sleep(2.0)
+            return {"status": "completed", "task": task_name}
+
+        task_id = await pool.submit_task(
+            name=task_name,
+            func=example_task,
+            priority=TaskPriority(priority),
+            metadata=metadata,
+        )
+
+        return {
+            "task_id": task_id,
+            "status": "submitted",
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Task submission failed: {str(e)}"
+        )
+
+
+@router.get(
+    "/async/task/{task_id}",
+    summary="Get task status",
+    description="Get background task status",
+)
+async def get_background_task(task_id: str):
+    """Get background task status."""
+    pool = await get_worker_pool()
+
+    try:
+        task = await pool.get_task(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        return task.dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Task retrieval failed: {str(e)}"
+        )
+
+
+@router.delete(
+    "/async/task/{task_id}",
+    summary="Cancel task",
+    description="Cancel a background task",
+)
+async def cancel_background_task(task_id: str):
+    """Cancel background task."""
+    pool = await get_worker_pool()
+
+    try:
+        cancelled = await pool.cancel_task(task_id)
+        return {
+            "task_id": task_id,
+            "cancelled": cancelled,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Task cancellation failed: {str(e)}"
+        )
+
+
+@router.get(
+    "/async/worker-stats",
+    summary="Get worker pool statistics",
+    description="Get worker pool statistics",
+)
+async def get_worker_statistics():
+    """Get worker pool statistics."""
+    pool = await get_worker_pool()
+
+    try:
+        return pool.get_statistics()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Statistics retrieval failed: {str(e)}"
+        )
+
+
+@router.websocket("/ws/{client_id}")
+async def websocket_endpoint(websocket: WebSocket, client_id: str):
+    """WebSocket endpoint for real-time updates."""
+    await _websocket_manager.connect(client_id, websocket)
+
+    try:
+        while True:
+            # Receive messages from client
+            data = await websocket.receive_json()
+
+            # Handle subscription requests
+            if data.get("action") == "subscribe":
+                topic = data.get("topic")
+                await _websocket_manager.subscribe(client_id, topic)
+                await websocket.send_json({
+                    "type": "subscribed",
+                    "topic": topic,
+                })
+
+            elif data.get("action") == "unsubscribe":
+                topic = data.get("topic")
+                await _websocket_manager.unsubscribe(client_id, topic)
+                await websocket.send_json({
+                    "type": "unsubscribed",
+                    "topic": topic,
+                })
+
+    except WebSocketDisconnect:
+        _websocket_manager.disconnect(client_id)
+    except Exception as e:
+        logger.error(f"WebSocket error for client {client_id}: {e}")
+        _websocket_manager.disconnect(client_id)
+
+
+@router.post(
+    "/async/broadcast",
+    summary="Broadcast to WebSocket clients",
+    description="Broadcast message to WebSocket subscribers",
+)
+async def broadcast_message(
+    topic: str,
+    message: dict,
+):
+    """Broadcast message to WebSocket clients."""
+    try:
+        await _websocket_manager.broadcast(topic, message)
+        return {
+            "status": "broadcasted",
+            "topic": topic,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Broadcast failed: {str(e)}"
+        )
+
+
+@router.get(
+    "/async/websocket-stats",
+    summary="Get WebSocket statistics",
+    description="Get WebSocket connection statistics",
+)
+async def get_websocket_statistics():
+    """Get WebSocket statistics."""
+    try:
+        return _websocket_manager.get_statistics()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Statistics retrieval failed: {str(e)}"
+        )
+
+
+@router.get(
+    "/async/stream/{topic}",
+    summary="Server-Sent Events stream",
+    description="Stream events via Server-Sent Events",
+)
+async def sse_stream(topic: str, interval: float = 1.0, max_events: int = 10):
+    """Server-Sent Events endpoint."""
+    if not SSE_AVAILABLE:
+        raise HTTPException(
+            status_code=501,
+            detail="SSE not available. Install sse-starlette package."
+        )
+
+    try:
+        return EventSourceResponse(
+            sse_event_generator(topic, interval, max_events)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"SSE stream failed: {str(e)}"
+        )
+
+
+@router.get(
+    "/async/resource-stats",
+    summary="Get resource statistics",
+    description="Get resource manager statistics",
+)
+async def get_resource_statistics():
+    """Get resource manager statistics."""
+    try:
+        return _resource_manager.get_statistics()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Statistics retrieval failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/async/cleanup-resources",
+    summary="Cleanup idle resources",
+    description="Cleanup idle resources",
+)
+async def cleanup_idle_resources(idle_timeout: float = 300.0):
+    """Cleanup idle resources."""
+    try:
+        cleaned = await _resource_manager.cleanup_idle(idle_timeout)
+        return {
+            "cleaned_count": cleaned,
+            "idle_timeout": idle_timeout,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Resource cleanup failed: {str(e)}"
         )
 
