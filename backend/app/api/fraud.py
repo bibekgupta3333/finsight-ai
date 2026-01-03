@@ -1363,3 +1363,465 @@ async def execute_agent_tool(tool_name: str, parameters: dict):
             detail=f"Tool execution failed: {str(e)}"
         )
 
+
+# ==================== Planning & Reasoning Endpoints ====================
+
+
+@router.post(
+    "/planning/create-plan",
+    summary="Create task execution plan",
+    description="Generate DAG-based execution plan for fraud analysis",
+)
+async def create_task_plan(request: AgentAnalysisRequest):
+    """Create task execution plan with dependency tracking."""
+    from app.agents.task_planner import TaskPlanner
+
+    planner = TaskPlanner()
+
+    transaction = {
+        "transaction_id": request.transaction_id,
+        "type": request.type,
+        "amount": request.amount,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+        "oldbalanceDest": request.oldbalanceDest,
+        "newbalanceDest": request.newbalanceDest,
+    }
+
+    try:
+        dag = planner.create_plan(
+            transaction=transaction,
+            goal="determine_fraud",
+            constraints={"max_duration": 30.0}
+        )
+
+        # Get execution order
+        execution_order = planner.get_execution_order(dag)
+        estimated_duration = planner.estimate_duration(dag, parallel=True)
+
+        return {
+            "transaction_id": request.transaction_id,
+            "total_tasks": len(dag.tasks),
+            "tasks": {
+                task_id: {
+                    "id": task.id,
+                    "type": task.type.value,
+                    "description": task.description,
+                    "dependencies": task.dependencies,
+                    "estimated_duration": task.estimated_duration,
+                    "status": task.status.value,
+                }
+                for task_id, task in dag.tasks.items()
+            },
+            "execution_order": execution_order,
+            "estimated_duration": estimated_duration,
+            "has_cycle": dag.has_cycle(),
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Plan creation failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/reasoning/test-hypothesis",
+    summary="Test fraud hypothesis",
+    description="Test hypothesis against evidence using structured reasoning",
+)
+async def test_hypothesis(
+    hypothesis: str,
+    evidence: dict,
+):
+    """Test fraud hypothesis against evidence."""
+    from app.agents.reasoning_engine import ReasoningEngine, Hypothesis
+
+    engine = ReasoningEngine()
+
+    hyp = Hypothesis(
+        id="h1",
+        statement=hypothesis,
+        confidence=0.5,
+    )
+
+    try:
+        result = engine.test_hypothesis(hyp, evidence)
+
+        return {
+            "hypothesis": result.statement,
+            "status": result.status.value,
+            "confidence": result.confidence,
+            "supporting_evidence": result.supporting_evidence,
+            "refuting_evidence": result.refuting_evidence,
+            "uncertainty_sources": [s.value for s in result.uncertainty_sources],
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Hypothesis testing failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/reasoning/counterfactual",
+    summary="Counterfactual reasoning",
+    description="Perform what-if analysis on transaction",
+)
+async def counterfactual_analysis(
+    request: AgentAnalysisRequest,
+    what_ifs: list,  # List of modifications
+):
+    """Perform counterfactual reasoning (what-if scenarios)."""
+    from app.agents.reasoning_engine import ReasoningEngine
+
+    engine = ReasoningEngine()
+
+    transaction = {
+        "type": request.type,
+        "amount": request.amount,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+    }
+
+    # Baseline decision (heuristic)
+    decision = {
+        "is_fraud": request.amount > 100000,
+        "risk_score": min(100, request.amount / 2000),
+        "confidence": 0.7,
+    }
+
+    try:
+        scenarios = engine.counterfactual_reasoning(
+            transaction=transaction,
+            decision=decision,
+            what_ifs=what_ifs,
+        )
+
+        return {
+            "transaction_id": request.transaction_id,
+            "baseline_decision": decision,
+            "scenarios": [
+                {
+                    "id": s.id,
+                    "description": s.description,
+                    "modifications": s.modifications,
+                    "predicted_outcome": s.predicted_outcome,
+                    "sensitivity": s.sensitivity,
+                }
+                for s in scenarios
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Counterfactual analysis failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/reasoning/self-critique",
+    summary="Self-critique reasoning",
+    description="Critique agent's reasoning for soundness and completeness",
+)
+async def self_critique(
+    reasoning_steps: list,
+    decision: dict,
+    evidence: dict,
+):
+    """Perform self-critique of reasoning chain."""
+    from app.agents.reasoning_engine import ReasoningEngine
+
+    engine = ReasoningEngine()
+
+    try:
+        critique = engine.self_critique(
+            reasoning_steps=reasoning_steps,
+            decision=decision,
+            evidence=evidence,
+        )
+
+        return {
+            "is_sound": critique["is_sound"],
+            "is_complete": critique["is_complete"],
+            "contradictions": critique["contradictions"],
+            "missing_evidence": critique["missing_evidence"],
+            "unsupported_claims": critique["unsupported_claims"],
+            "suggestions": critique["suggestions"],
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Self-critique failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/reasoning/estimate-uncertainty",
+    summary="Estimate decision uncertainty",
+    description="Quantify uncertainty from multiple sources",
+)
+async def estimate_uncertainty(
+    evidence: dict,
+    reasoning_steps: list,
+    decision: dict,
+):
+    """Estimate uncertainty in decision."""
+    from app.agents.reasoning_engine import ReasoningEngine
+
+    engine = ReasoningEngine()
+
+    try:
+        estimate = engine.estimate_uncertainty(
+            evidence=evidence,
+            reasoning_steps=reasoning_steps,
+            decision=decision,
+        )
+
+        return {
+            "confidence": estimate.confidence,
+            "sources": {k.value: v for k, v in estimate.sources.items()},
+            "propagated": estimate.propagated,
+            "explanation": estimate.explanation,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Uncertainty estimation failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/reasoning/check-constraints",
+    summary="Check constraint satisfaction",
+    description="Validate decision against hard and soft constraints",
+)
+async def check_constraints(
+    decision: dict,
+    constraints: list,  # List of constraint dicts
+):
+    """Check if decision satisfies constraints."""
+    from app.agents.reasoning_engine import (
+        ReasoningEngine,
+        Constraint,
+        ConstraintType,
+    )
+
+    engine = ReasoningEngine()
+
+    # Convert to Constraint objects
+    constraint_objs = [
+        Constraint(
+            id=c.get("id", f"c{i}"),
+            description=c.get("description", ""),
+            type=ConstraintType[c.get("type", "SOFT").upper()],
+            condition=c.get("condition", ""),
+        )
+        for i, c in enumerate(constraints)
+    ]
+
+    try:
+        all_satisfied, violated = engine.satisfy_constraints(
+            decision=decision,
+            constraints=constraint_objs,
+        )
+
+        return {
+            "all_satisfied": all_satisfied,
+            "total_constraints": len(constraint_objs),
+            "violated_count": len(violated),
+            "violated": [
+                {
+                    "id": c.id,
+                    "description": c.description,
+                    "type": c.type.value,
+                    "violation_message": c.violation_message,
+                }
+                for c in violated
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Constraint checking failed: {str(e)}"
+        )
+
+
+# ==================== Autonomy Control Endpoints ====================
+
+
+@router.post(
+    "/autonomy/get-level",
+    summary="Get autonomy level",
+    description="Determine appropriate autonomy level for decision",
+)
+async def get_autonomy_level(
+    decision: dict,
+    evidence: dict,
+):
+    """Get appropriate autonomy level."""
+    from app.agents.autonomy_controller import AutonomyController
+
+    controller = AutonomyController(
+        max_steps=10,
+        timeout_seconds=30.0,
+        min_confidence=0.7,
+    )
+
+    try:
+        level = controller.get_autonomy_level(decision, evidence)
+
+        return {
+            "autonomy_level": level.value,
+            "decision_confidence": decision.get("confidence", 0.5),
+            "transaction_amount": evidence.get("amount", 0),
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Autonomy level determination failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/autonomy/check-escalation",
+    summary="Check if should escalate",
+    description="Determine if decision should be escalated to human",
+)
+async def check_escalation(
+    request: AgentAnalysisRequest,
+    decision: dict,
+    reasoning_steps: list = None,
+):
+    """Check if decision should be escalated to human."""
+    from app.agents.autonomy_controller import AutonomyController
+
+    controller = AutonomyController(
+        max_steps=10,
+        timeout_seconds=30.0,
+        min_confidence=0.7,
+    )
+
+    evidence = {
+        "amount": request.amount,
+        "type": request.type,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+    }
+
+    try:
+        should_escalate, reason = controller.should_escalate(
+            decision=decision,
+            evidence=evidence,
+            reasoning_steps=reasoning_steps,
+        )
+
+        response = {
+            "should_escalate": should_escalate,
+            "reason": reason.value if reason else None,
+        }
+
+        if should_escalate:
+            ticket = controller.create_escalation(
+                transaction_id=request.transaction_id,
+                reason=reason,
+                decision=decision,
+                evidence=evidence,
+                reasoning_steps=reasoning_steps,
+            )
+            response["escalation_ticket"] = {
+                "id": ticket.id,
+                "transaction_id": ticket.transaction_id,
+                "reason": ticket.reason.value,
+                "explanation": ticket.explanation,
+                "priority": ticket.priority,
+                "suggested_decision": ticket.suggested_decision,
+            }
+
+        return response
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Escalation check failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/autonomy/check-stop-conditions",
+    summary="Check stop conditions",
+    description="Check if agent should stop execution",
+)
+async def check_stop_conditions(
+    step_count: int,
+    reasoning_steps: list = None,
+):
+    """Check if agent should stop execution."""
+    from app.agents.autonomy_controller import AutonomyController
+
+    controller = AutonomyController(
+        max_steps=10,
+        timeout_seconds=30.0,
+        min_confidence=0.7,
+    )
+
+    controller.start_session(goal="determine_fraud")
+
+    try:
+        should_stop, condition = controller.check_stop_conditions(
+            step_count=step_count,
+            reasoning_steps=reasoning_steps or [],
+        )
+
+        return {
+            "should_stop": should_stop,
+            "condition": {
+                "type": condition.type.value,
+                "triggered": condition.triggered,
+                "threshold": condition.threshold,
+                "current_value": condition.current_value,
+                "message": condition.message,
+            } if condition else None,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Stop condition check failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/autonomy/check-goal-drift",
+    summary="Check goal drift",
+    description="Detect if agent has drifted from original goal",
+)
+async def check_goal_drift(
+    goal: str,
+    current_focus: str,
+    reasoning_steps: list = None,
+):
+    """Check if agent has drifted from goal."""
+    from app.agents.autonomy_controller import AutonomyController
+
+    controller = AutonomyController()
+    controller.start_session(goal=goal)
+
+    try:
+        has_drifted, warnings = controller.check_goal_drift(
+            current_focus=current_focus,
+            reasoning_steps=reasoning_steps or [],
+        )
+
+        response = {
+            "has_drifted": has_drifted,
+            "warnings": warnings,
+        }
+
+        if has_drifted:
+            response["refocus_instruction"] = controller.refocus_on_goal()
+
+        return response
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Goal drift check failed: {str(e)}"
+        )
+

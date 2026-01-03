@@ -4,7 +4,7 @@
 ## Project Status Overview
 **Last Updated:** January 2, 2026
 **Project Phase:** Data Preparation Complete → Backend Development (Prompt Architecture & Advanced Reasoning)
-**Overall Completion:** 25%
+**Overall Completion:** 30%
 **Dataset:** PaySim Mobile Money (6.3M transactions)
 **Focus:** AGI-level end-to-end ML lifecycle
 
@@ -624,69 +624,88 @@ This project demonstrates mastery across all 4 core AGI competencies:
 
 ---
 
-### 3.6 Planning, Reasoning & Autonomy (NEW)
+### 3.6 Planning, Reasoning & Autonomy (NEW) ✅ (Completed: Jan 2, 2026)
 **AGI Dimension:** Reasoning Systems Design
 
-#### 3.6.1 Task Planning
-- [ ] **Task Decomposition**
-  - Break fraud analysis into subtasks
+#### 3.6.1 Task Planning ✅
+- [x] **Task Decomposition**
+  - Break fraud analysis into subtasks (7 tasks: observe, query_policy, calculate_risk, check_history, reason, decide, explain)
   - Identify dependencies (A before B)
-  - Create task DAG (directed acyclic graph)
-  - Estimate task duration
-- [ ] **Dependency Tracking**
-  - Track which tasks are complete
-  - Unblock dependent tasks
-  - Parallel execution of independent tasks
-- [ ] **Dynamic Replanning**
-  - Replan if new info emerges (e.g., found similar fraud case)
-  - Adapt to tool failures
-  - Shortcut if early decision possible
-- [ ] **Goal Validation**
-  - Is the goal achievable?
-  - Do we have necessary tools?
-  - Are constraints satisfiable?
+  - Create task DAG (directed acyclic graph) with cycle detection
+  - Estimate task duration (0.5s to 2.0s per task)
+- [x] **Dependency Tracking**
+  - Track which tasks are complete (TaskStatus enum: PENDING, READY, IN_PROGRESS, COMPLETED, FAILED, SKIPPED)
+  - Unblock dependent tasks via adjacency list
+  - Parallel execution of independent tasks (5 parallel levels from 7 tasks)
+- [x] **Dynamic Replanning**
+  - Replan if new info emerges (high_confidence → skip remaining tasks)
+  - Adapt to tool failures (add fallback tasks)
+  - Shortcut if early decision possible (mark as SKIPPED)
+- [x] **Goal Validation**
+  - Is the goal achievable? (check required tasks vs available)
+  - Do we have necessary tools? (validate before plan execution)
+  - Are constraints satisfiable? (duration, required_tools checks)
 
-#### 3.6.2 Reasoning Capabilities
-- [ ] **Self-Critique**
-  - "Is my reasoning sound?"
-  - "Did I consider all evidence?"
-  - "Are there contradictions?"
-- [ ] **Hypothesis Testing**
-  - Hypothesis: "This is fraud"
-  - Evidence: Transaction features
-  - Test: Check against policies
-  - Conclude: Reject/accept hypothesis
-- [ ] **Counterfactual Reasoning**
-  - "What if amount was 10x higher?"
-  - "What if this was CASH_OUT instead?"
-  - Sensitivity analysis
-- [ ] **Uncertainty Estimation**
+#### 3.6.2 Reasoning Capabilities ✅
+- [x] **Self-Critique**
+  - "Is my reasoning sound?" (contradiction detection in reasoning steps)
+  - "Did I consider all evidence?" (missing evidence tracking)
+  - "Are there contradictions?" (detect conflicting risk assessments)
+- [x] **Hypothesis Testing**
+  - Hypothesis: "This is fraud" (Hypothesis model with statement, confidence)
+  - Evidence: Transaction features (supporting/refuting evidence lists)
+  - Test: Check against policies (evidence-based validation)
+  - Conclude: Reject/accept hypothesis (HypothesisStatus: SUPPORTED, REFUTED, UNCERTAIN)
+- [x] **Counterfactual Reasoning**
+  - "What if amount was 10x higher?" (modification scenarios)
+  - "What if this was CASH_OUT instead?" (type change scenarios)
+  - Sensitivity analysis (normalized risk difference 0-1)
+- [x] **Uncertainty Estimation**
   - Confidence scores (0-1)
-  - Uncertainty sources (data, model, reasoning)
-  - Propagate uncertainty through reasoning
-- [ ] **Constraint Satisfaction**
-  - Hard constraints: Never approve >$200k
-  - Soft constraints: Prefer Review over Block
-  - Optimize within constraints
+  - Uncertainty sources (data, model, reasoning, conflict - tracked separately)
+  - Propagate uncertainty through reasoning (product of confidences for independence)
+- [x] **Constraint Satisfaction**
+  - Hard constraints: Never approve >$200k (ConstraintType.HARD)
+  - Soft constraints: Prefer Review over Block (ConstraintType.SOFT allows violations)
+  - Optimize within constraints (check before finalizing decisions)
 
-#### 3.6.3 Autonomy Control
-- [ ] **Confidence Thresholds**
-  - High confidence (>0.9): Auto-approve/block
-  - Medium confidence (0.7-0.9): Review
-  - Low confidence (<0.7): Escalate to human
-- [ ] **Escalation to Human**
-  - Trigger conditions (low confidence, edge case)
-  - Explanation for escalation
-  - Suggested decision + reasoning
-- [ ] **Stop Conditions**
-  - Max reasoning steps (10)
-  - Timeout (30s)
-  - Unsolvable case detection
-  - Circular reasoning detection
-- [ ] **Goal Drift Prevention**
-  - Validate decision aligns with goal
-  - Prevent scope creep
-  - Return to main task if distracted
+#### 3.6.3 Autonomy Control ✅
+- [x] **Confidence Thresholds**
+  - High confidence (>0.9): Auto-approve/block (AutonomyLevel.FULL_AUTO)
+  - Medium confidence (0.7-0.9): Review (AutonomyLevel.SUPERVISED)
+  - Low confidence (<0.7): Escalate to human (AutonomyLevel.ASSISTIVE)
+- [x] **Escalation to Human**
+  - Trigger conditions (low confidence <0.7, edge case, high value >$100k, conflicting evidence >2 contradictions)
+  - Explanation for escalation (EscalationReason enum with 7 reasons)
+  - Suggested decision + reasoning (EscalationTicket model with priority: CRITICAL/HIGH/MEDIUM/LOW)
+- [x] **Stop Conditions**
+  - Max reasoning steps (10) (StopReason.MAX_STEPS)
+  - Timeout (30s) (StopReason.TIMEOUT with elapsed time tracking)
+  - Unsolvable case detection (StopReason.UNSOLVABLE)
+  - Circular reasoning detection (same reasoning appears twice)
+- [x] **Goal Drift Prevention**
+  - Validate decision aligns with goal (keyword overlap ratio >0.3)
+  - Prevent scope creep (detect irrelevant topics: investment, advice, portfolio, tax, legal)
+  - Return to main task if distracted (refocus_on_goal() generates correction instruction)
+
+**Implementation Summary:**
+- Created 3 core modules: `task_planner.py` (460 lines), `reasoning_engine.py` (560 lines), `autonomy_controller.py` (455 lines)
+- Task planning with DAG: TaskPlanner creates 7-task plan, tracks dependencies, estimates duration (sequential 7.5s → parallel 5.5s = 1.4x speedup)
+- Reasoning engine: Hypothesis testing (3 states), counterfactual analysis (4 scenarios), self-critique (soundness+completeness), uncertainty estimation (4 sources), constraint satisfaction (hard/soft)
+- Autonomy control: 3 autonomy levels, 7 escalation triggers, 5 stop conditions, goal drift detection with refocusing
+- Added 11 API endpoints for testing:
+  * `POST /planning/create-plan` - Create task DAG
+  * `POST /reasoning/test-hypothesis` - Test hypothesis against evidence
+  * `POST /reasoning/counterfactual` - What-if analysis
+  * `POST /reasoning/self-critique` - Critique reasoning chain
+  * `POST /reasoning/estimate-uncertainty` - Quantify uncertainty
+  * `POST /reasoning/check-constraints` - Validate constraints
+  * `POST /autonomy/get-level` - Determine autonomy level
+  * `POST /autonomy/check-escalation` - Check if should escalate
+  * `POST /autonomy/check-stop-conditions` - Validate stop conditions
+  * `POST /autonomy/check-goal-drift` - Detect goal drift
+- Local testing completed: ALL 7 tests passing (task planning, hypothesis testing, counterfactual reasoning, self-critique, uncertainty estimation, constraint satisfaction, autonomy control)
+- Test script: `backend/scripts/test_planning_reasoning.py`
 
 ---
 

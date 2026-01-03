@@ -16,6 +16,23 @@ from app.agents.multi_agent import (
     SwarmSystem,
     MultiAgentResult,
 )
+from app.agents.task_planner import TaskPlanner, TaskDAG, Task, TaskStatus
+from app.agents.reasoning_engine import (
+    ReasoningEngine,
+    Hypothesis,
+    HypothesisStatus,
+    CounterfactualScenario,
+    Constraint,
+    ConstraintType,
+    UncertaintyEstimate,
+)
+from app.agents.autonomy_controller import (
+    AutonomyController,
+    AutonomyLevel,
+    EscalationReason,
+    EscalationTicket,
+    StopCondition,
+)
 
 __all__ = [
     # Single Agent
@@ -34,4 +51,23 @@ __all__ = [
     "RoleSpecializedSystem",
     "SwarmSystem",
     "MultiAgentResult",
+    # Task Planning
+    "TaskPlanner",
+    "TaskDAG",
+    "Task",
+    "TaskStatus",
+    # Reasoning
+    "ReasoningEngine",
+    "Hypothesis",
+    "HypothesisStatus",
+    "CounterfactualScenario",
+    "Constraint",
+    "ConstraintType",
+    "UncertaintyEstimate",
+    # Autonomy
+    "AutonomyController",
+    "AutonomyLevel",
+    "EscalationReason",
+    "EscalationTicket",
+    "StopCondition",
 ]
