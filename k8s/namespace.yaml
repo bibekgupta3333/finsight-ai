@@ -1,0 +1,8 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: finsight-ai
+  labels:
+    name: finsight-ai
+    environment: production
