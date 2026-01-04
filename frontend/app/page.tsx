@@ -1,6 +1,17 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Brain, GitBranch, Shield, Target, Users, Zap } from 'lucide-react';
+import {
+  Activity,
+  Bell,
+  Brain,
+  FileText,
+  GitBranch,
+  Settings,
+  Shield,
+  Target,
+  Users,
+  Zap
+} from 'lucide-react';
 import Link from 'next/link';
 
 export default function Home() {
@@ -43,6 +54,9 @@ export default function Home() {
 
       {/* Features Section */}
       <section className="container mx-auto px-4 py-16">
+        <h2 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 mb-8 text-center">
+          Platform Features
+        </h2>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader>
@@ -157,6 +171,92 @@ export default function Home() {
                 <li>• Resource management</li>
                 <li>• 42 documented API endpoints</li>
               </ul>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* Admin & Monitoring Section */}
+      <section className="container mx-auto px-4 py-16">
+        <h2 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 mb-8 text-center">
+          Admin & Monitoring Tools
+        </h2>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader>
+              <Activity className="h-10 w-10 text-blue-600 dark:text-blue-400 mb-2" />
+              <CardTitle>System Health</CardTitle>
+              <CardDescription>Monitor tools, resources, and WebSocket connections</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/health">View Health Dashboard</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <FileText className="h-10 w-10 text-purple-600 dark:text-purple-400 mb-2" />
+              <CardTitle>Policies</CardTitle>
+              <CardDescription>Manage fraud policies and RAG knowledge base</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/policies">Manage Policies</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Settings className="h-10 w-10 text-orange-600 dark:text-orange-400 mb-2" />
+              <CardTitle>Admin Console</CardTitle>
+              <CardDescription>Test tools, configure system, view debug logs</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/admin">Open Admin</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Shield className="h-10 w-10 text-red-600 dark:text-red-400 mb-2" />
+              <CardTitle>Audit & Compliance</CardTitle>
+              <CardDescription>Track audit logs, compliance metrics, data lineage</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/audit">View Audit Logs</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Bell className="h-10 w-10 text-yellow-600 dark:text-yellow-400 mb-2" />
+              <CardTitle>Alerts</CardTitle>
+              <CardDescription>Configure alerts and manage notifications</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/alerts">Notification Center</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Settings className="h-10 w-10 text-zinc-600 dark:text-zinc-400 mb-2" />
+              <CardTitle>Settings</CardTitle>
+              <CardDescription>Customize profile, dashboard, and appearance</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/settings">User Settings</Link>
+              </Button>
             </CardContent>
           </Card>
         </div>
