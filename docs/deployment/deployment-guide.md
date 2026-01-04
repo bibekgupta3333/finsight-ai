@@ -346,6 +346,40 @@ Create `docker-compose.yml`:
 version: '3.8'
 
 services:
+  # Redis Service
+  redis:
+    image: redis:7-alpine
+    container_name: finsight-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ChromaDB Service - Vector Database
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: finsight-chromadb
+    ports:
+      - "8001:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # Ollama Service
   ollama:
     image: ollama/ollama:latest
@@ -376,9 +410,14 @@ services:
       - backend_data:/app/data
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
+      - REDIS_URL=redis://redis:6379/0
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
       - CHROMA_PERSIST_DIR=/app/data/chromadb
       - UPLOAD_DIR=/app/data/uploads
     depends_on:
+      - redis
+      - chromadb
       - ollama
     restart: unless-stopped
     healthcheck:
@@ -403,6 +442,8 @@ services:
     restart: unless-stopped
 
 volumes:
+  redis_data:
+  chromadb_data:
   ollama_data:
   backend_data:
 ```

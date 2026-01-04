@@ -1,3 +1,6 @@
+[tool.poetry]
+package-mode = false
+
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -27,6 +30,8 @@ dependencies = [
     "tiktoken>=0.6.0",
     "sentence-transformers>=2.3.0",
     "cachetools>=5.3.0",
+    # Vector Database
+    "chromadb>=0.4.0",
 ]
 
 [project.optional-dependencies]

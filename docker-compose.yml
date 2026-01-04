@@ -16,39 +16,56 @@ services:
       retries: 3
       start_period: 10s
 
-  # Backend Service - FastAPI
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: finsight-backend
+  # ChromaDB Service - Vector Database for Memory System
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: finsight-chromadb
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
-      - ./backend:/app
-      - backend_data:/app/data
+      - chromadb_data:/chroma/chroma
     environment:
-      # Connect to local Ollama instance running on host machine
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - REDIS_URL=redis://redis:6379/0
-      - CHROMA_PERSIST_DIR=/app/data/chromadb
-      - UPLOAD_DIR=/app/data/uploads
-      - API_HOST=0.0.0.0
-      - API_PORT=8000
-      - DEBUG=True
-    depends_on:
-      redis:
-        condition: service_healthy
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+
+  # Backend Service - FastAPI (COMMENTED OUT - Running locally for debugging)
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: finsight-backend
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - ./backend:/app
+  #     - backend_data:/app/data
+  #   environment:
+  #     # Connect to local Ollama instance running on host machine
+  #     - OLLAMA_BASE_URL=http://host.docker.internal:11434
+  #     - REDIS_URL=redis://redis:6379/0
+  #     - CHROMA_HOST=chromadb
+  #     - CHROMA_PORT=8000
+  #     - CHROMA_PERSIST_DIR=/app/data/chromadb
+  #     - UPLOAD_DIR=/app/data/uploads
+  #     - API_HOST=0.0.0.0
+  #     - API_PORT=8000
+  #     - DEBUG=True
+  #   depends_on:
+  #     - redis
+  #     - chromadb
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
 
 volumes:
   redis_data:
+    driver: local
+  chromadb_data:
     driver: local
   backend_data:
     driver: local

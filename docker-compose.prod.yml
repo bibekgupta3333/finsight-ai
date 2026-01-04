@@ -43,6 +43,29 @@ services:
     networks:
       - finsight-network
 
+  # ChromaDB Service - Vector Database for Memory System
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: finsight-chromadb-prod
+    ports:
+      - "8001:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+      - CHROMA_SERVER_AUTH_CREDENTIALS=${CHROMA_AUTH_TOKEN:-}
+      - CHROMA_SERVER_AUTH_PROVIDER=${CHROMA_AUTH_PROVIDER:-chromadb.auth.token.TokenAuthServerProvider}
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - finsight-network
+
   # Backend Service - FastAPI
   backend:
     build:
@@ -58,6 +81,8 @@ services:
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
       - CHROMA_PERSIST_DIR=/app/data/chromadb
       - UPLOAD_DIR=/app/data/uploads
       - API_HOST=0.0.0.0
@@ -69,6 +94,8 @@ services:
       redis:
         condition: service_healthy
       ollama:
+        condition: service_healthy
+      chromadb:
         condition: service_healthy
     restart: always
     healthcheck:
@@ -129,6 +156,8 @@ services:
       - finsight-network
 
 volumes:
+  chromadb_data:
+    driver: local
   redis_data:
     driver: local
   ollama_models:

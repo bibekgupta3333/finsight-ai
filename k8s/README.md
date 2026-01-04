@@ -49,13 +49,16 @@ Deploy in this order to ensure dependencies are met:
 # 1. Redis (cache)
 kubectl apply -f redis-deployment.yaml
 
-# 2. Ollama (LLM)
+# 2. ChromaDB (vector database)
+kubectl apply -f chromadb-deployment.yaml
+
+# 3. Ollama (LLM)
 kubectl apply -f ollama-deployment.yaml
 
-# 3. Backend (FastAPI)
+# 4. Backend (FastAPI)
 kubectl apply -f backend-deployment.yaml
 
-# 4. Frontend (Next.js)
+# 5. Frontend (Next.js)
 kubectl apply -f frontend-deployment.yaml
 ```
 

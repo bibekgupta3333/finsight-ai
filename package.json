@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
+    "dev:local": "docker-compose up -d && pnpm run backend:local",
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
@@ -26,6 +27,7 @@
     "backend:install": "cd backend && make install",
     "backend:dev": "cd backend && make dev",
     "backend:run": "cd backend && make run",
+    "backend:local": "cd backend && export $(grep -v '^#' .env.local | grep -v '^$' | xargs) && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
     "backend:stop": "cd backend && make stop",
     "backend:clean": "cd backend && make clean",
     "backend:pylint": "cd backend && pylint app/",
