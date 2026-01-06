@@ -11,6 +11,9 @@ from enum import Enum
 from datetime import datetime
 import json
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ReasoningStep(BaseModel):
@@ -116,7 +119,9 @@ class ReActPattern:
         for step_num in range(self.max_steps):
             # 1. THOUGHT: What should I do next?
             thought_prompt = self._build_thought_prompt(context, step_num)
-            thought_response = await llm_client.generate(thought_prompt)
+            thought_response_dict = await llm_client.generate(thought_prompt)
+            # Extract text from Ollama response dict
+            thought_response = self._extract_response_text(thought_response_dict)
 
             # Parse thought and action
             thought_data = self._parse_thought(thought_response)
@@ -160,7 +165,8 @@ class ReActPattern:
 
         # 4. DECISION: Make final decision based on all observations
         decision_prompt = self._build_decision_prompt(context)
-        decision = await llm_client.generate(decision_prompt)
+        decision_dict = await llm_client.generate(decision_prompt)
+        decision = self._extract_response_text(decision_dict)
 
         return {
             "decision": decision,
@@ -201,6 +207,13 @@ Respond in JSON:
 }}
 """
         return prompt
+
+    def _extract_response_text(self, response_dict: Dict[str, Any]) -> str:
+        """Extract text from Ollama response dictionary."""
+        if isinstance(response_dict, str):
+            return response_dict
+        # Ollama returns dict with 'response' field containing the text
+        return response_dict.get("response", str(response_dict))
 
     def _parse_thought(self, response: str) -> Dict[str, Any]:
         """Parse LLM's thought response."""
@@ -252,6 +265,12 @@ class ChainOfThoughtPattern:
         """
         self.steps_required = steps_required
         self.reasoning_chain: List[CoTStep] = []
+
+    def _extract_response_text(self, response_dict: Dict[str, Any]) -> str:
+        """Extract text from Ollama response dictionary."""
+        if isinstance(response_dict, str):
+            return response_dict
+        return response_dict.get("response", str(response_dict))
 
     async def execute(
         self, transaction: Dict[str, Any], llm_client: Any
@@ -306,7 +325,8 @@ FINAL DECISION:
 Respond in JSON with each step clearly labeled.
 """
 
-        response = await llm_client.generate(prompt)
+        response_dict = await llm_client.generate(prompt)
+        response = self._extract_response_text(response_dict)
 
         # Parse and validate reasoning chain
         parsed = self._parse_cot_response(response)
@@ -391,7 +411,8 @@ This time, ensure:
 Provide updated reasoning in JSON format.
 """
 
-        response = await llm_client.generate(retry_prompt)
+        response_dict = await llm_client.generate(retry_prompt)
+        response = self._extract_response_text(response_dict)
         return self._parse_cot_response(response)
 
 
@@ -414,6 +435,12 @@ class TreeOfThoughtPattern:
         self.max_depth = max_depth
         self.tree: Dict[str, ToTNode] = {}
         self.node_counter = 0
+
+    def _extract_response_text(self, response_dict: Dict[str, Any]) -> str:
+        """Extract text from Ollama response dictionary."""
+        if isinstance(response_dict, str):
+            return response_dict
+        return response_dict.get("response", str(response_dict))
 
     async def execute(
         self, transaction: Dict[str, Any], llm_client: Any
@@ -518,7 +545,8 @@ Respond in JSON:
 }}
 """
 
-        response = await llm_client.generate(prompt)
+        response_dict = await llm_client.generate(prompt)
+        response = self._extract_response_text(response_dict)
 
         try:
             data = json.loads(response)
@@ -551,7 +579,8 @@ Decide in JSON:
 }}
 """
 
-        return await llm_client.generate(prompt)
+        response_dict = await llm_client.generate(prompt)
+        return self._extract_response_text(response_dict)
 
     async def _score_path(self, node: ToTNode, llm_client: Any) -> float:
         """Score the quality of a reasoning path."""
@@ -588,6 +617,12 @@ class DebatePattern:
         """
         self.rounds = rounds
         self.arguments: List[DebateArgument] = []
+
+    def _extract_response_text(self, response_dict: Dict[str, Any]) -> str:
+        """Extract text from Ollama response dictionary."""
+        if isinstance(response_dict, str):
+            return response_dict
+        return response_dict.get("response", str(response_dict))
 
     async def execute(
         self, transaction: Dict[str, Any], llm_client: Any
@@ -672,7 +707,8 @@ Respond in JSON:
 }}
 """
 
-        response = await llm_client.generate(prompt)
+        response_dict = await llm_client.generate(prompt)
+        response = self._extract_response_text(response_dict)
 
         try:
             data = json.loads(response)
@@ -724,7 +760,8 @@ Decide in JSON:
 }}
 """
 
-        return await llm_client.generate(prompt)
+        response_dict = await llm_client.generate(prompt)
+        return self._extract_response_text(response_dict)
 
 
 class SelfCritiquePattern:
@@ -733,6 +770,12 @@ class SelfCritiquePattern:
 
     LLM generates explanation, then critiques and revises its own output.
     """
+
+    def _extract_response_text(self, response_dict: Dict[str, Any]) -> str:
+        """Extract text from Ollama response dictionary."""
+        if isinstance(response_dict, str):
+            return response_dict
+        return response_dict.get("response", str(response_dict))
 
     async def execute(
         self, transaction: Dict[str, Any], llm_client: Any, max_iterations: int = 3
@@ -800,7 +843,8 @@ Provide your analysis in JSON:
   "evidence": ["fact1", "fact2", ...]
 }}
 """
-        return await llm_client.generate(prompt)
+        response_dict = await llm_client.generate(prompt)
+        return self._extract_response_text(response_dict)
 
     async def _critique_analysis(
         self, transaction: Dict[str, Any], analysis: str, llm_client: Any
@@ -854,13 +898,20 @@ YOUR CRITIQUE:
 Provide REVISED analysis addressing the issues:
 """
 
-        return await llm_client.generate(prompt)
+        response_dict = await llm_client.generate(prompt)
+        return self._extract_response_text(response_dict)
 
 
 class ReflectionPattern:
     """
     Reflection loop: Check decision against policy, validate reasoning, escalate if uncertain.
     """
+
+    def _extract_response_text(self, response_dict: Dict[str, Any]) -> str:
+        """Extract text from Ollama response dictionary."""
+        if isinstance(response_dict, str):
+            return response_dict
+        return response_dict.get("response", str(response_dict))
 
     async def execute(
         self,

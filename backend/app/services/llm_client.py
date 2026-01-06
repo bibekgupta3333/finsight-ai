@@ -59,14 +59,14 @@ class LLMClient:
             # Try to list models - basic health check
             response = await asyncio.wait_for(self.client.list(), timeout=5.0)
             logger.info(
-                f"Ollama health check passed: {len(response.get('models', []))} models available"
+                "Ollama health check passed: %d models available", len(response.get("models", []))
             )
             return True
         except asyncio.TimeoutError:
             logger.error("Ollama health check timeout")
             return False
         except Exception as e:
-            logger.error(f"Ollama health check failed: {e}")
+            logger.error("Ollama health check failed: %s", e)
             return False
 
     async def get_available_models(self, force_refresh: bool = False) -> List[str]:
@@ -269,6 +269,36 @@ class LLMClient:
                 responses.append(result)
 
         return responses
+
+    async def embeddings(
+        self,
+        prompt: str,
+        model: Optional[str] = None,
+    ) -> List[float]:
+        """
+        Generate embeddings for a text prompt.
+
+        Args:
+            prompt: Text to embed
+            model: Model name (default to settings.embedding_model_name)
+
+        Returns:
+            List of floats representing the embedding vector
+
+        Raises:
+            Exception: If embedding generation fails
+        """
+        model = model or settings.embedding_model_name
+
+        try:
+            response = await self.client.embeddings(
+                model=model,
+                prompt=prompt,
+            )
+            return response.get("embedding", [])
+        except Exception as e:
+            logger.error(f"Embedding generation failed: {e}")
+            raise
 
 
 # Global client instance

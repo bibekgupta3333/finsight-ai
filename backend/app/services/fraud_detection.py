@@ -127,7 +127,7 @@ class FraudDetectionService:
             features["balance_inconsistency"] = min(0.5, balance_diff / transaction.amount)
 
         # Transaction type
-        if transaction.type.value in ["TRANSFER", "CASH_OUT"]:
+        if transaction.type in ["TRANSFER", "CASH_OUT"]:
             features["risky_type"] = 0.3
 
         # Zero balances (suspicious for fraud)
@@ -178,7 +178,7 @@ class FraudDetectionService:
                 "high_amount": "High transaction amount",
                 "medium_amount": "Medium-high transaction amount",
                 "balance_inconsistency": "Inconsistent balance changes",
-                "risky_type": f"High-risk transaction type ({transaction.type.value})",
+                "risky_type": f"High-risk transaction type ({transaction.type})",
                 "zero_balance_orig": "Account emptied (zero balance)",
                 "new_account_dest": "New destination account",
             }
@@ -236,7 +236,7 @@ class FraudDetectionService:
                 transaction_id=transaction.transaction_id,
                 prediction=prediction,
                 processing_time_ms=processing_time_ms,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.utcnow().isoformat(),
             )
 
     async def analyze_batch(self, transactions: List[Transaction]) -> List[FraudAnalysisResponse]:

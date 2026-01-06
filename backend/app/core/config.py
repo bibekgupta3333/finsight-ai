@@ -7,6 +7,7 @@ Manages environment variables and application settings.
 from functools import lru_cache
 from typing import Optional
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -80,6 +81,25 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret-key-change-in-production"
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: any) -> any:
+        """Parse CORS origins from string or list."""
+        if isinstance(v, str):
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    import json
+
+                    return json.loads(v)
+                except Exception:
+                    # Handle case where quotes might be missing: [url1,url2]
+                    content = v[1:-1].strip()
+                    if not content:
+                        return []
+                    return [i.strip() for i in content.split(",")]
+            return [i.strip() for i in v.split(",")]
+        return v
+
     # LLM Configuration
     ollama_base_url: str = "http://localhost:11434"
     llm_model_name: str = "qwen3:0.6b"  # Updated to use qwen model
@@ -98,7 +118,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", ".env.local"),
         env_file_encoding="utf-8",
         case_sensitive=False,
     )

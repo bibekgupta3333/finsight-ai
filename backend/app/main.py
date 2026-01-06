@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app import __version__
-from app.api import fraud, llm, memory
+from app.api import fraud, llm, memory, documents
 from app.core.config import get_settings
 from app.core.session import get_session_manager
 from app.core.task_queue import get_task_queue
@@ -158,6 +158,8 @@ app.include_router(fraud.router, prefix=settings.api_v1_prefix)
 app.include_router(llm.router, prefix=settings.api_v1_prefix)
 # Memory Systems router (Section 3.5)
 app.include_router(memory.router)
+# Document Processing router (Section 3.6 - inferred)
+app.include_router(documents.router)
 
 
 if __name__ == "__main__":
