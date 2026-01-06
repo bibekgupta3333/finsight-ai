@@ -1,0 +1,566 @@
+{
+  "fraud_detection": {
+    "high_risk_cashout": {
+      "endpoint": "POST /api/v1/fraud/analyze",
+      "description": "Large CASH_OUT draining account - High fraud risk",
+      "request": {
+        "transaction": {
+          "transaction_id": "TX_TEST_001",
+          "step": 1,
+          "type": "CASH_OUT",
+          "amount": 181900.0,
+          "nameOrig": "C1231006815",
+          "oldbalanceOrg": 181900.0,
+          "newbalanceOrig": 0.0,
+          "nameDest": "C553264065",
+          "oldbalanceDest": 0.0,
+          "newbalanceDest": 0.0
+        }
+      }
+    },
+    "high_risk_transfer": {
+      "endpoint": "POST /api/v1/fraud/analyze",
+      "description": "Large TRANSFER with suspicious balance patterns",
+      "request": {
+        "transaction": {
+          "transaction_id": "TX_TEST_002",
+          "step": 1,
+          "type": "TRANSFER",
+          "amount": 500000.0,
+          "nameOrig": "C1666544295",
+          "oldbalanceOrg": 500000.0,
+          "newbalanceOrig": 0.0,
+          "nameDest": "C2048537720",
+          "oldbalanceDest": 0.0,
+          "newbalanceDest": 500000.0
+        }
+      }
+    },
+    "low_risk_payment": {
+      "endpoint": "POST /api/v1/fraud/analyze",
+      "description": "Normal PAYMENT transaction - Low fraud risk",
+      "request": {
+        "transaction": {
+          "transaction_id": "TX_TEST_003",
+          "step": 1,
+          "type": "PAYMENT",
+          "amount": 2500.0,
+          "nameOrig": "C1305486145",
+          "oldbalanceOrg": 50000.0,
+          "newbalanceOrig": 47500.0,
+          "nameDest": "M1234567890",
+          "oldbalanceDest": 180000.0,
+          "newbalanceDest": 182500.0
+        }
+      }
+    },
+    "medium_risk_debit": {
+      "endpoint": "POST /api/v1/fraud/analyze",
+      "description": "DEBIT transaction with unusual amount",
+      "request": {
+        "transaction": {
+          "transaction_id": "TX_TEST_004",
+          "step": 1,
+          "type": "DEBIT",
+          "amount": 75000.0,
+          "nameOrig": "C1234567890",
+          "oldbalanceOrg": 100000.0,
+          "newbalanceOrig": 25000.0,
+          "nameDest": "C9876543210",
+          "oldbalanceDest": 50000.0,
+          "newbalanceDest": 125000.0
+        }
+      }
+    },
+    "balance_inconsistency": {
+      "endpoint": "POST /api/v1/fraud/analyze",
+      "description": "Transaction with balance inconsistencies - Red flag",
+      "request": {
+        "transaction": {
+          "transaction_id": "TX_TEST_005",
+          "step": 1,
+          "type": "TRANSFER",
+          "amount": 100000.0,
+          "nameOrig": "C1111111111",
+          "oldbalanceOrg": 150000.0,
+          "newbalanceOrig": 150000.0,
+          "nameDest": "C2222222222",
+          "oldbalanceDest": 0.0,
+          "newbalanceDest": 0.0
+        }
+      }
+    }
+  },
+  "batch_processing": {
+    "small_batch": {
+      "endpoint": "POST /api/v1/fraud/batch",
+      "description": "Batch of 3 mixed transactions",
+      "request": {
+        "transactions": [
+          {
+            "transaction_id": "TX_BATCH_001",
+            "step": 1,
+            "type": "CASH_OUT",
+            "amount": 95000.0,
+            "nameOrig": "C1231006815",
+            "oldbalanceOrg": 95000.0,
+            "newbalanceOrig": 0.0,
+            "nameDest": "C553264065",
+            "oldbalanceDest": 0.0,
+            "newbalanceDest": 0.0
+          },
+          {
+            "transaction_id": "TX_BATCH_002",
+            "step": 1,
+            "type": "PAYMENT",
+            "amount": 1500.0,
+            "nameOrig": "C1305486145",
+            "oldbalanceOrg": 30000.0,
+            "newbalanceOrig": 28500.0,
+            "nameDest": "M1234567890",
+            "oldbalanceDest": 100000.0,
+            "newbalanceDest": 101500.0
+          },
+          {
+            "transaction_id": "TX_BATCH_003",
+            "step": 1,
+            "type": "TRANSFER",
+            "amount": 250000.0,
+            "nameOrig": "C1666544295",
+            "oldbalanceOrg": 250000.0,
+            "newbalanceOrig": 0.0,
+            "nameDest": "C2048537720",
+            "oldbalanceDest": 0.0,
+            "newbalanceDest": 250000.0
+          }
+        ]
+      }
+    }
+  },
+  "prompting_patterns": {
+    "react_analysis": {
+      "endpoint": "POST /api/v1/fraud/analyze/react",
+      "description": "ReAct pattern - Step-by-step reasoning with actions",
+      "request": {
+        "transaction": {
+          "transaction_id": "TX_REACT_001",
+          "step": 1,
+          "type": "CASH_OUT",
+          "amount": 200000.0,
+          "nameOrig": "C1234567890",
+          "oldbalanceOrg": 200000.0,
+          "newbalanceOrig": 0.0,
+          "nameDest": "C9876543210",
+          "oldbalanceDest": 0.0,
+          "newbalanceDest": 0.0
+        }
+      }
+    },
+    "chain_of_thought": {
+      "endpoint": "POST /api/v1/fraud/analyze/cot",
+      "description": "Chain-of-Thought reasoning for complex case",
+      "request": {
+        "transaction": {
+          "transaction_id": "TX_COT_001",
+          "step": 1,
+          "type": "TRANSFER",
+          "amount": 350000.0,
+          "nameOrig": "C1111111111",
+          "oldbalanceOrg": 400000.0,
+          "newbalanceOrig": 50000.0,
+          "nameDest": "C2222222222",
+          "oldbalanceDest": 100000.0,
+          "newbalanceDest": 450000.0
+        }
+      }
+    },
+    "tree_of_thought": {
+      "endpoint": "POST /api/v1/fraud/analyze/tot",
+      "description": "Tree-of-Thought - Explore multiple reasoning paths",
+      "request": {
+        "transaction": {
+          "transaction_id": "TX_TOT_001",
+          "step": 1,
+          "type": "CASH_OUT",
+          "amount": 125000.0,
+          "nameOrig": "C3333333333",
+          "oldbalanceOrg": 150000.0,
+          "newbalanceOrig": 25000.0,
+          "nameDest": "C4444444444",
+          "oldbalanceDest": 0.0,
+          "newbalanceDest": 0.0
+        }
+      }
+    },
+    "debate_pattern": {
+      "endpoint": "POST /api/v1/fraud/analyze/debate",
+      "description": "Multi-agent debate for contentious case",
+      "request": {
+        "transaction": {
+          "transaction_id": "TX_DEBATE_001",
+          "step": 1,
+          "type": "TRANSFER",
+          "amount": 85000.0,
+          "nameOrig": "C5555555555",
+          "oldbalanceOrg": 100000.0,
+          "newbalanceOrig": 15000.0,
+          "nameDest": "C6666666666",
+          "oldbalanceDest": 50000.0,
+          "newbalanceDest": 135000.0
+        }
+      }
+    },
+    "self_critique": {
+      "endpoint": "POST /api/v1/fraud/analyze/self-critique",
+      "description": "Self-critique iterative refinement",
+      "request": {
+        "transaction": {
+          "transaction_id": "TX_CRITIQUE_001",
+          "step": 1,
+          "type": "DEBIT",
+          "amount": 45000.0,
+          "nameOrig": "C7777777777",
+          "oldbalanceOrg": 80000.0,
+          "newbalanceOrig": 35000.0,
+          "nameDest": "C8888888888",
+          "oldbalanceDest": 20000.0,
+          "newbalanceDest": 65000.0
+        }
+      }
+    },
+    "reflection_validation": {
+      "endpoint": "POST /api/v1/fraud/analyze/reflection",
+      "description": "Reflect on and validate existing decision",
+      "request": {
+        "transaction": {
+          "transaction_id": "TX_REFLECT_001",
+          "step": 1,
+          "type": "CASH_OUT",
+          "amount": 90000.0,
+          "nameOrig": "C9999999999",
+          "oldbalanceOrg": 90000.0,
+          "newbalanceOrig": 0.0,
+          "nameDest": "C1010101010",
+          "oldbalanceDest": 0.0,
+          "newbalanceDest": 0.0
+        },
+        "existing_decision": {
+          "is_fraud": true,
+          "confidence": 0.85,
+          "risk_level": "HIGH",
+          "reasoning": "Complete account drain in single CASH_OUT transaction"
+        }
+      }
+    }
+  },
+  "agent_systems": {
+    "single_agent": {
+      "endpoint": "POST /api/v1/fraud/agents/single",
+      "description": "Autonomous single agent with full reasoning loop",
+      "request": {
+        "transaction_id": "TX_AGENT_001",
+        "step": 1,
+        "type": "TRANSFER",
+        "amount": 275000.0,
+        "nameOrig": "C1212121212",
+        "oldbalanceOrg": 300000.0,
+        "newbalanceOrig": 25000.0,
+        "nameDest": "C1313131313",
+        "oldbalanceDest": 0.0,
+        "newbalanceDest": 275000.0
+      }
+    },
+    "manager_worker": {
+      "endpoint": "POST /api/v1/fraud/agents/manager-worker",
+      "description": "Hierarchical manager-worker delegation",
+      "request": {
+        "transaction_id": "TX_MANAGER_001",
+        "step": 1,
+        "type": "CASH_OUT",
+        "amount": 150000.0,
+        "nameOrig": "C1414141414",
+        "oldbalanceOrg": 175000.0,
+        "newbalanceOrig": 25000.0,
+        "nameDest": "C1515151515",
+        "oldbalanceDest": 0.0,
+        "newbalanceDest": 0.0
+      }
+    },
+    "planner_executor_critic": {
+      "endpoint": "POST /api/v1/fraud/agents/planner-executor-critic",
+      "description": "Three-phase planning, execution, critique",
+      "request": {
+        "transaction_id": "TX_PEC_001",
+        "step": 1,
+        "type": "TRANSFER",
+        "amount": 425000.0,
+        "nameOrig": "C1616161616",
+        "oldbalanceOrg": 500000.0,
+        "newbalanceOrig": 75000.0,
+        "nameDest": "C1717171717",
+        "oldbalanceDest": 100000.0,
+        "newbalanceDest": 525000.0
+      }
+    }
+  },
+  "llm_engineering": {
+    "deterministic_sampling": {
+      "endpoint": "POST /api/v1/llm/test-sampling?sampling_mode=deterministic&num_samples=1",
+      "description": "Deterministic sampling for consistent classification",
+      "request": {
+        "transaction_id": "TX_SAMPLE_DET_001",
+        "step": 1,
+        "type": "PAYMENT",
+        "amount": 5000.0,
+        "nameOrig": "C1818181818",
+        "oldbalanceOrg": 50000.0,
+        "newbalanceOrig": 45000.0,
+        "nameDest": "M9876543210",
+        "oldbalanceDest": 200000.0,
+        "newbalanceDest": 205000.0
+      }
+    },
+    "balanced_sampling": {
+      "endpoint": "POST /api/v1/llm/test-sampling?sampling_mode=balanced&num_samples=3",
+      "description": "Balanced sampling with self-consistency voting",
+      "request": {
+        "transaction_id": "TX_SAMPLE_BAL_001",
+        "step": 1,
+        "type": "CASH_OUT",
+        "amount": 110000.0,
+        "nameOrig": "C1919191919",
+        "oldbalanceOrg": 120000.0,
+        "newbalanceOrig": 10000.0,
+        "nameDest": "C2020202020",
+        "oldbalanceDest": 0.0,
+        "newbalanceDest": 0.0
+      }
+    },
+    "creative_sampling": {
+      "endpoint": "POST /api/v1/llm/test-sampling?sampling_mode=creative&num_samples=5",
+      "description": "Creative sampling for brainstorming scenarios",
+      "request": {
+        "transaction_id": "TX_SAMPLE_CREA_001",
+        "step": 1,
+        "type": "TRANSFER",
+        "amount": 65000.0,
+        "nameOrig": "C2121212121",
+        "oldbalanceOrg": 80000.0,
+        "newbalanceOrig": 15000.0,
+        "nameDest": "C2222222222",
+        "oldbalanceDest": 30000.0,
+        "newbalanceDest": 95000.0
+      }
+    },
+    "model_routing": {
+      "endpoint": "POST /api/v1/llm/model-routing",
+      "description": "Intelligent model routing based on complexity",
+      "request": {
+        "transaction_id": "TX_ROUTE_001",
+        "step": 1,
+        "type": "TRANSFER",
+        "amount": 550000.0,
+        "nameOrig": "C2323232323",
+        "oldbalanceOrg": 600000.0,
+        "newbalanceOrig": 50000.0,
+        "nameDest": "C2424242424",
+        "oldbalanceDest": 0.0,
+        "newbalanceDest": 550000.0
+      }
+    },
+    "safety_check": {
+      "endpoint": "POST /api/v1/llm/test-safety",
+      "description": "Test safety mechanisms with LLM response",
+      "request": {
+        "transaction": {
+          "transaction_id": "TX_SAFETY_001",
+          "step": 1,
+          "type": "CASH_OUT",
+          "amount": 75000.0,
+          "nameOrig": "C2525252525",
+          "oldbalanceOrg": 75000.0,
+          "newbalanceOrig": 0.0,
+          "nameDest": "C2626262626",
+          "oldbalanceDest": 0.0,
+          "newbalanceDest": 0.0
+        },
+        "llm_response": "This transaction is highly suspicious and appears to be fraudulent based on the complete account drain pattern and zero destination balance."
+      }
+    }
+  },
+  "memory_system": {
+    "episodic_store": {
+      "endpoint": "POST /memory/episodic/store",
+      "description": "Store specific fraud case in episodic memory",
+      "request": {
+        "memory_id": "ep_fraud_case_test_001",
+        "content": "CASH_OUT transaction TX_MEM_001 for $181,900 resulted in complete account drain. Customer C1231006815 had exact balance match with withdrawal amount. Destination C553264065 had zero balance before and after. Classified as HIGH risk fraud with 95% confidence.",
+        "metadata": {
+          "transaction_id": "TX_MEM_001",
+          "fraud_type": "account_drain",
+          "risk_level": "HIGH",
+          "amount": 181900.0,
+          "transaction_type": "CASH_OUT",
+          "timestamp": "2026-01-06T10:30:00Z"
+        },
+        "importance": 0.95
+      }
+    },
+    "semantic_store": {
+      "endpoint": "POST /memory/semantic/store",
+      "description": "Store learned fraud pattern in semantic memory",
+      "request": {
+        "memory_id": "sem_pattern_cashout_drain",
+        "content": "CASH_OUT transactions draining 100% of account balance are high fraud indicators, especially when: (1) Amount > $50k, (2) Destination has zero balance, (3) No prior transaction history between accounts, (4) Occurs outside normal business hours.",
+        "metadata": {
+          "pattern_type": "cashout_fraud",
+          "confidence": 0.92,
+          "evidence_count": 156,
+          "last_updated": "2026-01-06T10:30:00Z"
+        }
+      }
+    },
+    "memory_retrieval": {
+      "endpoint": "POST /memory/retrieve",
+      "description": "Hybrid search across episodic and semantic memory",
+      "request": {
+        "query": "CASH_OUT transaction draining account balance",
+        "memory_types": ["episodic", "semantic"],
+        "limit": 5
+      }
+    },
+    "contextual_search": {
+      "endpoint": "POST /memory/search/contextual",
+      "description": "Context-aware memory search with current investigation",
+      "request": {
+        "query": "similar high-value transfer patterns",
+        "current_context": {
+          "transaction_id": "TX_CONTEXT_001",
+          "transaction_type": "TRANSFER",
+          "amount": 350000.0,
+          "risk_factors": ["high_amount", "balance_drain", "new_account"]
+        }
+      }
+    },
+    "procedural_record": {
+      "endpoint": "POST /memory/procedural/record",
+      "description": "Record successful investigation procedure",
+      "request": {
+        "procedure_id": "proc_high_value_transfer_investigation",
+        "name": "High-Value Transfer Investigation",
+        "steps": [
+          "Check account age and transaction history",
+          "Verify balance consistency before/after",
+          "Calculate risk score using fraud policies",
+          "Check for similar patterns in episodic memory",
+          "Apply ReAct reasoning for complex cases",
+          "Validate with reflection pattern"
+        ],
+        "success_rate": 0.94,
+        "avg_execution_time_ms": 1250
+      }
+    },
+    "task_tracking": {
+      "endpoint": "POST /memory/task/start",
+      "description": "Start tracking fraud investigation task",
+      "request": {
+        "task_id": "task_fraud_inv_test_001",
+        "task_type": "fraud_investigation",
+        "description": "Investigate suspicious CASH_OUT pattern for customer C1231006815"
+      }
+    },
+    "reasoning_step": {
+      "endpoint": "POST /memory/reasoning/step",
+      "description": "Record reasoning step in investigation",
+      "request": {
+        "task_id": "task_fraud_inv_test_001",
+        "step_number": 1,
+        "thought": "Transaction amount ($181,900) exceeds high-value threshold ($100,000)",
+        "action": "retrieve_fraud_policy",
+        "observation": "Policy CASHOUT_FRAUD_POLICY retrieved: High-value CASH_OUT requires additional scrutiny"
+      }
+    },
+    "tool_call": {
+      "endpoint": "POST /memory/tool/call",
+      "description": "Record tool execution for provenance",
+      "request": {
+        "tool_name": "calculate_risk_score",
+        "input": {"transaction_id": "TX_MEM_001", "transaction_type": "CASH_OUT", "amount": 181900.0},
+        "result": {
+          "risk_score": 92.5,
+          "risk_level": "HIGH",
+          "factors": ["high_amount", "complete_drain", "suspicious_destination"]
+        }
+      }
+    }
+  },
+  "prompt_engineering": {
+    "build_prompt": {
+      "endpoint": "POST /api/v1/fraud/prompts/build",
+      "description": "Build hierarchical prompt with examples",
+      "request": {
+        "transaction_id": "TX_PROMPT_001",
+        "step": 1,
+        "type": "CASH_OUT",
+        "amount": 125000.0,
+        "nameOrig": "C2727272727",
+        "oldbalanceOrg": 125000.0,
+        "newbalanceOrig": 0.0,
+        "nameDest": "C2828282828",
+        "oldbalanceDest": 0.0,
+        "newbalanceDest": 0.0
+      }
+    },
+    "compress_prompt": {
+      "endpoint": "POST /api/v1/fraud/prompts/compress",
+      "description": "Compress prompt to fit token budget",
+      "request": {
+        "text": "You are an expert fraud detection specialist with extensive experience in financial crimes. Analyze the following transaction for potential fraud indicators including but not limited to: unusual transaction amounts, suspicious balance patterns, account age considerations, velocity checks, and compliance with fraud prevention policies.",
+        "max_tokens": 50
+      }
+    },
+    "validate_output": {
+      "endpoint": "POST /api/v1/fraud/prompts/validate-output",
+      "description": "Validate LLM output against schema",
+      "request": {
+        "output": {
+          "is_fraud": true,
+          "confidence": 0.92,
+          "risk_level": "HIGH",
+          "risk_factors": ["high_amount", "balance_drain", "suspicious_destination"],
+          "explanation": "Transaction drains entire account balance in single CASH_OUT operation"
+        }
+      }
+    }
+  },
+  "state_management": {
+    "stateful_analysis": {
+      "endpoint": "POST /api/v1/fraud/analyze/stateful",
+      "description": "Analyze with session state management",
+      "request": {
+        "transaction": {
+          "transaction_id": "TX_STATE_001",
+          "step": 1,
+          "type": "TRANSFER",
+          "amount": 85000.0,
+          "nameOrig": "C2929292929",
+          "oldbalanceOrg": 100000.0,
+          "newbalanceOrig": 15000.0,
+          "nameDest": "C3030303030",
+          "oldbalanceDest": 50000.0,
+          "newbalanceDest": 135000.0
+        },
+        "session_id": "sess_test_001"
+      }
+    },
+    "working_memory_put": {
+      "endpoint": "POST /memory/working/put",
+      "description": "Store in working memory (short-term)",
+      "request": {
+        "key": "current_investigation_focus",
+        "value": "analyzing_cashout_pattern",
+        "metadata": {"priority": "high", "transaction_id": "TX_STATE_001"}
+      }
+    }
+  }
+}
