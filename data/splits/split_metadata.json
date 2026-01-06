@@ -28,9 +28,9 @@
       }
     },
     "split_paths": {
-      "train": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/splits/stratified/train.csv",
-      "val": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/splits/stratified/val.csv",
-      "test": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/splits/stratified/test.csv"
+      "train": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/stratified/train.csv",
+      "val": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/stratified/val.csv",
+      "test": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/stratified/test.csv"
     }
   },
   "temporal": {
@@ -74,9 +74,9 @@
       }
     },
     "split_paths": {
-      "train": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/splits/temporal/train.csv",
-      "val": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/splits/temporal/val.csv",
-      "test": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/splits/temporal/test.csv"
+      "train": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/temporal/train.csv",
+      "val": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/temporal/val.csv",
+      "test": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/temporal/test.csv"
     }
   }
 }

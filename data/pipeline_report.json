@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-01-05T22:05:36.504348",
+  "project_root": "/Users/bibekgupta/Downloads/projects/finsight-ai",
+  "quick_mode": false,
+  "skipped_steps_config": [
+    "cleaning",
+    "splitting",
+    "augmentation",
+    "weak_supervision",
+    "explanations",
+    "bias_analysis",
+    "lineage",
+    "vectorization"
+  ],
+  "execution": {
+    "completed": [],
+    "skipped": [
+      "cleaning",
+      "splitting",
+      "augmentation",
+      "weak_supervision",
+      "explanations",
+      "bias_analysis",
+      "lineage",
+      "vectorization"
+    ],
+    "failed": []
+  },
+  "durations": {},
+  "total_duration": 0
+}

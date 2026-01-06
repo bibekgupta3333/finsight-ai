@@ -85,6 +85,42 @@
 - **Features:** 11 columns (amount, type, balances, fraud labels)
 - **Challenge:** Class imbalance, temporal patterns, adversarial fraud
 
+### Data Pipeline (Automated)
+
+The project includes a complete automated data pipeline that transforms raw data into production-ready formats:
+
+```bash
+# Run complete 8-step pipeline
+cd backend
+python scripts/prepare_data_pipeline.py
+```
+
+**Pipeline Steps:**
+1. **Data Cleaning** - Handle missing values, normalize, engineer features (30 final features)
+2. **Dataset Splitting** - Stratified & temporal splits (60/20/20 train/val/test)
+3. **Data Augmentation** - SMOTE balancing for class imbalance (3 strategies)
+4. **Weak Supervision** - Generate labels and RLHF preference pairs
+5. **Fraud Explanations** - LLM-generated explanations (100 samples)
+6. **Bias Analysis** - Fairness audit with demographic parity checks
+7. **Data Lineage** - Complete data provenance tracking
+8. **Vectorization** - Populate ChromaDB with 639 embeddings for RAG
+
+**Quick Options:**
+```bash
+# Quick mode (skip augmentation, faster)
+python scripts/prepare_data_pipeline.py --quick
+
+# Skip specific steps
+python scripts/prepare_data_pipeline.py --skip-steps augmentation,bias_analysis
+
+# Generate execution report
+python scripts/prepare_data_pipeline.py --generate-report
+```
+
+**Output:** All processed data in `data/` directory + ChromaDB collections ready for inference.
+
+See [backend/scripts/README.md](backend/scripts/README.md) for detailed documentation.
+
 ---
 
 ## 🧠 Why This Project is AGI-Level
@@ -158,10 +194,27 @@
    cd frontend && pnpm dev
    ```
 
-6. **Access the application**
+6. **Prepare data pipeline** (one-time setup)
+   ```bash
+   # Download PaySim dataset from Kaggle and place in data/raw/
+   # https://www.kaggle.com/datasets/ealaxi/paysim1
+   
+   # Start ChromaDB
+   docker-compose up -d chromadb
+   
+   # Run complete data pipeline (8 steps)
+   cd backend
+   python scripts/prepare_data_pipeline.py
+   
+   # Or run in quick mode for testing
+   python scripts/prepare_data_pipeline.py --quick
+   ```
+
+7. **Access the application**
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
    - API Docs: http://localhost:8000/docs
+   - ChromaDB: http://localhost:8001
 
 ### Docker Setup
 

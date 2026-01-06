@@ -1,4 +1,4 @@
-.PHONY: help install dev test clean run stop restart logs
+.PHONY: help install dev test clean run stop restart logs data-pipeline data-clean data-vector data-quick
 
 # Default target
 help:
@@ -7,13 +7,19 @@ help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  install      Install Python dependencies"
-	@echo "  dev          Install development dependencies"
-	@echo "  run          Start FastAPI server"
-	@echo "  test         Run tests"
-	@echo "  clean        Clean cache and temporary files"
-	@echo "  stop         Stop all processes"
-	@echo "  logs         Show server logs"
+	@echo "  install         Install Python dependencies"
+	@echo "  dev             Install development dependencies"
+	@echo "  run             Start FastAPI server"
+	@echo "  test            Run tests"
+	@echo "  clean           Clean cache and temporary files"
+	@echo "  stop            Stop all processes"
+	@echo "  logs            Show server logs"
+	@echo ""
+	@echo "Data Pipeline:"
+	@echo "  data-pipeline   Run complete data pipeline (8 steps)"
+	@echo "  data-quick      Run pipeline in quick mode (faster)"
+	@echo "  data-clean      Run data cleaning only"
+	@echo "  data-vector     Run data vectorization only"
 	@echo ""
 
 # Install dependencies
@@ -50,6 +56,25 @@ stop:
 	@echo "Stopping server..."
 	-lsof -ti:8000 | xargs kill -9
 	@echo "Server stopped."
+
+# Data Pipeline Commands
+data-pipeline:
+	@echo "Running complete data pipeline (8 steps)..."
+	@echo "This may take 10-15 minutes depending on your machine."
+	@echo ""
+	python scripts/prepare_data_pipeline.py --generate-report
+
+data-quick:
+	@echo "Running data pipeline in quick mode..."
+	python scripts/prepare_data_pipeline.py --quick --generate-report
+
+data-clean:
+	@echo "Running data cleaning only..."
+	python scripts/data_cleaning.py
+
+data-vector:
+	@echo "Running data vectorization only..."
+	python scripts/vectorize_data.py
 
 # Restart server
 restart: stop run

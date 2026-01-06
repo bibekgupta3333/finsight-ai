@@ -3,7 +3,7 @@
     "total_transactions": 6362620,
     "fraud_count": 8213,
     "fraud_rate": 0.001290820448180152,
-    "data_path": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/processed/paysim_cleaned.csv"
+    "data_path": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/processed/paysim_cleaned.csv"
   },
   "correlations": {
     "amount_fraud": {

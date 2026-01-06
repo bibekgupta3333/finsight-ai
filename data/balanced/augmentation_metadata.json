@@ -10,7 +10,7 @@
   "random_seed": 42,
   "strategies": {
     "smote": {
-      "path": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/balanced/train_balanced_smote.csv",
+      "path": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/balanced/train_balanced_smote.csv",
       "samples": 5718966,
       "fraud_rate": 0.3333333333333333,
       "validation": {
@@ -34,7 +34,7 @@
       }
     },
     "combined": {
-      "path": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/balanced/train_balanced_combined.csv",
+      "path": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/balanced/train_balanced_combined.csv",
       "samples": 3431379,
       "fraud_rate": 0.3333333333333333,
       "validation": {
@@ -58,7 +58,7 @@
       }
     },
     "with_synthetic": {
-      "path": "/Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/data/balanced/train_balanced_with_synthetic.csv",
+      "path": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/balanced/train_balanced_with_synthetic.csv",
       "samples": 3818572,
       "fraud_rate": 0.0015524127867695043,
       "synthetic_fraud_added": 1000
