@@ -62,6 +62,20 @@ class Settings(BaseSettings):
             return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}/{self.redis_db}"
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
+    # ChromaDB (Vector Database)
+    chroma_host: str = "localhost"
+    chroma_port: int = 8001
+    chroma_persist_dir: str = "./data/chromadb"
+
+    def get_chroma_url(self) -> str:
+        """
+        Get ChromaDB connection URL.
+
+        Returns:
+            ChromaDB HTTP endpoint URL
+        """
+        return f"http://{self.chroma_host}:{self.chroma_port}"
+
     # Security
     secret_key: str = "dev-secret-key-change-in-production"
     cors_origins: list[str] = ["http://localhost:3000"]

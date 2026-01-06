@@ -120,9 +120,12 @@ async def health_check():
 
         return HealthResponse(
             status="healthy",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.utcnow().isoformat(),
             version=__version__,
-            queue_stats=queue_stats,
+            services={
+                "task_queue": "connected",
+                "queue_size": str(queue_stats.get("queue_size", 0)),
+            },
         )
     except Exception as e:
         logger.exception(f"Health check failed: {e}")
