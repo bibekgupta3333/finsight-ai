@@ -149,6 +149,12 @@ class APIClient {
     });
     return response.data;
   }
+
+  // Get fraud detection statistics
+  async getStats(): Promise<any> {
+    const response = await this.client.get('/api/v1/fraud/stats');
+    return response.data;
+  }
 }
 
 export const apiClient = new APIClient();

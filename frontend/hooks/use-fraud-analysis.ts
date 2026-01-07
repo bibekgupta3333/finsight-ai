@@ -22,7 +22,7 @@ export function useHealthCheck() {
   });
 }
 
-// Single transaction analysis mutation
+// Single transaction analysis mutation with optimistic updates
 export function useFraudAnalysis() {
   const queryClient = useQueryClient();
 
@@ -32,21 +32,47 @@ export function useFraudAnalysis() {
       // Validate response with Zod
       return fraudAnalysisResultSchema.parse(result);
     },
+
+    // Optimistic update
+    onMutate: async (transaction) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: fraudKeys.all });
+
+      // Snapshot previous value
+      const previousResults = queryClient.getQueryData(fraudKeys.all);
+
+      // Optimistically show analyzing state
+      toast.loading('Analyzing transaction...', { id: 'analysis' });
+
+      return { previousResults };
+    },
+
     onSuccess: (data) => {
       toast.success(
-        `Analysis complete: ${data.decision} (${(data.confidence * 100).toFixed(0)}% confidence)`
+        `Analysis complete: ${data.decision} (${(data.confidence * 100).toFixed(0)}% confidence)`,
+        { id: 'analysis' }
       );
       queryClient.invalidateQueries({ queryKey: fraudKeys.all });
     },
-    onError: (error: Error) => {
-      toast.error(`Analysis failed: ${error.message}`);
+
+    onError: (error: Error, transaction, context) => {
+      toast.error(`Analysis failed: ${error.message}`, { id: 'analysis' });
+      // Rollback on error
+      if (context?.previousResults) {
+        queryClient.setQueryData(fraudKeys.all, context.previousResults);
+      }
     },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: fraudKeys.all });
+    },
+
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 }
 
-// Batch analysis mutation
+// Batch analysis mutation with optimistic updates
 export function useBatchAnalysis() {
   const queryClient = useQueryClient();
 
@@ -54,15 +80,34 @@ export function useBatchAnalysis() {
     mutationFn: async (request: BatchAnalysisRequest) => {
       return await apiClient.analyzeBatch(request);
     },
+
+    onMutate: async (request) => {
+      // Show optimistic loading state
+      toast.loading(`Submitting ${request.transactions.length} transactions for batch analysis...`, {
+        id: 'batch-analysis',
+      });
+
+      return { transactionCount: request.transactions.length };
+    },
+
     onSuccess: (data) => {
       toast.success(
-        `Batch analysis complete: ${data.fraud_count}/${data.total} flagged as fraud`
+        `Batch analysis complete: ${data.fraud_count}/${data.total} flagged as fraud`,
+        { id: 'batch-analysis' }
       );
       queryClient.invalidateQueries({ queryKey: fraudKeys.all });
     },
+
     onError: (error: Error) => {
-      toast.error(`Batch analysis failed: ${error.message}`);
+      toast.error(`Batch analysis failed: ${error.message}`, { id: 'batch-analysis' });
     },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: fraudKeys.all });
+    },
+
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 }
 
