@@ -104,9 +104,6 @@ FinSight AI is a comprehensive **fraud detection and financial reasoning system*
 - Dataset: Single CSV file
 - Safety: No "financial advice", explain uncertainty
 
-**Interview Signal:**
-*"I framed fraud detection as a reasoning + decision problem with measurable trade-offs."*
-
 ---
 
 ### B️⃣ Data Lifecycle (Hands-on)
@@ -230,7 +227,7 @@ data/
 
 ---
 
-### E️⃣ Training Phases (Simulated but Interview-Ready)
+### E️⃣ Training Phases
 
 #### Pre-Training (Simulated)
 
@@ -285,14 +282,6 @@ data/
 
 ---
 
-## 🧩 Final Outcome (What You'll Be Able to Say)
-
-> *"I built a FinTech transaction risk analyst using a single dataset that covers reasoning, agentic decision-making, RAG, fine-tuning, evaluation, deployment, and safety — end to end."*
-
-**That sentence alone is AGI-intern-level.**
-
----
-
 ## 🚀 Recommended Build Order (Incremental Complexity)
 
 | Phase | Deliverable | Skills Demonstrated |
@@ -321,19 +310,5 @@ data/
 - ✅ Demonstrate understanding of entire AGI/LLM stack
 - ✅ Publish detailed technical blog post
 - ✅ Create portfolio-ready project documentation
-- ✅ Interview-ready: Can explain every design decision
 
 ---
-
-## 🎓 Interview Talking Points
-
-1. **Problem Framing:** "I chose fraud detection because it requires reasoning, not just classification"
-2. **Data Decisions:** "I handled class imbalance with stratified sampling and SMOTE"
-3. **Model Choice:** "Mistral 7B offers best reasoning-to-cost ratio for local inference"
-4. **Agent Design:** "Multi-step ReAct pattern outperformed single-shot prompts by 23%"
-5. **Safety First:** "I implemented prompt injection detection before production deployment"
-6. **Real Metrics:** "Reduced false positives by 34% using RAG with fraud policies"
-
----
-
-**This project is your golden ticket to AGI/LLM roles.** 🚀

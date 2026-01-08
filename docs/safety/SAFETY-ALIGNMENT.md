@@ -4,7 +4,6 @@
 
 **Last Updated:** December 28, 2025
 **Criticality:** PRODUCTION-BLOCKING
-**AGI Interview Signal:** "I built safety guardrails before deployment"
 
 ---
 

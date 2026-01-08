@@ -19,7 +19,6 @@ The project has been **significantly expanded** from a simple personal finance a
 | **ML Focus** | Simple classification | Full ML lifecycle + fine-tuning + evaluation |
 | **AGI Topics** | Basic LLM usage | ALL AGI topics (A-H) comprehensively covered |
 | **Safety** | Not addressed | Extensive safety, bias audits, red-teaming |
-| **Interview Value** | Moderate | **AGI-intern-level** portfolio piece |
 
 ---
 
@@ -38,7 +37,6 @@ The project has been **significantly expanded** from a simple personal finance a
      - Deployment & monitoring
      - Safety & ethics
      - Build order (8 phases)
-     - Interview talking points
    - **Key Value:** Single document showing mastery of entire AGI stack
 
 ### 2. **docs/data/DATA-PIPELINE.md** (5,200 words)
@@ -145,7 +143,6 @@ The project has been **significantly expanded** from a simple personal finance a
      - Updated title to include "Fraud Detection & Reasoning Agent"
      - Added AGI badge and dataset badge
      - Updated description to emphasize AGI-level skills
-     - Added interview signal quote
      - Enhanced features list with fraud detection
      - Updated architecture diagram
      - Added PaySim dataset section
@@ -317,36 +314,6 @@ This project now covers **ALL 8 major AGI/LLM topic areas:**
 
 ---
 
-## 🎤 Interview Talking Points
-
-After this update, you can confidently say:
-
-1. **"I practiced the entire ML lifecycle end-to-end"**
-   - Evidence: DATA-PIPELINE.md covers collection → versioning
-
-2. **"I implemented safety guardrails before deployment"**
-   - Evidence: SAFETY-ALIGNMENT.md with red team tests
-
-3. **"I handled real-world data challenges like class imbalance"**
-   - Evidence: PaySim 0.13% fraud rate, SMOTE implementation
-
-4. **"I built explainable AI with faithful reasoning"**
-   - Evidence: Chain-of-thought, RAG with policy retrieval
-
-5. **"I designed production databases for scale"**
-   - Evidence: database-design-fraud.md with indexing strategy
-
-6. **"I evaluated across multiple dimensions"**
-   - Evidence: Classification + reasoning + adversarial + bias
-
-7. **"I built agentic workflows with tool use"**
-   - Evidence: LangGraph ReAct pattern with calculator/SQL
-
-8. **"I fine-tuned LLMs for domain adaptation"**
-   - Evidence: LoRA section in WBS, training pipeline
-
----
-
 ## 📁 Updated Directory Structure
 
 ```
@@ -385,10 +352,8 @@ finsight-ai/
 - [x] Safety guidelines include concrete implementation code
 - [x] WBS tasks are actionable and measurable
 - [x] Cross-references between documents are accurate
-- [x] Technical depth appropriate for AGI interviews
 - [x] Coverage of all 8 AGI topic areas (A-H)
 - [x] Real dataset (PaySim) integrated
-- [x] Interview talking points identified
 
 ---
 
@@ -400,7 +365,6 @@ After implementing the documented plan, you will have:
 - ✅ **Technical Depth:** 18,000+ words of documentation
 - ✅ **Practical Skills:** Full ML lifecycle on real dataset
 - ✅ **Safety Awareness:** Production-ready guardrails
-- ✅ **Interview Readiness:** Can explain every design decision
 - ✅ **Differentiation:** Most candidates don't have this level of rigor
 
 ---

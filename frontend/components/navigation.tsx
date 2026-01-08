@@ -1,14 +1,32 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { BarChart3, Brain, Home, Layers, Shield, Upload } from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { BarChart3, Brain, Home, Layers, Menu, Shield, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 
 export function Navigation() {
   const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false);
 
   const isActive = (path: string) => pathname === path;
+
+  const navItems = [
+    { href: '/', label: 'Home', icon: Home },
+    { href: '/analyze', label: 'Analyze', icon: Upload },
+    { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
+    { href: '/batch', label: 'Batch', icon: Layers },
+    { href: '/agents', label: 'Agents', icon: Brain },
+  ];
 
   return (
     <nav className="border-b bg-white dark:bg-zinc-950">
@@ -21,57 +39,62 @@ export function Navigation() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              asChild
-              variant={isActive('/') ? 'default' : 'ghost'}
-              size="sm"
-            >
-              <Link href="/">
-                <Home className="h-4 w-4 mr-2" />
-                Home
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant={isActive('/analyze') ? 'default' : 'ghost'}
-              size="sm"
-            >
-              <Link href="/analyze">
-                <Upload className="h-4 w-4 mr-2" />
-                Analyze
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant={isActive('/dashboard') ? 'default' : 'ghost'}
-              size="sm"
-            >
-              <Link href="/dashboard">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Dashboard
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant={isActive('/batch') ? 'default' : 'ghost'}
-              size="sm"
-            >
-              <Link href="/batch">
-                <Layers className="h-4 w-4 mr-2" />
-                Batch
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant={isActive('/agents') ? 'default' : 'ghost'}
-              size="sm"
-            >
-              <Link href="/agents">
-                <Brain className="h-4 w-4 mr-2" />
-                Agents
-              </Link>
-            </Button>
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-2">
+            {navItems.map((item) => (
+              <Button
+                key={item.href}
+                asChild
+                variant={isActive(item.href) ? 'default' : 'ghost'}
+                size="sm"
+              >
+                <Link href={item.href}>
+                  <item.icon className="h-4 w-4 mr-2" />
+                  {item.label}
+                </Link>
+              </Button>
+            ))}
+
+            <div className="ml-4 border-l pl-4">
+              <ThemeToggle />
+            </div>
+          </div>
+
+          {/* Mobile Navigation */}
+          <div className="flex md:hidden items-center gap-2">
+            <ThemeToggle />
+            <Sheet open={isOpen} onOpenChange={setIsOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-blue-600" />
+                    FinSight AI
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="mt-8 flex flex-col gap-4">
+                  {navItems.map((item) => (
+                    <Button
+                      key={item.href}
+                      asChild
+                      variant={isActive(item.href) ? 'default' : 'ghost'}
+                      className="justify-start"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <Link href={item.href}>
+                        <item.icon className="h-4 w-4 mr-2" />
+                        {item.label}
+                      </Link>
+                    </Button>
+                  ))}
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </div>

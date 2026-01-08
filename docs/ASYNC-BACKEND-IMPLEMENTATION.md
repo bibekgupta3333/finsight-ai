@@ -286,23 +286,6 @@ httpx = "^0.26.0"  # for testing
 - Tool use framework
 - Multi-agent coordination
 
-## AGI Interview Signals Demonstrated
-
-✅ **"I design distributed, failure-tolerant systems"**
-- Implemented worker pool pattern
-- Handled backpressure with bounded queues
-- Added deadlock prevention with timeouts
-
-✅ **"I predict model behavior under stress"**
-- Rate limiting under load
-- Concurrent request handling
-- Graceful degradation
-
-✅ **"I understand async/await beyond syntax"**
-- Event loop design
-- Race condition protection
-- Resource cleanup with context managers
-
 ## Commands to Run
 
 **Start Server:**

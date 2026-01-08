@@ -328,22 +328,3 @@ assert (df['amount'] >= 0).all()
 
 ---
 
-## 13. AGI Interview Talking Points
-
-**What I Learned:**
-1. **Data Quality First:** Clean data beats fancy algorithms
-2. **Domain Knowledge:** Fraud patterns guide feature engineering
-3. **Reproducibility:** Document every decision for future audits
-4. **Balance:** StandardScaler better than MinMaxScaler for log-normal data
-5. **Privacy:** PII masking is non-negotiable (GDPR/CCPA compliance)
-
-**What I'd Do Differently:**
-- If dataset had timestamps: Use proper datetime features (not simulated)
-- If dataset was larger: Implement Dask for distributed processing
-- If deploying to production: Add data drift monitoring
-
----
-
-**Last Updated:** December 28, 2025
-**Owner:** FinSight AI Team
-**Related:** `backend/scripts/data_cleaning.py`, `docs/data/DATA-PIPELINE.md`

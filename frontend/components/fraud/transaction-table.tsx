@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -24,7 +25,7 @@ interface TransactionTableProps {
   onRowClick?: (id: string) => void;
 }
 
-export function TransactionTable({ transactions, onRowClick }: TransactionTableProps) {
+export const TransactionTable = memo(function TransactionTable({ transactions, onRowClick }: TransactionTableProps) {
   if (transactions.length === 0) {
     return (
       <Card>
@@ -41,17 +42,17 @@ export function TransactionTable({ transactions, onRowClick }: TransactionTableP
         <CardTitle>Transaction Analysis Results</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto -mx-6 px-6 md:mx-0 md:px-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Risk Level</TableHead>
-                <TableHead>Risk Score</TableHead>
-                <TableHead>Confidence</TableHead>
-                <TableHead>Decision</TableHead>
-                <TableHead>Timestamp</TableHead>
+                <TableHead className="min-w-[100px]">Type</TableHead>
+                <TableHead className="min-w-[120px]">Amount</TableHead>
+                <TableHead className="min-w-[100px]">Risk Level</TableHead>
+                <TableHead className="min-w-[140px]">Risk Score</TableHead>
+                <TableHead className="min-w-[100px]">Confidence</TableHead>
+                <TableHead className="min-w-[100px]">Decision</TableHead>
+                <TableHead className="min-w-[180px]">Timestamp</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -116,4 +117,4 @@ export function TransactionTable({ transactions, onRowClick }: TransactionTableP
       </CardContent>
     </Card>
   );
-}
+});

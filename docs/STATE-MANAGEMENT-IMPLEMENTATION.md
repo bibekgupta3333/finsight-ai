@@ -463,23 +463,6 @@ Client Response
 4. **Multi-Instance:** Add leader election for multi-instance deployments
 5. **Dead Letter Queue:** Explicit DLQ handling for permanently failed tasks
 
-## 10. AGI Interview Signals Demonstrated
-
-✅ **"I design distributed, failure-tolerant systems"**
-- Circuit breakers, retries, idempotency
-
-✅ **"I understand state management in asynchronous systems"**
-- FSM with async transitions, Redis-based sessions
-
-✅ **"I implement production-grade reliability patterns"**
-- Checkpointing, deterministic replay, correlation IDs
-
-✅ **"I can debug complex distributed systems"**
-- Execution traces, state history, correlation ID tracking
-
-✅ **"I think about failure modes proactively"**
-- Terminal states, graceful degradation, partial failure handling
-
 ## 11. Testing Verification
 
 **Server Started:** ✅  

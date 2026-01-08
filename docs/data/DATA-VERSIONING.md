@@ -586,19 +586,3 @@ View real-time metrics:
 
 ---
 
-## 12. Interview Talking Points
-
-**"How did you ensure data reproducibility?"**
-> "I implemented a three-tier versioning system: DVC for efficient large file versioning with local storage, W&B for artifact tracking and team visibility, and a custom lineage tracker for transformation history. Every dataset version is tracked with metadata including row count, column count, transformations applied, and quality checks passed. The lineage system maintains a complete DAG of transformations from raw data to final annotations, enabling backward and forward lineage queries."
-
-**"What's your data governance strategy?"**
-> "We follow a strict versioning convention: v1_raw for unprocessed data, v2_cleaned for preprocessed data with 19 engineered features, and v3_reasoning for LLM annotations and RLHF pairs. Every version requires documentation of source, transformations, and quality metrics. DVC metadata files are git-tracked while large data files are cached locally. W&B provides team visibility and experiment tracking. The system is designed to scale to cloud storage (S3/GCS) when needed."
-
-**"How do you track data quality?"**
-> "We implement automated quality checks at every transformation: missing values (0 expected), duplicates (0 expected), fraud rate consistency (0.13%), balance integrity validation, and feature completeness checks. Quality metrics are logged to W&B for trend analysis. The cleaning pipeline has 5 automated assertions that fail fast if data quality degrades. All quality check results are stored in metadata files alongside the data versions."
-
----
-
-**Last Updated:** December 29, 2025
-**Maintained By:** FinSight AI Team
-**Version:** 1.0

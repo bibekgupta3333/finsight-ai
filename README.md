@@ -9,8 +9,6 @@
 
 **A comprehensive fraud detection system demonstrating mastery of the entire AGI/LLM development lifecycle** — from data engineering to safety-aware deployment.
 
-> 🎯 **Interview Signal:** "I built an end-to-end fraud detection system covering reasoning, agentic workflows, RAG, fine-tuning, evaluation, and safety — on a real 6.3M transaction dataset."
-
 ---
 
 ## 🌟 Key Features

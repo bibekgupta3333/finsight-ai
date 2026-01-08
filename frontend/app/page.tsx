@@ -18,32 +18,32 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="flex flex-col items-center text-center space-y-8">
+      <section className="container mx-auto px-4 py-12 md:py-20">
+        <div className="flex flex-col items-center text-center space-y-6 md:space-y-8">
           <div className="inline-flex items-center gap-2 rounded-full bg-blue-100 dark:bg-blue-950 px-4 py-1.5 text-sm font-medium text-blue-700 dark:text-blue-300">
             <Shield className="h-4 w-4" />
             <span>AI-Powered Fraud Detection</span>
           </div>
 
-          <h1 className="max-w-4xl text-5xl font-bold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-6xl md:text-7xl">
+          <h1 className="max-w-4xl text-4xl font-bold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-5xl md:text-6xl lg:text-7xl">
             FinSight AI
             <span className="block text-blue-600 dark:text-blue-400">
               Advanced Fraud Detection
             </span>
           </h1>
 
-          <p className="max-w-2xl text-xl text-zinc-600 dark:text-zinc-400">
+          <p className="max-w-2xl text-lg md:text-xl text-zinc-600 dark:text-zinc-400 px-4">
             Leverage multi-agent reasoning systems with ReAct, Chain-of-Thought, and Tree-of-Thought
             patterns to detect financial fraud with unprecedented accuracy and transparency.
           </p>
 
-          <div className="flex flex-col gap-4 sm:flex-row">
-            <Button asChild size="lg" className="text-base">
+          <div className="flex flex-col gap-4 sm:flex-row w-full sm:w-auto px-4">
+            <Button asChild size="lg" className="text-base w-full sm:w-auto">
               <Link href="/analyze">
                 Start Analysis
               </Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="text-base">
+            <Button asChild size="lg" variant="outline" className="text-base w-full sm:w-auto">
               <Link href="/dashboard">
                 View Dashboard
               </Link>
@@ -53,11 +53,11 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="container mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 mb-8 text-center">
+      <section className="container mx-auto px-4 py-12 md:py-16">
+        <h2 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-50 mb-6 md:mb-8 text-center">
           Platform Features
         </h2>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader>
               <Brain className="h-10 w-10 text-blue-600 dark:text-blue-400 mb-2" />

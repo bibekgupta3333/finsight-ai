@@ -1,0 +1,41 @@
+{
+  "name": "FinSight AI - Fraud Detection",
+  "short_name": "FinSight AI",
+  "description": "AI-powered multi-agent fraud detection system",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["finance", "business", "security"],
+  "shortcuts": [
+    {
+      "name": "Analyze Transaction",
+      "short_name": "Analyze",
+      "description": "Analyze a new transaction",
+      "url": "/analyze",
+      "icons": [{ "src": "/icon-analyze.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "View Dashboard",
+      "short_name": "Dashboard",
+      "description": "View fraud detection dashboard",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icon-dashboard.png", "sizes": "96x96" }]
+    }
+  ]
+}
