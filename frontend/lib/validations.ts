@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-// Transaction schema matching backend PaySim data format
-export const transactionSchema = z.object({
+// CSV Transaction schema (what we parse from uploaded files)
+export const csvTransactionSchema = z.object({
   step: z.number().int().min(0),
   type: z.enum(['PAYMENT', 'TRANSFER', 'CASH_OUT', 'DEBIT', 'CASH_IN']),
   amount: z.number().positive(),
@@ -15,17 +15,39 @@ export const transactionSchema = z.object({
   isFlaggedFraud: z.number().int().min(0).max(1).optional(),
 });
 
-export const fraudAnalysisResultSchema = z.object({
+// API Transaction schema (what backend expects)
+export const apiTransactionSchema = z.object({
+  transaction_id: z.string().min(1),
+  type: z.enum(['PAYMENT', 'TRANSFER', 'CASH_OUT', 'DEBIT', 'CASH_IN']),
+  amount: z.number().min(0),
+  oldbalanceOrg: z.number().min(0),
+  newbalanceOrig: z.number().min(0),
+  oldbalanceDest: z.number().min(0),
+  newbalanceDest: z.number().min(0),
+  nameOrig: z.string().optional(),
+  nameDest: z.string().optional(),
+  timestamp: z.string().optional(),
+});
+
+// Keep legacy transactionSchema for backward compatibility
+export const transactionSchema = csvTransactionSchema;
+
+export const fraudPredictionSchema = z.object({
   is_fraud: z.boolean(),
-  confidence: z.number().min(0).max(1),
   risk_score: z.number().min(0).max(100),
-  decision: z.enum(['APPROVE', 'REVIEW', 'BLOCK']),
-  reasoning: z.string(),
-  observations: z.array(z.string()),
-  anomalies: z.array(z.string()),
-  tool_results: z.record(z.string(), z.any()),
+  risk_level: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
+  confidence: z.number().min(0).max(1),
   explanation: z.string(),
+  factors: z.array(z.string()).nullable(),
+  reasoning_steps: z.array(z.string()).nullable(),
+});
+
+export const fraudAnalysisResultSchema = z.object({
+  transaction_id: z.string(),
+  prediction: fraudPredictionSchema,
+  processing_time_ms: z.number(),
   timestamp: z.string(),
+  metadata: z.record(z.string(), z.any()).nullable(),
 });
 
 export const batchAnalysisRequestSchema = z.object({

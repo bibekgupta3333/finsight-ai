@@ -48,8 +48,10 @@ export function useFraudAnalysis() {
     },
 
     onSuccess: (data) => {
+      const riskLevel = data.prediction.risk_level;
+      const confidence = (data.prediction.confidence * 100).toFixed(0);
       toast.success(
-        `Analysis complete: ${data.decision} (${(data.confidence * 100).toFixed(0)}% confidence)`,
+        `Analysis complete: ${riskLevel} risk (${confidence}% confidence)`,
         { id: 'analysis' }
       );
       queryClient.invalidateQueries({ queryKey: fraudKeys.all });

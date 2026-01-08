@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { useBatchAnalysis, useFraudAnalysis } from '@/hooks/use-fraud-analysis';
 import { exportToCSV, exportToPDF } from '@/lib/export-utils';
-import type { FraudAnalysisResult, Transaction } from '@/lib/types';
-import { transactionSchema } from '@/lib/validations';
+import type { FraudAnalysisResult, Transaction, CSVTransaction } from '@/lib/types';
+import { csvTransactionSchema } from '@/lib/validations';
 import { AlertCircle, CheckCircle2, Download, FileDown, FileText, Upload, XCircle } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
@@ -42,7 +42,7 @@ export default function AnalyzePage() {
     multiple: false,
   });
 
-  const parseCSV = (text: string): Transaction[] => {
+  const parseCSV = (text: string): CSVTransaction[] => {
     const lines = text.trim().split('\n');
     const headers = lines[0].split(',');
 
@@ -63,8 +63,27 @@ export default function AnalyzePage() {
       };
 
       // Validate with Zod
-      return transactionSchema.parse(transaction);
+      return csvTransactionSchema.parse(transaction);
     });
+  };
+
+  // Transform CSV transaction to API format
+  const transformToAPITransaction = (csvTx: CSVTransaction): Transaction => {
+    // Generate unique transaction ID from step and account info
+    const transactionId = `TX_${csvTx.step}_${csvTx.nameOrig.substring(1, 7)}`;
+
+    return {
+      transaction_id: transactionId,
+      type: csvTx.type,
+      amount: csvTx.amount,
+      oldbalanceOrg: csvTx.oldbalanceOrg,
+      newbalanceOrig: csvTx.newbalanceOrig,
+      oldbalanceDest: csvTx.oldbalanceDest,
+      newbalanceDest: csvTx.newbalanceDest,
+      nameOrig: csvTx.nameOrig,
+      nameDest: csvTx.nameDest,
+      timestamp: new Date().toISOString(),
+    };
   };
 
   const analyzeFile = async () => {
@@ -86,7 +105,9 @@ export default function AnalyzePage() {
       const analysisResults: FraudAnalysisResult[] = [];
 
       for (let i = 0; i < transactionsToAnalyze.length; i++) {
-        const result = await fraudAnalysis.mutateAsync(transactionsToAnalyze[i]);
+        // Transform CSV transaction to API format
+        const apiTransaction = transformToAPITransaction(transactionsToAnalyze[i]);
+        const result = await fraudAnalysis.mutateAsync(apiTransaction);
         analysisResults.push(result);
         setProgress(((i + 1) / transactionsToAnalyze.length) * 100);
       }
@@ -97,26 +118,28 @@ export default function AnalyzePage() {
     }
   };
 
-  const getDecisionColor = (decision: string) => {
-    switch (decision) {
-      case 'APPROVE':
+  const getDecisionColor = (risk_level: string) => {
+    switch (risk_level) {
+      case 'LOW':
         return 'bg-green-500';
-      case 'REVIEW':
+      case 'MEDIUM':
         return 'bg-yellow-500';
-      case 'BLOCK':
+      case 'HIGH':
+      case 'CRITICAL':
         return 'bg-red-500';
       default:
         return 'bg-gray-500';
     }
   };
 
-  const getDecisionIcon = (decision: string) => {
-    switch (decision) {
-      case 'APPROVE':
+  const getDecisionIcon = (risk_level: string) => {
+    switch (risk_level) {
+      case 'LOW':
         return <CheckCircle2 className="h-4 w-4" />;
-      case 'REVIEW':
+      case 'MEDIUM':
         return <AlertCircle className="h-4 w-4" />;
-      case 'BLOCK':
+      case 'HIGH':
+      case 'CRITICAL':
         return <XCircle className="h-4 w-4" />;
       default:
         return null;
@@ -232,10 +255,10 @@ export default function AnalyzePage() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">Transaction #{index + 1}</CardTitle>
-                    <Badge className={getDecisionColor(result.decision)}>
+                    <Badge className={getDecisionColor(result.prediction.risk_level)}>
                       <div className="flex items-center gap-1">
-                        {getDecisionIcon(result.decision)}
-                        {result.decision}
+                        {getDecisionIcon(result.prediction.risk_level)}
+                        {result.prediction.risk_level}
                       </div>
                     </Badge>
                   </div>
@@ -246,34 +269,34 @@ export default function AnalyzePage() {
                       <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                         Risk Score
                       </p>
-                      <p className="text-2xl font-bold">{result.risk_score.toFixed(1)}/100</p>
+                      <p className="text-2xl font-bold">{result.prediction.risk_score.toFixed(1)}/100</p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                         Confidence
                       </p>
                       <p className="text-2xl font-bold">
-                        {(result.confidence * 100).toFixed(1)}%
+                        {(result.prediction.confidence * 100).toFixed(1)}%
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-4">
                     <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-2">
-                      Reasoning
+                      Explanation
                     </p>
-                    <p className="text-sm">{result.reasoning}</p>
+                    <p className="text-sm">{result.prediction.explanation}</p>
                   </div>
 
-                  {result.anomalies && result.anomalies.length > 0 && (
+                  {result.prediction.factors && result.prediction.factors.length > 0 && (
                     <div className="mt-4">
                       <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-2">
-                        Anomalies Detected
+                        Risk Factors
                       </p>
                       <ul className="list-disc list-inside space-y-1">
-                        {result.anomalies.map((anomaly, i) => (
+                        {result.prediction.factors.map((factor, i) => (
                           <li key={i} className="text-sm text-red-600 dark:text-red-400">
-                            {anomaly}
+                            {factor}
                           </li>
                         ))}
                       </ul>

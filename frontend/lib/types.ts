@@ -1,6 +1,7 @@
 // API Types based on backend/app/api/fraud.py
 
-export interface Transaction {
+// CSV schema (what we parse from uploaded files)
+export interface CSVTransaction {
   step: number;
   type: string;
   amount: number;
@@ -14,17 +15,38 @@ export interface Transaction {
   isFlaggedFraud?: number;
 }
 
-export interface FraudAnalysisResult {
+// API schema (what backend expects)
+export interface Transaction {
+  transaction_id: string;
+  type: string;
+  amount: number;
+  oldbalanceOrg: number;
+  newbalanceOrig: number;
+  oldbalanceDest: number;
+  newbalanceDest: number;
+  nameOrig?: string;
+  nameDest?: string;
+  timestamp?: string;
+}
+
+// Fraud prediction from backend
+export interface FraudPrediction {
   is_fraud: boolean;
-  confidence: number;
   risk_score: number;
-  decision: "APPROVE" | "REVIEW" | "BLOCK";
-  reasoning: string;
-  observations: string[];
-  anomalies: string[];
-  tool_results: Record<string, any>;
+  risk_level: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  confidence: number;
   explanation: string;
+  factors: string[] | null;
+  reasoning_steps: string[] | null;
+}
+
+// Backend response structure
+export interface FraudAnalysisResult {
+  transaction_id: string;
+  prediction: FraudPrediction;
+  processing_time_ms: number;
   timestamp: string;
+  metadata: Record<string, any> | null;
 }
 
 export interface BatchAnalysisRequest {

@@ -98,6 +98,8 @@ datasets/
 # DVC will manage data files - ignore large data files but keep .dvc metadata
 *.csv
 *.parquet
+# Exception: Keep sample test files
+!/data/samples/*.csv
 *.jsonl
 !package.json
 !tsconfig.json
