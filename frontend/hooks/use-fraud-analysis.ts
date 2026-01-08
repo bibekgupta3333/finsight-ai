@@ -94,7 +94,7 @@ export function useBatchAnalysis() {
 
     onSuccess: (data) => {
       toast.success(
-        `Batch analysis complete: ${data.fraud_count}/${data.total} flagged as fraud`,
+        `Batch analysis submitted: ${data.total_transactions} transactions. Task ID: ${data.task_id}`,
         { id: 'batch-analysis' }
       );
       queryClient.invalidateQueries({ queryKey: fraudKeys.all });
@@ -120,7 +120,7 @@ export function useReActAnalysis() {
       return await apiClient.analyzeWithReAct(transaction);
     },
     onSuccess: (data) => {
-      toast.success(`ReAct analysis: ${data.decision}`);
+      toast.success(`ReAct analysis: ${data.prediction.risk_level} risk`);
     },
     onError: (error: Error) => {
       toast.error(`ReAct analysis failed: ${error.message}`);
@@ -135,7 +135,7 @@ export function useCoTAnalysis() {
       return await apiClient.analyzeWithCoT(transaction);
     },
     onSuccess: (data) => {
-      toast.success(`Chain-of-Thought analysis: ${data.decision}`);
+      toast.success(`Chain-of-Thought analysis: ${data.prediction.risk_level} risk`);
     },
     onError: (error: Error) => {
       toast.error(`CoT analysis failed: ${error.message}`);
@@ -150,7 +150,7 @@ export function useToTAnalysis() {
       return await apiClient.analyzeWithToT(transaction);
     },
     onSuccess: (data) => {
-      toast.success(`Tree-of-Thought analysis: ${data.decision}`);
+      toast.success(`Tree-of-Thought analysis: ${data.prediction.risk_level} risk`);
     },
     onError: (error: Error) => {
       toast.error(`ToT analysis failed: ${error.message}`);

@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const csvTransactionSchema = z.object({
   step: z.number().int().min(0),
   type: z.enum(['PAYMENT', 'TRANSFER', 'CASH_OUT', 'DEBIT', 'CASH_IN']),
-  amount: z.number().positive(),
+  amount: z.number().min(0),
   nameOrig: z.string().min(1),
   oldbalanceOrg: z.number().min(0),
   newbalanceOrig: z.number(),

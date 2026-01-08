@@ -179,10 +179,10 @@ async def analyze_batch(
         fraud_service = get_fraud_service()
 
         # Submit batch analysis task
-        task_id = await task_queue.submit_task(
+        task_id = request.batch_id or await task_queue.submit_task(
             fraud_service.analyze_batch,
             request.transactions,
-            client_id=request.client_id,
+            client_id=request.client_id or "anonymous",
         )
 
         # Estimate completion time (rough estimate)
@@ -191,14 +191,15 @@ async def analyze_batch(
         logger.info(
             f"Batch analysis submitted: task_id={task_id}, "
             f"transactions={len(request.transactions)}, "
-            f"client={request.client_id}"
+            f"client={request.client_id or 'anonymous'}, "
+            f"batch_id={request.batch_id or task_id}"
         )
 
         return BatchFraudAnalysisResponse(
             task_id=task_id,
             status="pending",
+            total_transactions=len(request.transactions),
             message=f"Batch analysis of {len(request.transactions)} transactions submitted",
-            estimated_completion_seconds=estimated_time,
         )
 
     except RuntimeError as e:
@@ -263,13 +264,13 @@ async def get_task_status(task_id: str) -> TaskStatusResponse:
             # Estimate progress based on elapsed time
             if task_result.started_at:
                 elapsed = (datetime.utcnow() - task_result.started_at).total_seconds()
-                
+
                 # If we have results, calculate actual progress
                 if task_result.result and isinstance(task_result.result, list):
                     total = len(task_result.result)
                     completed = len([r for r in task_result.result if r is not None])
                     percentage = (completed / max(total, 1)) * 100
-                    
+
                     # Estimate remaining time
                     if completed > 0 and elapsed > 0:
                         avg_time_per_item = elapsed / completed
@@ -277,13 +278,13 @@ async def get_task_status(task_id: str) -> TaskStatusResponse:
                         estimated_remaining = avg_time_per_item * remaining_items
                     else:
                         estimated_remaining = None
-                    
+
                     # Count fraud detected so far
                     fraud_detected_so_far = sum(
-                        1 for r in task_result.result 
+                        1 for r in task_result.result
                         if r and hasattr(r, 'prediction') and r.prediction.is_fraud
                     )
-                    
+
                     progress = {
                         "total_transactions": total,
                         "processed": completed,
@@ -297,13 +298,13 @@ async def get_task_status(task_id: str) -> TaskStatusResponse:
                     # Assume average 0.15 seconds per transaction
                     estimated_total_time = 30.0  # Default estimate
                     percentage = min(100, (elapsed / estimated_total_time) * 100)
-                    
+
                     progress = {
                         "percentage": round(percentage, 2),
                         "elapsed_seconds": round(elapsed, 2),
                         "estimated_time_remaining_seconds": max(0, round(estimated_total_time - elapsed, 2)),
                     }
-        
+
         # Build response
         response_data = {
             "task_id": task_result.task_id,
@@ -313,7 +314,7 @@ async def get_task_status(task_id: str) -> TaskStatusResponse:
             "progress": progress,
             "error": task_result.error,
         }
-        
+
         # Add results if completed
         if task_result.status.value == "completed" and task_result.result:
             if isinstance(task_result.result, list):
@@ -323,7 +324,7 @@ async def get_task_status(task_id: str) -> TaskStatusResponse:
                 ]
             else:
                 response_data["results"] = task_result.result
-        
+
         return TaskStatusResponse(**response_data)
 
     except HTTPException:
@@ -367,7 +368,7 @@ async def get_stats(
     """
     try:
         from datetime import timedelta
-        
+
         task_queue = await get_task_queue()
         fraud_service = get_fraud_service()
 
@@ -398,10 +399,10 @@ async def get_stats(
         previous_period_fraud = int(fraud_detected * 0.88)  # Simulate 12% increase
         previous_period_total = int(total_analyzed * 0.90)
         previous_fraud_rate = previous_period_fraud / max(previous_period_total, 1)
-        
+
         fraud_rate_change = fraud_rate - previous_fraud_rate
         percentage_change = (fraud_rate_change / max(previous_fraud_rate, 0.001)) * 100
-        
+
         trend_direction = "increasing" if fraud_rate_change > 0 else "decreasing" if fraud_rate_change < 0 else "stable"
 
         # Breakdown by transaction type
@@ -431,7 +432,7 @@ async def get_stats(
                 "DEBIT": 0.03,
                 "CASH_IN": 0.02,
             }
-            
+
             for tx_type, dist in type_distributions.items():
                 type_count = int(total_analyzed * dist)
                 type_fraud = int(fraud_detected * fraud_distributions.get(tx_type, 0.1))
@@ -3755,19 +3756,19 @@ async def execute_sql_query(request: ExecuteSQLRequest):
 async def get_fraud_categories():
     """
     Get fraud statistics by transaction category.
-    
+
     Returns aggregated statistics grouped by transaction type,
     including total counts, fraud counts, fraud rates, and average amounts.
     """
     try:
         fraud_service = get_fraud_service()
         service_stats = await fraud_service.get_stats()
-        
+
         # Get category breakdown from service if available
         # For now, use service stats and provide realistic breakdown
         total_analyzed = service_stats.get("total_analyzed", 0)
         total_fraud = service_stats.get("fraud_detected", 0)
-        
+
         # In a production system, this would query a database
         # For now, calculate based on typical fraud patterns
         # TRANSFER and CASH_OUT are typically higher risk
@@ -3813,12 +3814,12 @@ async def get_fraud_categories():
                 "avg_fraud_amount": 125000.0,
             },
         ]
-        
+
         # Calculate totals
         total_transactions = sum(cat["total_count"] for cat in categories)
         total_fraud_detected = sum(cat["fraud_count"] for cat in categories)
         global_fraud_rate = total_fraud_detected / max(total_transactions, 1)
-        
+
         return {
             "categories": categories,
             "total_transactions": total_transactions,
@@ -3842,7 +3843,7 @@ async def get_fraud_categories():
 async def get_fraud_insights():
     """
     Get high-level fraud insights and trends.
-    
+
     Returns aggregated insights including:
     - Total transactions analyzed
     - Fraud detection statistics
@@ -3853,11 +3854,11 @@ async def get_fraud_insights():
     try:
         fraud_service = get_fraud_service()
         service_stats = await fraud_service.get_stats()
-        
+
         total_analyzed = service_stats.get("total_analyzed", 6354407)
         total_fraud = service_stats.get("fraud_detected", 8213)
         fraud_rate = total_fraud / max(total_analyzed, 1)
-        
+
         # Calculate risk distribution based on typical patterns
         # Higher risk transactions are more likely to be fraud
         risk_distribution = {
@@ -3866,19 +3867,19 @@ async def get_fraud_insights():
             "MEDIUM": int(total_fraud * 0.26),    # ~26% is medium risk
             "LOW": int(total_fraud * 0.12),      # ~12% is low risk
         }
-        
+
         # Trending fraud types (TRANSFER and CASH_OUT are typically highest)
         trending_fraud_types = ["CASH_OUT", "TRANSFER"]
-        
+
         # Hourly peaks (fraud often happens during off-hours)
         hourly_peaks = [2, 3, 4]  # 2-4 AM
-        
+
         # Recent escalations (mock for now, would come from escalation log)
         recent_escalations = 47
-        
+
         # Average confidence score (mock, would be calculated from predictions)
         avg_confidence_score = 0.82
-        
+
         return {
             "total_transactions_analyzed": total_analyzed,
             "total_fraud_detected": total_fraud,
@@ -3909,14 +3910,14 @@ async def upload_transactions(
 ):
     """
     Upload CSV or Excel file for bulk fraud analysis.
-    
+
     Validates the file, reads transaction data, and queues for batch processing.
     Returns upload ID for tracking progress.
     """
     import os
     import csv
     import io
-    
+
     # Validate file extension
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in [".csv", ".xlsx", ".xls"]:
@@ -3924,11 +3925,11 @@ async def upload_transactions(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid file type. Only CSV and Excel supported.",
         )
-    
+
     try:
         # Read file content
         content = await file.read()
-        
+
         # Parse CSV (for now, only CSV is fully supported)
         if ext == ".csv":
             # Decode content
@@ -3936,22 +3937,22 @@ async def upload_transactions(
                 text_content = content.decode("utf-8")
             except UnicodeDecodeError:
                 text_content = content.decode("latin-1")
-            
+
             # Parse CSV
             csv_reader = csv.DictReader(io.StringIO(text_content))
             rows = list(csv_reader)
             total_rows = len(rows)
-            
+
             # Validate CSV has required columns (basic check)
             if total_rows > 0:
                 required_fields = ["amount", "type"]
                 if not all(field in rows[0] for field in required_fields):
                     logger.warning(f"CSV may be missing required fields: {required_fields}")
-            
+
             # Queue for batch processing
             task_queue = await get_task_queue()
             fraud_service = get_fraud_service()
-            
+
             # Convert CSV rows to Transaction objects (simplified)
             # In production, would have proper CSV-to-Transaction mapping
             transactions = []
@@ -3971,27 +3972,27 @@ async def upload_transactions(
                 except (ValueError, KeyError) as e:
                     logger.warning(f"Skipping invalid row {i}: {e}")
                     continue
-            
+
             # Submit batch analysis task
             task_id = await task_queue.submit_task(
                 fraud_service.analyze_batch,
                 transactions,
             )
-            
+
             # Estimate completion time
             estimated_seconds = len(transactions) * 0.15
             estimated_completion = datetime.utcnow()
             from datetime import timedelta
             estimated_completion += timedelta(seconds=estimated_seconds)
-            
+
             upload_id = f"upload_{datetime.utcnow().strftime('%Y%m%d')}_{task_id[:8]}"
-            
+
             logger.info(
                 f"File upload processed: {file.filename}, "
                 f"rows={total_rows}, transactions={len(transactions)}, "
                 f"task_id={task_id}"
             )
-            
+
             return {
                 "upload_id": upload_id,
                 "filename": file.filename,
@@ -4006,7 +4007,7 @@ async def upload_transactions(
             # In production, would use openpyxl or pandas
             upload_id = str(uuid.uuid4())
             logger.warning(f"Excel file upload not fully implemented: {file.filename}")
-            
+
             return {
                 "upload_id": upload_id,
                 "filename": file.filename,
@@ -4016,7 +4017,7 @@ async def upload_transactions(
                 "message": "Excel file support coming soon. Please use CSV format.",
                 "estimated_completion_time": None,
             }
-    
+
     except Exception as e:
         logger.exception(f"File upload failed: {e}")
         raise HTTPException(
@@ -4029,7 +4030,7 @@ async def upload_transactions(
 async def fraud_stream_socket(websocket: WebSocket, session_id: str):
     """
     WebSocket endpoint for real-time fraud analysis streaming.
-    
+
     Streams reasoning steps, tool executions, and final results as they occur.
     Supports client commands for starting analysis or requesting updates.
     """
@@ -4057,13 +4058,13 @@ async def fraud_stream_socket(websocket: WebSocket, session_id: str):
                         "timestamp": datetime.utcnow().isoformat(),
                     })
                     continue
-                
+
                 message_type = data.get("type", "")
-                
+
                 if message_type == "start_analysis":
                     # Start fraud analysis and stream results
                     transaction_data = data.get("transaction", {})
-                    
+
                     if not transaction_data:
                         await websocket.send_json({
                             "event": "error",
@@ -4071,7 +4072,7 @@ async def fraud_stream_socket(websocket: WebSocket, session_id: str):
                             "timestamp": datetime.utcnow().isoformat(),
                         })
                         continue
-                    
+
                     # Stream reasoning steps
                     await websocket.send_json({
                         "event": "reasoning_step",
@@ -4079,27 +4080,27 @@ async def fraud_stream_socket(websocket: WebSocket, session_id: str):
                         "thought": "Analyzing transaction amount...",
                         "timestamp": datetime.utcnow().isoformat(),
                     })
-                    
+
                     await asyncio.sleep(0.5)  # Simulate processing
-                    
+
                     await websocket.send_json({
                         "event": "tool_execution",
                         "tool": "calculate_risk_score",
                         "result": {"risk_score": 75.5},
                         "timestamp": datetime.utcnow().isoformat(),
                     })
-                    
+
                     await asyncio.sleep(0.5)
-                    
+
                     await websocket.send_json({
                         "event": "reasoning_step",
                         "step": 2,
                         "thought": "Checking transaction type against fraud policies...",
                         "timestamp": datetime.utcnow().isoformat(),
                     })
-                    
+
                     await asyncio.sleep(0.5)
-                    
+
                     # Final result
                     await websocket.send_json({
                         "event": "analysis_complete",
@@ -4111,14 +4112,14 @@ async def fraud_stream_socket(websocket: WebSocket, session_id: str):
                         },
                         "timestamp": datetime.utcnow().isoformat(),
                     })
-                
+
                 elif message_type == "ping":
                     # Respond to ping
                     await websocket.send_json({
                         "event": "pong",
                         "timestamp": datetime.utcnow().isoformat(),
                     })
-                
+
                 else:
                     # Echo unknown messages
                     await websocket.send_json({
@@ -4126,7 +4127,7 @@ async def fraud_stream_socket(websocket: WebSocket, session_id: str):
                         "data": data,
                         "timestamp": datetime.utcnow().isoformat(),
                     })
-                    
+
             except WebSocketDisconnect:
                 logger.info(f"WebSocket disconnected: {session_id}")
                 break

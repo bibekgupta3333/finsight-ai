@@ -15,18 +15,18 @@ export function exportToCSV(
     'Is Fraud',
     'Confidence',
     'Risk Score',
-    'Decision',
-    'Reasoning',
+    'Risk Level',
+    'Explanation',
     'Timestamp',
   ];
 
-  const rows = results.map((result, index) => [
-    `TXN-${String(index + 1).padStart(3, '0')}`,
-    result.is_fraud ? 'Yes' : 'No',
-    (result.confidence * 100).toFixed(2) + '%',
-    result.risk_score.toFixed(2),
-    result.decision,
-    result.reasoning.replace(/,/g, ';'), // Replace commas to avoid CSV issues
+  const rows = results.map((result) => [
+    result.transaction_id,
+    result.prediction.is_fraud ? 'Yes' : 'No',
+    (result.prediction.confidence * 100).toFixed(2) + '%',
+    result.prediction.risk_score.toFixed(2),
+    result.prediction.risk_level,
+    result.prediction.explanation.replace(/,/g, ';'), // Replace commas to avoid CSV issues
     result.timestamp || new Date().toISOString(),
   ]);
 
@@ -58,22 +58,22 @@ export function exportToPDF(
   doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
   doc.text(`Total Transactions: ${results.length}`, 14, 36);
 
-  const fraudCount = results.filter((r) => r.is_fraud).length;
+  const fraudCount = results.filter((r) => r.prediction.is_fraud).length;
   doc.text(`Fraud Detected: ${fraudCount} (${((fraudCount / results.length) * 100).toFixed(2)}%)`, 14, 42);
 
   // Create table data
-  const tableData = results.map((result, index) => [
-    `TXN-${String(index + 1).padStart(3, '0')}`,
-    result.is_fraud ? 'Yes' : 'No',
-    `${(result.confidence * 100).toFixed(2)}%`,
-    result.risk_score.toFixed(2),
-    result.decision,
-    result.reasoning.substring(0, 50) + (result.reasoning.length > 50 ? '...' : ''),
+  const tableData = results.map((result) => [
+    result.transaction_id,
+    result.prediction.is_fraud ? 'Yes' : 'No',
+    `${(result.prediction.confidence * 100).toFixed(2)}%`,
+    result.prediction.risk_score.toFixed(2),
+    result.prediction.risk_level,
+    result.prediction.explanation.substring(0, 50) + (result.prediction.explanation.length > 50 ? '...' : ''),
   ]);
 
   // Add table
   autoTable(doc, {
-    head: [['ID', 'Fraud', 'Confidence', 'Risk', 'Decision', 'Reasoning']],
+    head: [['ID', 'Fraud', 'Confidence', 'Risk', 'Level', 'Explanation']],
     body: tableData,
     startY: 50,
     styles: { fontSize: 8 },

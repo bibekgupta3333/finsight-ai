@@ -2,9 +2,11 @@ import axios, { AxiosError, AxiosInstance } from 'axios';
 import type {
   BatchAnalysisRequest,
   BatchAnalysisResult,
+  BatchFraudAnalysisResponse,
   FraudAnalysisResult,
   HealthStatus,
   StatefulSession,
+  TaskStatusResponse,
   Transaction,
 } from './types';
 
@@ -75,8 +77,14 @@ class APIClient {
   }
 
   // Batch Analysis
-  async analyzeBatch(request: BatchAnalysisRequest): Promise<BatchAnalysisResult> {
+  async analyzeBatch(request: BatchAnalysisRequest): Promise<BatchFraudAnalysisResponse> {
     const response = await this.client.post('/api/v1/fraud/analyze/batch', request);
+    return response.data;
+  }
+
+  // Get Task Status (for batch analysis)
+  async getTaskStatus(taskId: string): Promise<TaskStatusResponse> {
+    const response = await this.client.get(`/api/v1/fraud/tasks/${taskId}`);
     return response.data;
   }
 

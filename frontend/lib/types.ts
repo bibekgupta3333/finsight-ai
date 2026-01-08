@@ -68,6 +68,31 @@ export interface BatchAnalysisResult {
   avg_confidence: number;
 }
 
+export interface BatchFraudAnalysisResponse {
+  task_id: string;
+  status: string;
+  total_transactions: number;
+  message: string;
+  created_at: string;
+}
+
+export interface TaskStatusResponse {
+  task_id: string;
+  status: string;
+  progress?: {
+    total_transactions?: number;
+    processed?: number;
+    percentage?: number;
+    fraud_detected_so_far?: number;
+    elapsed_seconds?: number;
+    estimated_time_remaining_seconds?: number;
+  };
+  results?: FraudAnalysisResult[];
+  error?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface AgentExecutionTrace {
   node_type: string;
   input: any;

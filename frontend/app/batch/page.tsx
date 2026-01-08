@@ -13,7 +13,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useBatchAnalysis } from '@/hooks/use-fraud-analysis';
-import { parseCSVFile } from '@/lib/export-utils';
+import { apiClient } from '@/lib/api-client';
+import { exportToCSV, parseCSVFile } from '@/lib/export-utils';
+import type { CSVTransaction, FraudAnalysisResult, Transaction } from '@/lib/types';
+import { csvTransactionSchema } from '@/lib/validations';
 import {
   CheckCircle,
   Clock,
@@ -36,6 +39,8 @@ interface BatchJob {
   fraudDetected: number;
   startTime?: string;
   endTime?: string;
+  results?: FraudAnalysisResult[];
+  taskId?: string;
 }
 
 export default function BatchProcessingPage() {
@@ -75,6 +80,25 @@ export default function BatchProcessingPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const batchAnalysis = useBatchAnalysis();
 
+  // Transform CSV transaction to API format
+  const transformToAPITransaction = (csvTx: CSVTransaction): Transaction => {
+    // Generate unique transaction ID from step and account info
+    const transactionId = `TX_${csvTx.step}_${csvTx.nameOrig.substring(1, 7)}`;
+
+    return {
+      transaction_id: transactionId,
+      type: csvTx.type,
+      amount: csvTx.amount,
+      oldbalanceOrg: csvTx.oldbalanceOrg,
+      newbalanceOrig: csvTx.newbalanceOrig,
+      oldbalanceDest: csvTx.oldbalanceDest,
+      newbalanceDest: csvTx.newbalanceDest,
+      nameOrig: csvTx.nameOrig,
+      nameDest: csvTx.nameDest,
+      timestamp: new Date().toISOString(),
+    };
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -86,14 +110,21 @@ export default function BatchProcessingPage() {
     if (!selectedFile) return;
 
     try {
-      const transactions = await parseCSVFile(selectedFile);
+      const csvData = await parseCSVFile(selectedFile);
+
+      // Validate and transform CSV transactions to API format
+      const csvTransactions: CSVTransaction[] = csvData.map((row: any) =>
+        csvTransactionSchema.parse(row)
+      );
+
+      const apiTransactions: Transaction[] = csvTransactions.map(transformToAPITransaction);
 
       const newJob: BatchJob = {
         id: `batch-${String(jobs.length + 1).padStart(3, '0')}`,
         name: selectedFile.name,
         status: 'running',
         progress: 0,
-        totalTransactions: transactions.length,
+        totalTransactions: apiTransactions.length,
         processedTransactions: 0,
         fraudDetected: 0,
         startTime: new Date().toISOString(),
@@ -101,35 +132,155 @@ export default function BatchProcessingPage() {
 
       setJobs([newJob, ...jobs]);
 
-      // Start batch analysis
-      await batchAnalysis.mutateAsync({
-        transactions,
-        batch_id: newJob.id,
+      // Start batch analysis with transformed transactions
+      const batchResponse = await batchAnalysis.mutateAsync({
+        transactions: apiTransactions,
+        // Don't send batch_id - let backend generate task_id
       });
 
-      // Update job status
+      // Store task_id and poll for results
+      const taskId = batchResponse.task_id;
       setJobs((prev) =>
         prev.map((job) =>
           job.id === newJob.id
             ? {
                 ...job,
-                status: 'completed',
-                progress: 100,
-                processedTransactions: transactions.length,
-                endTime: new Date().toISOString(),
+                taskId,
+                status: 'running',
               }
             : job
         )
       );
+
+      // Start polling for results
+      pollTaskStatus(taskId, newJob.id);
     } catch (error) {
       console.error('Batch analysis failed:', error);
+      // Update job status to failed
+      setSelectedFile(null);
+      setJobs((prev) =>
+        prev.map((job) =>
+          job.name === selectedFile?.name
+            ? { ...job, status: 'failed' as const }
+            : job
+        )
+      );
     }
+  };
+
+  // Poll for task completion and results
+  const pollTaskStatus = async (taskId: string, jobId: string) => {
+    const maxAttempts = 60; // Poll for up to 60 attempts (5 minutes at 5s interval)
+    let attempts = 0;
+
+    const poll = async () => {
+      try {
+        const taskStatus = await apiClient.getTaskStatus(taskId);
+
+        // Update job with progress
+        if (taskStatus.progress) {
+          setJobs((prev) =>
+            prev.map((job) =>
+              job.id === jobId
+                ? {
+                    ...job,
+                    progress: taskStatus.progress?.percentage || 0,
+                    processedTransactions: taskStatus.progress?.processed || 0,
+                    fraudDetected: taskStatus.progress?.fraud_detected_so_far || 0,
+                  }
+                : job
+            )
+          );
+        }
+
+        // Check if completed
+        if (taskStatus.status === 'completed' && taskStatus.results) {
+          const fraudCount = taskStatus.results.filter((r) => r.prediction.is_fraud).length;
+          setJobs((prev) =>
+            prev.map((job) =>
+              job.id === jobId
+                ? {
+                    ...job,
+                    status: 'completed',
+                    progress: 100,
+                    processedTransactions: taskStatus.results?.length || 0,
+                    fraudDetected: fraudCount,
+                    results: taskStatus.results,
+                    endTime: new Date().toISOString(),
+                  }
+                : job
+            )
+          );
+          return; // Stop polling
+        }
+
+        // Check if failed
+        if (taskStatus.status === 'failed') {
+          setJobs((prev) =>
+            prev.map((job) =>
+              job.id === jobId ? { ...job, status: 'failed' } : job
+            )
+          );
+          return; // Stop polling
+        }
+
+        // Continue polling if still running
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 5000); // Poll every 5 seconds
+        } else {
+          console.warn('Polling timeout - max attempts reached');
+        }
+      } catch (error) {
+        console.error('Error polling task status:', error);
+      }
+    };
+
+    // Start polling
+    poll();
   };
 
   const cancelJob = (jobId: string) => {
     setJobs((prev) =>
       prev.map((job) => (job.id === jobId ? { ...job, status: 'cancelled' as const } : job))
     );
+  };
+
+  const handleExport = (job: BatchJob) => {
+    if (!job.results || job.results.length === 0) {
+      console.warn('No results available to export for job:', job.id);
+      return;
+    }
+    exportToCSV(job.results, `${job.id}-fraud-analysis-results.csv`);
+  };
+
+  const handleFetchResults = async (job: BatchJob) => {
+    if (!job.taskId) {
+      console.error('No task ID available for job:', job.id);
+      return;
+    }
+
+    try {
+      const taskStatus = await apiClient.getTaskStatus(job.taskId);
+
+      if (taskStatus.status === 'completed' && taskStatus.results) {
+        const fraudCount = taskStatus.results.filter((r) => r.prediction.is_fraud).length;
+        setJobs((prev) =>
+          prev.map((j) =>
+            j.id === job.id
+              ? {
+                  ...j,
+                  results: taskStatus.results,
+                  fraudDetected: fraudCount,
+                  processedTransactions: taskStatus.results?.length || 0,
+                }
+              : j
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Failed to fetch results:', error);
+    }
   };
 
   const getStatusIcon = (status: BatchJob['status']) => {
@@ -311,8 +462,24 @@ export default function BatchProcessingPage() {
                           Cancel
                         </Button>
                       )}
-                      {job.status === 'completed' && (
-                        <Button variant="outline" size="sm" className="gap-1">
+                      {job.status === 'completed' && !job.results && job.taskId && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => handleFetchResults(job)}
+                        >
+                          <Download className="h-3 w-3" />
+                          Fetch Results
+                        </Button>
+                      )}
+                      {job.status === 'completed' && job.results && job.results.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => handleExport(job)}
+                        >
                           <Download className="h-3 w-3" />
                           Export
                         </Button>

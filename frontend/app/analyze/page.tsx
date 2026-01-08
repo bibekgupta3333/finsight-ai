@@ -164,6 +164,48 @@ export default function AnalyzePage() {
           <CardDescription>
             Upload a CSV file with transaction data or a PDF document for analysis
           </CardDescription>
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+              📥 Sample Test Files
+            </p>
+            <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
+              Download sample CSV files to test the fraud detection system:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href="https://raw.githubusercontent.com/bibekgupta3333/finsight-ai/main/data/samples/sample_transactions_small.csv"
+                download
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 bg-white dark:bg-blue-900/50 border border-blue-300 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors"
+              >
+                <Download className="h-3 w-3" />
+                Small (25 rows)
+              </a>
+              <a
+                href="https://raw.githubusercontent.com/bibekgupta3333/finsight-ai/main/data/samples/sample_transactions_normal.csv"
+                download
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 bg-white dark:bg-blue-900/50 border border-blue-300 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors"
+              >
+                <Download className="h-3 w-3" />
+                Normal (20 rows)
+              </a>
+              <a
+                href="https://raw.githubusercontent.com/bibekgupta3333/finsight-ai/main/data/samples/sample_transactions_fraudulent.csv"
+                download
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 bg-white dark:bg-blue-900/50 border border-blue-300 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors"
+              >
+                <Download className="h-3 w-3" />
+                Fraudulent (20 rows)
+              </a>
+              <a
+                href="https://raw.githubusercontent.com/bibekgupta3333/finsight-ai/main/data/samples/sample_transactions_edge_cases.csv"
+                download
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 bg-white dark:bg-blue-900/50 border border-blue-300 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors"
+              >
+                <Download className="h-3 w-3" />
+                Edge Cases (20 rows)
+              </a>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div
