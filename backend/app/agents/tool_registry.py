@@ -232,7 +232,7 @@ class ToolRegistry:
         # Execute with retry logic
         retry_config = RetryConfig(
             max_attempts=max_retries,
-            initial_delay=0.1,
+            base_delay=0.1,
             max_delay=2.0,
             exponential_base=2.0,
         )
@@ -285,7 +285,7 @@ class ToolRegistry:
 
             # Wait before retry (exponential backoff)
             if attempt < max_retries - 1:
-                delay = retry_config.initial_delay * (retry_config.exponential_base ** attempt)
+                delay = retry_config.base_delay * (retry_config.exponential_base ** attempt)
                 delay = min(delay, retry_config.max_delay)
                 await asyncio.sleep(delay)
 

@@ -207,7 +207,7 @@ class ExecutionNode:
         account_id = transaction.get("nameOrig", "UNKNOWN")
 
         # Execute policy query
-        policy_result = await self.tool_registry.execute(
+        policy_result = await self.tool_registry.execute_tool(
             "query_fraud_policy",
             {"transaction_type": txn_type},
         )
@@ -218,20 +218,29 @@ class ExecutionNode:
             state.execution_errors.append(f"Policy query failed: {policy_result.error}")
 
         # Execute risk calculation
-        risk_result = await self.tool_registry.execute(
+        risk_result = await self.tool_registry.execute_tool(
             "calculate_risk_score",
-            {"transaction": transaction},
+            {
+                "transaction_id": transaction.get("transaction_id", transaction.get("transactionId", "")),
+                "amount": transaction.get("amount", 0.0),
+                "transaction_type": transaction.get("type", ""),
+                "oldbalance_org": transaction.get("oldbalanceOrg", 0.0),
+                "newbalance_orig": transaction.get("newbalanceOrig", 0.0),
+                "oldbalance_dest": transaction.get("oldbalanceDest", 0.0),
+                "newbalance_dest": transaction.get("newbalanceDest", 0.0),
+                "step": 1,  # Default step value for risk calculation
+            },
         )
         if risk_result.success:
             state.tool_results["risk_score"] = risk_result.result
-            state.risk_score = risk_result.result
+            state.risk_score = risk_result.result.get("risk_score", 0.0) if isinstance(risk_result.result, dict) else risk_result.result
             memory.store("risk_score", risk_result.result, MemoryType.WORKING)
         else:
             state.execution_errors.append(f"Risk calculation failed: {risk_result.error}")
 
         # Execute history check
-        history_result = await self.tool_registry.execute(
-            "check_account_history",
+        history_result = await self.tool_registry.execute_tool(
+            "fetch_account_history",
             {"account_id": account_id},
         )
         if history_result.success:
@@ -443,7 +452,7 @@ class ReflectionNode:
         # If escalating, use tool
         if should_escalate:
             tool_registry = get_tool_registry()
-            escalation_result = await tool_registry.execute(
+            escalation_result = await tool_registry.execute_tool(
                 "escalate_to_human",
                 {
                     "transaction_id": state.transaction_id,

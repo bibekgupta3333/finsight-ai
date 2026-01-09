@@ -132,16 +132,27 @@ class APIClient {
 
   // Agent Architectures
   async analyzeSingleAgent(transaction: Transaction): Promise<any> {
-    const response = await this.client.post('/api/v1/fraud/agents/single', {
-      transaction,
-    });
+    const response = await this.client.post('/api/v1/fraud/agents/single', transaction);
     return response.data;
   }
 
   async analyzeManagerWorker(transaction: Transaction): Promise<any> {
-    const response = await this.client.post('/api/v1/fraud/agents/manager-worker', {
-      transaction,
-    });
+    const response = await this.client.post('/api/v1/fraud/agents/manager-worker', transaction);
+    return response.data;
+  }
+
+  async analyzePlannerExecutorCritic(transaction: Transaction): Promise<any> {
+    const response = await this.client.post('/api/v1/fraud/agents/planner-executor-critic', transaction);
+    return response.data;
+  }
+
+  async analyzeDebateSystem(transaction: Transaction): Promise<any> {
+    const response = await this.client.post('/api/v1/fraud/agents/debate-system', transaction);
+    return response.data;
+  }
+
+  async analyzeRoleSpecialized(transaction: Transaction): Promise<any> {
+    const response = await this.client.post('/api/v1/fraud/agents/role-specialized', transaction);
     return response.data;
   }
 
@@ -151,7 +162,7 @@ class APIClient {
     threshold: number = 0.6
   ): Promise<any> {
     const response = await this.client.post('/api/v1/fraud/agents/swarm', {
-      transaction,
+      ...transaction,
       swarm_size: swarmSize,
       threshold,
     });

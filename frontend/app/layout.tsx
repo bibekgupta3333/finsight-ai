@@ -1,7 +1,6 @@
 import { Navigation } from '@/components/navigation';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { ReactQueryProvider } from '@/lib/react-query-provider';
-import { ThemeDebug } from '@/components/debug/theme-debug';
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
@@ -100,7 +99,6 @@ export default function RootLayout({
           </a>
           <ReactQueryProvider>
             <Navigation />
-            <ThemeDebug />
             <main id="main-content">
               {children}
             </main>

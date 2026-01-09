@@ -125,3 +125,32 @@ export interface HealthStatus {
   uptime: number;
   timestamp: string;
 }
+
+// Agent Analysis Types
+export interface AgentAnalysisResult {
+  agent_type: string;
+  transaction_id: string;
+  is_fraud: boolean;
+  risk_score: number;
+  risk_level?: string;
+  confidence: number;
+  explanation: string;
+  observations?: string[];
+  anomalies?: string[];
+  reasoning_steps?: string[];
+  tool_results?: Record<string, any>;
+  should_escalate?: boolean;
+  escalation_reason?: string | null;
+  self_critique?: string | null;
+  total_steps?: number;
+  termination_reason?: string;
+  execution_time?: number;
+  // Manager-Worker specific
+  consensus_strategy?: string;
+  agreement_level?: number;
+  num_agents?: number;
+  total_time?: number;
+  // Swarm specific
+  swarm_size?: number;
+  consensus_threshold?: number;
+}
