@@ -9,7 +9,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { BarChart3, Brain, Home, Layers, Menu, Shield, Upload } from 'lucide-react';
+import { BarChart3, Brain, Home, Layers, Menu, Shield, Upload, FileText, Info } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -26,6 +26,8 @@ export function Navigation() {
     { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
     { href: '/batch', label: 'Batch', icon: Layers },
     { href: '/agents', label: 'Agents', icon: Brain },
+    { href: '/about', label: 'About', icon: Info },
+    { href: '/whitepaper', label: 'Whitepaper', icon: FileText },
   ];
 
   return (

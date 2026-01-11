@@ -1,4 +1,5 @@
 import { Navigation } from '@/components/navigation';
+import { Footer } from '@/components/footer';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { ReactQueryProvider } from '@/lib/react-query-provider';
 import type { Metadata } from 'next';
@@ -86,7 +87,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#2563eb" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -99,9 +100,10 @@ export default function RootLayout({
           </a>
           <ReactQueryProvider>
             <Navigation />
-            <main id="main-content">
+            <main id="main-content" className="flex-1">
               {children}
             </main>
+            <Footer />
             <Toaster
             position="top-right"
             toastOptions={{
