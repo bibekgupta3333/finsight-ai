@@ -135,3 +135,5 @@ logs/
 coverage/
 .nyc_output/
 
+# thesis
+thesis/
