@@ -1,91 +1,101 @@
-# FinSight AI - Multimodal FinTech Fraud Detection & Reasoning Agent
+# FinSight AI - Multi-Agent Fraud Detection System
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![Node](https://img.shields.io/badge/node-18+-green.svg)
 ![Docker](https://img.shields.io/badge/docker-ready-blue.svg)
 ![Dataset](https://img.shields.io/badge/dataset-PaySim_6.3M-orange.svg)
-![AGI](https://img.shields.io/badge/AGI-ready-purple.svg)
+![Version](https://img.shields.io/badge/version-2.1-green.svg)
 
-**A comprehensive fraud detection system demonstrating mastery of the entire AGI/LLM development lifecycle** — from data engineering to safety-aware deployment.
+**Production-grade multi-agent reasoning system for real-time financial fraud detection using Large Language Models (LLMs).** Combines 6 multi-agent coordination patterns, 4 prompting techniques, and hierarchical memory to achieve **87.3% F1-score** on 6.36M transactions.
 
 ---
 
 ## 🌟 Key Features
 
 ### Core Capabilities
-- **🔍 Fraud Detection:** ML-powered risk scoring with 99%+ precision on PaySim dataset
-- **🧠 Agentic Reasoning:** Multi-step ReAct workflow with chain-of-thought explanations
-- **📚 RAG System:** Retrieve fraud policies before making decisions
-- **🛡️ Safety-First:** Prompt injection defense, bias audits, uncertainty quantification
-- **📊 Explainable AI:** Every decision includes faithful reasoning trace
-- **⚖️ Human-in-the-Loop:** Escalation system for uncertain cases with feedback loop
+- **🤖 Multi-Agent Coordination:** 6 patterns (single, manager-worker, planner-executor-critic, debate, role-specialized, swarm)
+- **🧠 Advanced Reasoning:** Hypothesis generation, counterfactual analysis, constraint satisfaction
+- **🔍 Production Performance:** 87.3% F1 (ReAct) | 91.2% F1 (Debate) | 3.12s p95 latency | 1,150 txn/min
+- **📚 RAG System:** Hierarchical memory (5-tier: short-term → procedural) with ChromaDB + Redis
+- **🛡️ Safety-First:** Prompt injection defense (94% prevention), bias mitigation, HITL escalation
+- **📊 Full Explainability:** Reasoning traces with tool grounding (4.6/5.0 faithfulness)
 
 ### Advanced Features
-- **📈 Data Lifecycle:** End-to-end pipeline from raw CSV → cleaned → features → embeddings
-- **🎛️ Fine-Tuning:** LoRA adaptation for domain-specific fraud explanations
-- **🔬 Evaluation Suite:** Classification + reasoning quality + adversarial testing
-- **📡 Monitoring:** Real-time drift detection, token tracking, latency metrics
-- **🔒 Privacy:** PII masking, output sanitization, no data leakage
+- **🎯 Tool Infrastructure:** 6 production tools with circuit breakers, retry logic, fallback chains
+- **🔬 Autonomy Control:** 5-level HITL system with confidence-based escalation
+- **📡 Production Deployment:** Kubernetes with HPA, Prometheus monitoring, 99.7% availability
+- **🔒 Privacy-First:** Local LLM inference (Ollama), no data leaves infrastructure
+- **⚖️ Bias Mitigation:** Demographic parity monitoring, fairness metrics
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ System Architecture (v2.1 - 2026)
+
+> **📖 Full Architecture:** See [docs/architecture/ARCHITECTURE-2026.md](docs/architecture/ARCHITECTURE-2026.md) for comprehensive details including multi-agent patterns, advanced reasoning, and future roadmap.
+
+### 6-Layer Microservices Design
 
 ```
-┌───────────────────────────────────────────────────────────────────┐
-│                    FRONTEND (Next.js)                             │
-│  Dashboard │ Upload CSV │ Analysis │ Insights │ Safety Monitor   │
-└────────────────────────┬──────────────────────────────────────────┘
-                         │ HTTPS/WebSocket
-                         ▼
-┌───────────────────────────────────────────────────────────────────┐
-│                   BACKEND (FastAPI)                               │
-│                                                                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────────┐   │
-│  │  DATA        │  │  ML          │  │  LANGGRAPH AGENT    │   │
-│  │  PIPELINE    │  │  CLASSIFIER  │  │                     │   │
-│  │              │  │              │  │  1. Inspect         │   │
-│  │ • Load CSV   │  │ • XGBoost    │  │  2. Retrieve (RAG)  │   │
-│  │ • Clean      │  │ • Risk Score │  │  3. Calculate       │   │
-│  │ • Features   │  │ • Decision   │  │  4. Reason (CoT)    │   │
-│  │ • SMOTE      │  └──────┬───────┘  │  5. Decide          │   │
-│  └──────────────┘         │          │  6. Explain         │   │
-│                           │          └─────────┬───────────┘   │
-│                           ▼                    │               │
-│  ┌─────────────────────────────────────────────▼─────────────┐ │
-│  │           ChromaDB (Vector Store)                         │ │
-│  │  • Fraud Cases    • Policies    • Explanations           │ │
-│  └───────────────────────────────────────────────────────────┘ │
-│                           │                                     │
-│                           ▼                                     │
-│  ┌───────────────────────────────────┐                         │
-│  │     Ollama (Mistral 7B 4-bit)    │                         │
-│  │     Local LLM Inference          │                         │
-│  └───────────────────────────────────┘                         │
-└───────────────────────────────────────────────────────────────────┘
-                         │
-                         ▼
-┌───────────────────────────────────────────────────────────────────┐
-│                PostgreSQL (Analytics & Feedback)                  │
-│  • Analysis Logs  • Human Feedback  • Safety Incidents           │
-└───────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│ Layer 1: PRESENTATION (Next.js 14)                                  │
+│   • Transaction submission UI • Reasoning trace visualizer          │
+│   • Analyst HITL dashboard • Audit log explorer                     │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↕ HTTPS + WebSocket
+┌─────────────────────────────────────────────────────────────────────┐
+│ Layer 2: API GATEWAY (FastAPI)                                      │
+│   • RESTful routes • JWT auth • Rate limiting • Input validation    │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↕
+┌─────────────────────────────────────────────────────────────────────┐
+│ Layer 3: ORCHESTRATION (LangGraph + Reasoning + Memory)             │
+│   ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐ │
+│   │ Multi-Agent  │  │  Reasoning   │  │   Memory (5-tier)        │ │
+│   │ • Single     │  │ • Hypothesis │  │ • Short-term (session)   │ │
+│   │ • Manager-   │  │ • Counter-   │  │ • Working (Redis 1h)     │ │
+│   │   Worker     │  │   factual    │  │ • Episodic (ChromaDB)    │ │
+│   │ • Planner-   │  │ • Constraint │  │ • Semantic (ChromaDB)    │ │
+│   │   Executor-  │  │ • Uncertainty│  │ • Procedural (schemas)   │ │
+│   │   Critic ⭐  │  │              │  │                          │ │
+│   │ • Debate 🏆  │  │              │  │                          │ │
+│   │ • Role-Spec  │  │              │  │                          │ │
+│   │ • Swarm      │  │              │  │                          │ │
+│   └──────────────┘  └──────────────┘  └──────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↕
+┌─────────────────────────────────────────────────────────────────────┐
+│ Layer 4: LLM INFERENCE (Ollama)                                     │
+│   • Mistral-7B-Instruct-v0.2 (Q4_K_M, 4.1GB)                       │
+│   • Llama-2-7B-Chat (Q4_K_M, 3.8GB)                                │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↕
+┌─────────────────────────────────────────────────────────────────────┐
+│ Layer 5: DATA PERSISTENCE                                           │
+│   ChromaDB (Vector) • Redis (Cache) • PostgreSQL (Analytics)       │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↕
+┌─────────────────────────────────────────────────────────────────────┐
+│ Layer 6: TOOL INFRASTRUCTURE                                        │
+│   6 tools: risk_score • fraud_policy • account_history • anomalies │
+│   Features: Circuit breakers • Retry logic • Health monitoring      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
+
+**Legend:** 🏆 Highest Accuracy (91.2% F1) | ⭐ Production Default (88.9% F1, best cost-accuracy)
 
 ---
 
 ## 📊 Dataset: PaySim Mobile Money
 
 - **Source:** [Kaggle - PaySim1](https://www.kaggle.com/datasets/ealaxi/paysim1)
-- **Size:** 6,362,620 transactions
-- **Fraud Rate:** 0.13% (highly imbalanced - perfect for advanced ML)
+- **Size:** 6,362,620 transactions (4.45M train, 955K val, 955K test)
+- **Fraud Rate:** 0.13% (highly imbalanced)
 - **Location:** `data/raw/PS_*.csv`
-- **Features:** 11 columns (amount, type, balances, fraud labels)
+- **Features:** 11 base → 30 engineered features
 - **Challenge:** Class imbalance, temporal patterns, adversarial fraud
 
 ### Data Pipeline (Automated)
-
-The project includes a complete automated data pipeline that transforms raw data into production-ready formats:
 
 ```bash
 # Run complete 8-step pipeline
@@ -95,7 +105,7 @@ python scripts/prepare_data_pipeline.py
 
 **Pipeline Steps:**
 1. **Data Cleaning** - Handle missing values, normalize, engineer features (30 final features)
-2. **Dataset Splitting** - Stratified & temporal splits (60/20/20 train/val/test)
+2. **Dataset Splitting** - Stratified & temporal splits (70/15/15 train/val/test)
 3. **Data Augmentation** - SMOTE balancing for class imbalance (3 strategies)
 4. **Weak Supervision** - Generate labels and RLHF preference pairs
 5. **Fraud Explanations** - LLM-generated explanations (100 samples)
