@@ -123,7 +123,7 @@ class PredictionLoggingService:
 
     def __init__(self):
         """Initialize prediction logging service."""
-        if self._initialized:
+        if getattr(self, '_initialized', False):
             return
 
         # Create database engine

@@ -48,7 +48,7 @@ class EnsembleService:
 
     def __init__(self):
         """Initialize ensemble service."""
-        if self._initialized:
+        if getattr(self, '_initialized', False):
             return
 
         self.stacking_model = None

@@ -41,7 +41,7 @@ class MLModelService:
 
     def __init__(self):
         """Initialize model service."""
-        if self._initialized:
+        if getattr(self, '_initialized', False):
             return
 
         self.models = {}

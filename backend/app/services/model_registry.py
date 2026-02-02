@@ -44,7 +44,7 @@ class ModelRegistry:
 
     def __init__(self):
         """Initialize model registry."""
-        if self._initialized:
+        if getattr(self, '_initialized', False):
             return
 
         self.registry = self._load_registry()
