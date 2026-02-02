@@ -12,6 +12,8 @@ import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
+import numpy as np
+
 from fastapi import (
     APIRouter,
     Header,
@@ -4452,3 +4454,379 @@ async def get_models_info() -> Dict[str, Any]:
             detail=f"Error: {str(e)}"
         )
 
+
+# ============================================================================
+# NEW ENSEMBLE ENDPOINTS (Task 7)
+# ============================================================================
+
+@router.post(
+    "/predict/weighted_blend",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Weighted blending of model predictions",
+    description=(
+        "Weighted average of predictions from all models. "
+        "Weights are based on validation performance (LightGBM: 0.45, RF: 0.30, XGBoost: 0.25)."
+    ),
+)
+async def predict_weighted_blend(
+    request: MLPredictionRequest,
+) -> Dict[str, Any]:
+    """
+    Make weighted blending prediction.
+
+    Uses performance-based weights to combine model predictions.
+    Returns high confidence when models agree, lower when they disagree.
+
+    Args:
+        request: Transaction features
+
+    Returns:
+        Dict with blended prediction, confidence, and individual predictions
+    """
+    try:
+        from app.services.ensemble_service import get_ensemble_service
+
+        ensemble_service = get_ensemble_service()
+
+        # Load all models
+        models_loaded = ml_service.load_all_models()
+        available_models = [m for m, loaded in models_loaded.items() if loaded]
+
+        if len(available_models) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Need at least 2 models for weighted blending"
+            )
+
+        # Get individual predictions
+        transaction = request.model_dump()
+        predictions = {}
+        confidences = {}
+
+        for model_name in available_models:
+            result = ml_service.predict(transaction, model_name)
+            predictions[model_name] = result["fraud_probability"]
+            confidences[model_name] = result.get("confidence", 0.5)
+
+        # Weighted blend
+        blended_prob, blended_conf = ensemble_service.weighted_blend_predictions(predictions)
+
+        # Determine if fraud
+        is_fraud = blended_prob >= 0.5
+
+        # Get risk level
+        if blended_prob < 0.2:
+            risk_level = "low"
+        elif blended_prob < 0.5:
+            risk_level = "medium"
+        elif blended_prob < 0.8:
+            risk_level = "high"
+        else:
+            risk_level = "critical"
+
+        logger.info(
+            f"Weighted blend prediction: fraud={is_fraud}, prob={blended_prob:.3f}, "
+            f"confidence={blended_conf:.3f}"
+        )
+
+        return {
+            "is_fraud": is_fraud,
+            "fraud_probability": blended_prob,
+            "confidence": blended_conf,
+            "risk_level": risk_level,
+            "method": "weighted_blending",
+            "blending_weights": ensemble_service.blending_weights,
+            "individual_predictions": predictions,
+            "models_used": available_models
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Weighted blend prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction error: {str(e)}"
+        )
+
+
+@router.post(
+    "/predict/cascade",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Cascading model prediction (fast to slow)",
+    description=(
+        "Cascading prediction: starts with fast LightGBM, escalates to XGBoost or ensemble "
+        "if confidence is low. Optimized for speed on high-confidence cases."
+    ),
+)
+async def predict_cascade(
+    request: MLPredictionRequest,
+    high_threshold: float = Query(0.95, description="High confidence threshold for fast return"),
+    low_threshold: float = Query(0.70, description="Low confidence threshold for full ensemble"),
+) -> Dict[str, Any]:
+    """
+    Make cascading prediction (fast to slow).
+
+    Strategy:
+    1. Try LightGBM first (fastest)
+    2. If confidence > high_threshold: Return immediately
+    3. If confidence < low_threshold: Use weighted ensemble
+    4. Else: Use XGBoost (more accurate)
+
+    Args:
+        request: Transaction features
+        high_threshold: Threshold for fast return (default: 0.95)
+        low_threshold: Threshold for ensemble (default: 0.70)
+
+    Returns:
+        Dict with cascade prediction results and strategy used
+    """
+    try:
+        from app.services.ensemble_service import get_ensemble_service
+
+        ensemble_service = get_ensemble_service()
+
+        # Load all models
+        models_loaded = ml_service.load_all_models()
+        available_models = [m for m, loaded in models_loaded.items() if loaded]
+
+        if not available_models:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No models available"
+            )
+
+        # Get predictions from all available models
+        transaction = request.model_dump()
+        predictions = {}
+        confidences = {}
+
+        for model_name in available_models:
+            result = ml_service.predict(transaction, model_name)
+            predictions[model_name] = result["fraud_probability"]
+            confidences[model_name] = result.get("confidence", 0.5)
+
+        # Use cascading strategy
+        cascade_result = ensemble_service.cascade_predict(
+            predictions,
+            confidences,
+            high_confidence_threshold=high_threshold,
+            low_confidence_threshold=low_threshold
+        )
+
+        # Determine risk level
+        prob = cascade_result["probability"]
+        if prob < 0.2:
+            risk_level = "low"
+        elif prob < 0.5:
+            risk_level = "medium"
+        elif prob < 0.8:
+            risk_level = "high"
+        else:
+            risk_level = "critical"
+
+        # Add is_fraud field
+        cascade_result["is_fraud"] = cascade_result["probability"] >= 0.5
+        cascade_result["risk_level"] = risk_level
+
+        logger.info(
+            f"Cascade prediction: strategy={cascade_result['strategy']}, "
+            f"model={cascade_result['selected_model']}, "
+            f"prob={cascade_result['probability']:.3f}"
+        )
+
+        return cascade_result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Cascade prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction error: {str(e)}"
+        )
+
+
+@router.post(
+    "/predict/stacking",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Stacking meta-model prediction",
+    description=(
+        "Uses a trained Logistic Regression meta-model on top of base model predictions. "
+        "Learns optimal weights from validation data."
+    ),
+)
+async def predict_stacking(
+    request: MLPredictionRequest,
+    version: str = Query("v1", description="Stacking model version"),
+) -> Dict[str, Any]:
+    """
+    Make stacking prediction using meta-model.
+
+    Requires pre-trained stacking model (run train_stacking_model.py first).
+
+    Args:
+        request: Transaction features
+        version: Stacking model version
+
+    Returns:
+        Dict with stacking prediction and learned model weights
+    """
+    try:
+        from app.services.ensemble_service import get_ensemble_service
+
+        ensemble_service = get_ensemble_service()
+
+        # Load stacking model if not already loaded
+        if ensemble_service.stacking_model is None:
+            loaded = ensemble_service.load_stacking_model(version)
+            if not loaded:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Stacking model v{version} not found. Run train_stacking_model.py first."
+                )
+
+        # Load all base models
+        models_loaded = ml_service.load_all_models()
+        available_models = [m for m, loaded in models_loaded.items() if loaded]
+
+        if len(available_models) < 3:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Need all 3 base models for stacking prediction"
+            )
+
+        # Get base model predictions (in correct order: lightgbm, xgboost, random_forest)
+        transaction = request.model_dump()
+        predictions = []
+
+        for model_name in ["lightgbm", "xgboost", "random_forest"]:
+            result = ml_service.predict(transaction, model_name)
+            predictions.append(result["fraud_probability"])
+
+        # Stack predictions
+        base_predictions = np.array(predictions)
+        stacked_prob, stacked_conf = ensemble_service.stacking_predict(base_predictions)
+
+        # Determine fraud
+        is_fraud = stacked_prob >= 0.5
+
+        # Get risk level
+        if stacked_prob < 0.2:
+            risk_level = "low"
+        elif stacked_prob < 0.5:
+            risk_level = "medium"
+        elif stacked_prob < 0.8:
+            risk_level = "high"
+        else:
+            risk_level = "critical"
+
+        logger.info(
+            f"Stacking prediction: fraud={is_fraud}, prob={stacked_prob:.3f}, "
+            f"confidence={stacked_conf:.3f}"
+        )
+
+        return {
+            "is_fraud": is_fraud,
+            "fraud_probability": float(stacked_prob),
+            "confidence": float(stacked_conf),
+            "risk_level": risk_level,
+            "method": "stacking_meta_model",
+            "base_predictions": {
+                "lightgbm": float(predictions[0]),
+                "xgboost": float(predictions[1]),
+                "random_forest": float(predictions[2])
+            },
+            "version": version
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Stacking prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction error: {str(e)}"
+        )
+
+
+@router.post(
+    "/predict/analyze_agreement",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Analyze model agreement/disagreement",
+    description=(
+        "Analyzes how much models agree on a prediction. "
+        "High disagreement indicates uncertain case requiring manual review."
+    ),
+)
+async def analyze_model_agreement(
+    request: MLPredictionRequest,
+    threshold: float = Query(0.5, description="Classification threshold"),
+) -> Dict[str, Any]:
+    """
+    Analyze model agreement on a prediction.
+
+    Useful for identifying edge cases and high-priority manual reviews.
+
+    Args:
+        request: Transaction features
+        threshold: Classification threshold
+
+    Returns:
+        Dict with agreement analysis and recommendations
+    """
+    try:
+        from app.services.ensemble_service import get_ensemble_service
+
+        ensemble_service = get_ensemble_service()
+
+        # Load all models
+        models_loaded = ml_service.load_all_models()
+        available_models = [m for m, loaded in models_loaded.items() if loaded]
+
+        if len(available_models) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Need at least 2 models for agreement analysis"
+            )
+
+        # Get predictions
+        transaction = request.model_dump()
+        predictions = {}
+
+        for model_name in available_models:
+            result = ml_service.predict(transaction, model_name)
+            predictions[model_name] = result["fraud_probability"]
+
+        # Analyze agreement
+        agreement_analysis = ensemble_service.get_model_agreement(predictions, threshold)
+
+        # Add probability statistics
+        probs = list(predictions.values())
+        agreement_analysis["probability_stats"] = {
+            "mean": float(np.mean(probs)),
+            "std": float(np.std(probs)),
+            "min": float(np.min(probs)),
+            "max": float(np.max(probs)),
+            "range": float(np.max(probs) - np.min(probs))
+        }
+
+        logger.info(
+            f"Agreement analysis: all_agree={agreement_analysis['all_models_agree']}, "
+            f"disagreement={agreement_analysis['disagreement_score']:.3f}"
+        )
+
+        return agreement_analysis
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Agreement analysis failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Analysis error: {str(e)}"
+        )
