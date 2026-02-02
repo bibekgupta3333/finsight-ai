@@ -49,7 +49,10 @@
     "eval:rf": "cd backend && python scripts/evaluate_model.py --model random_forest",
     "eval:xgboost": "cd backend && python scripts/evaluate_model.py --model xgboost",
     "eval:lightgbm": "cd backend && python scripts/evaluate_model.py --model lightgbm",
-    "eval:all": "cd backend && python scripts/evaluate_model.py --model all --skip-cv"
+    "eval:all": "cd backend && python scripts/evaluate_model.py --model all --skip-cv",
+    "mlflow:setup": "cd backend && python scripts/mlflow_setup.py",
+    "mlflow:ui": "cd backend && mlflow ui --backend-store-uri file://./mlruns --port 5000",
+    "drift:detect": "cd backend && python scripts/detect_drift.py --reference test --current"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

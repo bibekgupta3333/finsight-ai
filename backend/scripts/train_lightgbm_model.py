@@ -20,6 +20,8 @@ from pathlib import Path
 from typing import Dict, Tuple
 
 import lightgbm as lgb
+import mlflow
+import mlflow.lightgbm
 import numpy as np
 import pandas as pd
 import psutil
@@ -379,6 +381,10 @@ def main():
     logger.info(f"Memory limit: {args.memory_limit}GB")
     logger.info("=" * 80)
 
+    # Setup MLflow
+    mlflow.set_tracking_uri(f"file://{PROJECT_ROOT / 'backend' / 'mlruns'}")
+    mlflow.set_experiment("baseline_models")
+
     # Initialize trainer
     trainer = LightGBMTrainer(
         project_root=PROJECT_ROOT,
@@ -394,16 +400,60 @@ def main():
     X_val, y_val = trainer.engineer_features(val_df, fit=False)
     X_test, y_test = trainer.engineer_features(test_df, fit=False)
 
-    # Train
-    trainer.train_lightgbm(X_train, y_train, X_val, y_val)
+     # Start MLflow run
+    with mlflow.start_run(run_name="lightgbm_fraud_detection"):
+        # Log parameters
+        lgb_params = {
+            "objective": "binary",
+            "metric": ["binary_logloss", "auc"],
+            "boosting_type": "gbdt",
+            "num_leaves": 31,
+            "learning_rate": 0.01,
+            "feature_fraction": 0.9,
+            "bagging_fraction": 0.8,
+            "bagging_freq": 5,
+            "verbose": -1,
+            "max_depth": -1,
+            "min_child_samples": 20,
+            "num_boost_round": 1000,
+            "early_stopping_rounds": 50,
+            "max_samples": args.max_samples,
+            "memory_limit_gb": args.memory_limit
+        }
+        mlflow.log_params(lgb_params)
 
-    # Evaluate
-    metrics = trainer.evaluate(X_test, y_test)
+        # Train
+        trainer.train_lightgbm(X_train, y_train, X_val, y_val)
+
+        # Evaluate
+        metrics = trainer.evaluate(X_test, y_test)
+
+        # Log metrics
+        mlflow.log_metrics(metrics)
+
+        # Log model
+        mlflow.lightgbm.log_model(trainer.model, "model")
+
+        # Log artifacts
+        metadata_path = MODELS_DIR / "lightgbm_v1_metadata.json"
+        if metadata_path.exists():
+            mlflow.log_artifact(str(metadata_path), "metadata")
+
+        # Set tags
+        mlflow.set_tags({
+            "model_type": "lightgbm",
+            "framework": "lightgbm",
+            "task": "fraud_detection",
+            "best_model": "true"
+        })
 
     # Save
     trainer.save_model(metrics, version="v1")
 
     logger.info(f"\nFinal F1-Score: {metrics['f1_score']:.4f}")
+    logger.info("\nView results in MLflow UI:")
+    logger.info("  mlflow ui --backend-store-uri file://./mlruns --port 5000")
+    logger.info("  http://localhost:5000")
 
 
 if __name__ == "__main__":

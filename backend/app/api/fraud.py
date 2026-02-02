@@ -57,6 +57,7 @@ from app.models.fraud import (
     TaskStatusResponse,
 )
 from app.services.fraud_detection import get_fraud_service
+from app.services.ml_model_service import ml_service
 
 logger = logging.getLogger(__name__)
 
@@ -4144,3 +4145,310 @@ async def fraud_stream_socket(websocket: WebSocket, session_id: str):
     except Exception as e:
         logger.error(f"Stream error {session_id}: {e}")
         _websocket_manager.disconnect(session_id)
+
+
+# ============================================================================
+# ML MODEL PREDICTION ENDPOINTS
+# ============================================================================
+
+
+class MLPredictionRequest(BaseModel):
+    """Request for ML model prediction."""
+
+    amount: float = Field(..., description="Transaction amount", gt=0)
+    oldbalanceOrg: float = Field(..., description="Original balance before transaction", ge=0)
+    newbalanceOrig: float = Field(..., description="New balance after transaction", ge=0)
+    oldbalanceDest: float = Field(..., description="Destination balance before transaction", ge=0)
+    newbalanceDest: float = Field(..., description="Destination balance after transaction", ge=0)
+    type: str = Field(..., description="Transaction type: CASH_IN, CASH_OUT, DEBIT, PAYMENT, or TRANSFER")
+
+
+class MLPredictionResponse(BaseModel):
+    """Response from ML model prediction."""
+
+    prediction: int = Field(..., description="Fraud prediction (0=legitimate, 1=fraud)")
+    is_fraud: bool = Field(..., description="Boolean fraud indicator")
+    fraud_probability: float = Field(..., description="Fraud probability (0-1)")
+    confidence: float = Field(..., description="Model confidence")
+    model: str = Field(..., description="Model used for prediction")
+    risk_level: str = Field(..., description="Risk level (low, medium, high, critical)")
+
+
+class HybridPredictionResponse(BaseModel):
+    """Response from hybrid ML + LLM prediction."""
+
+    ml_prediction: MLPredictionResponse = Field(..., description="ML model prediction")
+    requires_llm_review: bool = Field(..., description="Whether LLM review is needed")
+    llm_analysis: Optional[Dict[str, Any]] = Field(None, description="LLM analysis (if applicable)")
+    final_decision: str = Field(..., description="Final fraud decision")
+
+
+@router.post(
+    "/predict/ml",
+    response_model=MLPredictionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="ML-only fraud prediction",
+    description=(
+        "Pure ML prediction using trained models (RF, XGBoost, or LightGBM). "
+        "Fast inference without LLM overhead."
+    ),
+)
+async def predict_ml(
+    request: MLPredictionRequest,
+    model: str = Query("lightgbm", description="Model to use: random_forest, xgboost, or lightgbm"),
+) -> MLPredictionResponse:
+    """
+    Make ML-only fraud prediction.
+
+    Args:
+        request: Transaction features
+        model: Model name (random_forest, xgboost, lightgbm)
+
+    Returns:
+        MLPredictionResponse with prediction results
+
+    Raises:
+        HTTPException: If prediction fails
+    """
+    try:
+        # Validate model name
+        valid_models = ["random_forest", "xgboost", "lightgbm"]
+        if model not in valid_models:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid model. Choose from: {valid_models}"
+            )
+
+        # Ensure model is loaded
+        if model not in ml_service.models:
+            success = ml_service.load_model(model)
+            if not success:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"Model {model} not available. Please train the model first."
+                )
+
+        # Convert request to transaction dict
+        transaction = request.model_dump()
+
+        # Make prediction
+        result = ml_service.predict(transaction, model_name=model)
+
+        logger.info(
+            f"ML prediction ({model}): fraud={result['is_fraud']}, "
+            f"prob={result['fraud_probability']:.3f}, risk={result['risk_level']}"
+        )
+
+        return MLPredictionResponse(**result)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"ML prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction error: {str(e)}"
+        )
+
+
+@router.post(
+    "/predict/hybrid",
+    response_model=HybridPredictionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Hybrid ML + LLM fraud prediction",
+    description=(
+        "Hybrid prediction: ML model for initial screening, "
+        "LLM for low-confidence cases requiring deeper analysis."
+    ),
+)
+async def predict_hybrid(
+    request: MLPredictionRequest,
+    llm_threshold: float = Query(0.7, description="Confidence threshold for LLM review", gt=0, le=1),
+) -> HybridPredictionResponse:
+    """
+    Make hybrid ML + LLM fraud prediction.
+
+    Flow:
+    1. ML model makes initial prediction
+    2. If confidence < threshold, route to LLM for analysis
+    3. Return combined result
+
+    Args:
+        request: Transaction features
+        llm_threshold: Confidence threshold for LLM review (default: 0.7)
+
+    Returns:
+        HybridPredictionResponse with ML and optional LLM analysis
+
+    Raises:
+        HTTPException: If prediction fails
+    """
+    try:
+        # Use best model (LightGBM) for ML prediction
+        model = "lightgbm"
+
+        # Ensure model is loaded
+        if model not in ml_service.models:
+            success = ml_service.load_model(model)
+            if not success:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"Model {model} not available"
+                )
+
+        # Convert request to transaction dict
+        transaction = request.model_dump()
+
+        # Make ML prediction
+        ml_result = ml_service.predict(transaction, model_name=model)
+        ml_response = MLPredictionResponse(**ml_result)
+
+        # Check if LLM review needed
+        requires_llm = ml_result["confidence"] < llm_threshold
+
+        # LLM analysis (if needed)
+        llm_analysis = None
+        final_decision = "fraud" if ml_result["is_fraud"] else "legitimate"
+
+        if requires_llm:
+            # TODO: Integrate with LLM fraud detection service
+            # For now, return placeholder
+            llm_analysis = {
+                "status": "pending",
+                "message": "LLM analysis not yet implemented",
+                "confidence_too_low": True,
+                "ml_confidence": ml_result["confidence"],
+                "threshold": llm_threshold
+            }
+
+            # Could use existing fraud_service for LLM analysis
+            # fraud_service = get_fraud_service()
+            # llm_result = await fraud_service.analyze_transaction(...)
+
+            logger.info(
+                f"Low-confidence ML prediction ({ml_result['confidence']:.3f} < {llm_threshold}), "
+                f"LLM review recommended"
+            )
+
+        response = HybridPredictionResponse(
+            ml_prediction=ml_response,
+            requires_llm_review=requires_llm,
+            llm_analysis=llm_analysis,
+            final_decision=final_decision
+        )
+
+        logger.info(
+            f"Hybrid prediction: ML={ml_result['is_fraud']}, "
+            f"LLM_needed={requires_llm}, final={final_decision}"
+        )
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Hybrid prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction error: {str(e)}"
+        )
+
+
+@router.post(
+    "/predict/ensemble",
+    response_model=MLPredictionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Ensemble prediction using multiple models",
+    description=(
+        "Ensemble prediction combining RF, XGBoost, and LightGBM. "
+        "Uses soft voting (average probabilities) for robust predictions."
+    ),
+)
+async def predict_ensemble(
+    request: MLPredictionRequest,
+    voting: str = Query("soft", description="Voting method: soft (avg proba) or hard (majority)"),
+) -> MLPredictionResponse:
+    """
+    Make ensemble prediction using all models.
+
+    Args:
+        request: Transaction features
+        voting: Voting method ("soft" or "hard")
+
+    Returns:
+        MLPredictionResponse with ensemble results
+
+    Raises:
+        HTTPException: If prediction fails
+    """
+    try:
+        # Load all models if not loaded
+        models_loaded = ml_service.load_all_models()
+        available_models = [m for m, loaded in models_loaded.items() if loaded]
+
+        if not available_models:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No models available. Please train models first."
+            )
+
+        # Convert request to transaction dict
+        transaction = request.model_dump()
+
+        # Make ensemble prediction
+        result = ml_service.ensemble_predict(
+            transaction,
+            models=available_models,
+            voting=voting
+        )
+
+        logger.info(
+            f"Ensemble prediction ({voting}): fraud={result['is_fraud']}, "
+            f"prob={result['fraud_probability']:.3f}, models={len(available_models)}"
+        )
+
+        return MLPredictionResponse(**result)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Ensemble prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction error: {str(e)}"
+        )
+
+
+@router.get(
+    "/models/info",
+    response_model=Dict[str, Any],
+    summary="Get loaded model information",
+    description="Returns information about all loaded ML models and their metadata.",
+)
+async def get_models_info() -> Dict[str, Any]:
+    """
+    Get information about loaded models.
+
+    Returns:
+        dict: Model information including metadata and performance
+    """
+    try:
+        models_info = {}
+
+        for model_name in ["random_forest", "xgboost", "lightgbm"]:
+            info = ml_service.get_model_info(model_name)
+            models_info[model_name] = info
+
+        return {
+            "models": models_info,
+            "total_loaded": sum(1 for m in models_info.values() if m.get("loaded", False)),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    except Exception as e:
+        logger.exception(f"Failed to get model info: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error: {str(e)}"
+        )
+
