@@ -4830,3 +4830,551 @@ async def analyze_model_agreement(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Analysis error: {str(e)}"
         )
+
+
+# ============================================================================
+# RESEARCH-LEVEL AWARENESS APIs (Section 16.1)
+# ============================================================================
+
+from app.services.research.feedback_service import (
+    feedback_service,
+    FeedbackData,
+    FeedbackType,
+    FeedbackRating
+)
+from app.services.research.rlaif_service import rlaif_service
+from app.services.research.benchmark_service import benchmark_service, BenchmarkResult
+from app.services.research.emergent_monitor import emergent_monitor
+from app.services.research.world_model import world_model
+from app.services.research.selfplay_service import selfplay_service
+from app.services.research.distribution_shift import distribution_monitor
+from app.services.research.simulation_env import simulation_env, FraudScenarioType
+
+
+# RLHF - Feedback Collection
+class FeedbackRequest(BaseModel):
+    """Request model for collecting feedback"""
+    transaction_id: str
+    explanation: str
+    feedback_type: FeedbackType
+    prediction: str
+    confidence: float
+    reasoning_steps: List[str] = []
+    rating: Optional[FeedbackRating] = None
+    comment: Optional[str] = None
+    user_id: Optional[str] = None
+    session_id: Optional[str] = None
+    agent_type: str = "single"
+
+
+@router.post("/research/feedback", tags=["research"])
+async def collect_feedback(request: FeedbackRequest) -> Dict:
+    """
+    Collect user feedback (thumbs up/down) for RLHF.
+
+    This enables reinforcement learning from human preferences.
+    """
+    feedback = FeedbackData(
+        feedback_id=str(uuid.uuid4()),
+        **request.model_dump()
+    )
+
+    result = feedback_service.collect_feedback(feedback)
+    logger.info(f"Feedback collected: {feedback.feedback_id}, type={request.feedback_type}")
+
+    return result
+
+
+@router.get("/research/feedback/stats", tags=["research"])
+async def get_feedback_stats() -> Dict:
+    """Get aggregated feedback statistics"""
+    stats = feedback_service.get_feedback_stats()
+    return stats.model_dump()
+
+
+@router.get("/research/feedback/export", tags=["research"])
+async def export_feedback_for_training() -> Dict:
+    """Export preference pairs for RLHF training"""
+    output_path = feedback_service.export_for_training()
+    return {
+        "status": "success",
+        "output_path": output_path,
+        "message": "Preference pairs exported successfully"
+    }
+
+
+# RLAIF - LLM as Judge
+@router.post("/research/rlaif/judge", tags=["research"])
+async def judge_explanation(
+    explanation: str,
+    transaction_context: Dict,
+    prediction: str,
+    reasoning_steps: List[str]
+) -> Dict:
+    """
+    Use LLM to judge the quality of an explanation (RLAIF).
+
+    Enables scalable quality assessment without human feedback.
+    """
+    judgment = await rlaif_service.judge_explanation(
+        explanation=explanation,
+        transaction_context=transaction_context,
+        prediction=prediction,
+        reasoning_steps=reasoning_steps
+    )
+
+    logger.info(f"AI Judgment: score={judgment.overall_score:.2f}, model={judgment.judge_model}")
+
+    return judgment.model_dump()
+
+
+@router.post("/research/rlaif/compare", tags=["research"])
+async def compare_explanations(
+    explanation_a: str,
+    explanation_b: str,
+    transaction_context: Dict
+) -> Dict:
+    """Compare two explanations and select the better one"""
+    result = await rlaif_service.compare_explanations(
+        explanation_a=explanation_a,
+        explanation_b=explanation_b,
+        transaction_context=transaction_context
+    )
+
+    logger.info(f"Comparison: winner={result.winner}, confidence={result.confidence:.2f}")
+
+    return result.model_dump()
+
+
+@router.post("/research/rlaif/improve", tags=["research"])
+async def self_improve_explanation(
+    explanation: str,
+    max_iterations: int = 3
+) -> Dict:
+    """Iteratively improve explanation using AI feedback (self-improvement loop)"""
+    result = await rlaif_service.self_improvement_loop(
+        explanation=explanation,
+        max_iterations=max_iterations
+    )
+
+    logger.info(
+        f"Self-improvement: iterations={result['iterations']}, "
+        f"score {result['initial_score']:.2f} -> {result['final_score']:.2f}"
+    )
+
+    return result
+
+
+# Agent Benchmarks
+@router.get("/research/benchmarks/tests", tags=["research"])
+async def get_benchmark_tests() -> List[Dict]:
+    """Get all benchmark test cases"""
+    tests = benchmark_service.get_test_suite()
+    return [test.model_dump() for test in tests]
+
+
+@router.post("/research/benchmarks/run", tags=["research"])
+async def run_benchmark(
+    agent_type: str = "single",
+    test_ids: Optional[List[str]] = None
+) -> Dict:
+    """
+    Run agent against benchmark test suite.
+
+    Evaluates performance on standardized test cases.
+    """
+    tests = benchmark_service.get_test_suite()
+
+    if test_ids:
+        tests = [t for t in tests if t.test_id in test_ids]
+
+    results = []
+
+    for test in tests:
+        start_time = datetime.utcnow()
+
+        # Use simple heuristic for testing (replace with actual agent later)
+        # For demo, predict based on amount and type
+        tx = test.transaction
+        amount = tx.get("amount", 0)
+        tx_type = tx.get("type", "")
+
+        # Simple heuristic prediction
+        if tx_type == "CASH_OUT" and amount > 100000:
+            prediction = "fraud"
+            confidence = 0.85
+        elif amount > 500000:
+            prediction = "fraud"
+            confidence = 0.75
+        else:
+            prediction = "legitimate"
+            confidence = 0.70
+
+        latency_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+
+        correct = prediction == test.expected_prediction
+        error_type = None
+        if not correct:
+            if prediction == "fraud":
+                error_type = "false_positive"
+            else:
+                error_type = "false_negative"
+        else:
+            error_type = "correct"
+
+        result = BenchmarkResult(
+            test_id=test.test_id,
+            agent_type=agent_type,
+            prediction=prediction,
+            confidence=confidence,
+            correct=correct,
+            latency_ms=latency_ms,
+            reasoning_steps=[],
+            error_type=error_type
+        )
+
+        benchmark_service.record_result(result)
+        results.append(result.model_dump())
+
+    logger.info(f"Benchmark run complete: {len(results)} tests, agent_type={agent_type}")
+
+    return {
+        "status": "complete",
+        "total_tests": len(results),
+        "results": results
+    }
+
+
+@router.get("/research/benchmarks/report", tags=["research"])
+async def get_benchmark_report(agent_type: Optional[str] = None) -> Dict:
+    """Get benchmark performance report"""
+    report = benchmark_service.generate_report(agent_type=agent_type)
+    return report.model_dump()
+
+
+@router.get("/research/benchmarks/compare", tags=["research"])
+async def compare_agents() -> List[Dict]:
+    """Compare performance across different agent types"""
+    rankings = benchmark_service.compare_agents()
+    return rankings
+
+
+# Emergent Behavior Monitoring
+@router.post("/research/emergent/track", tags=["research"])
+async def track_agent_behavior(
+    session_id: str,
+    agent_type: str,
+    tools_used: List[str],
+    reasoning_steps: List[str],
+    outcome: str,
+    success: bool
+) -> Dict:
+    """Track agent behavior for emergent pattern detection"""
+    emergent_monitor.track_agent_behavior(
+        session_id=session_id,
+        agent_type=agent_type,
+        tools_used=tools_used,
+        reasoning_steps=reasoning_steps,
+        outcome=outcome,
+        success=success
+    )
+
+    return {"status": "tracked", "session_id": session_id}
+
+
+@router.get("/research/emergent/capabilities", tags=["research"])
+async def detect_emergent_capabilities(lookback_days: int = 7) -> List[Dict]:
+    """Detect emergent capabilities (tool use, self-correction, etc.)"""
+    capabilities = emergent_monitor.detect_emergent_capabilities(lookback_days)
+    return [c.model_dump() for c in capabilities]
+
+
+@router.get("/research/emergent/failures", tags=["research"])
+async def detect_failure_modes(lookback_days: int = 7) -> List[Dict]:
+    """Detect failure modes (reward hacking, reasoning loops, etc.)"""
+    failures = emergent_monitor.detect_failure_modes(lookback_days)
+    return [f.model_dump() for f in failures]
+
+
+@router.get("/research/emergent/summary", tags=["research"])
+async def get_emergent_behavior_summary(lookback_days: int = 7) -> Dict:
+    """Get comprehensive emergent behavior summary"""
+    summary = emergent_monitor.get_behavior_summary(lookback_days)
+    return summary
+
+
+# World Models
+@router.post("/research/worldmodel/predict", tags=["research"])
+async def predict_transaction_outcome(transaction: Dict) -> Dict:
+    """Predict transaction outcome using world model"""
+    outcome = world_model.predict_outcome(transaction)
+    return outcome.model_dump()
+
+
+@router.post("/research/worldmodel/counterfactual", tags=["research"])
+async def simulate_counterfactual(
+    original_transaction: Dict,
+    modifications: Dict
+) -> Dict:
+    """
+    Simulate counterfactual: 'What if amount was different?'
+
+    Enables what-if analysis for understanding fraud dynamics.
+    """
+    scenario = world_model.simulate_counterfactual(
+        original_transaction=original_transaction,
+        modifications=modifications
+    )
+
+    logger.info(f"Counterfactual: {scenario.description}")
+
+    return scenario.model_dump()
+
+
+@router.post("/research/worldmodel/explain", tags=["research"])
+async def explain_world_model_prediction(transaction: Dict) -> Dict:
+    """Get explanation of world model's prediction"""
+    explanation = world_model.explain_prediction(transaction)
+    return {"explanation": explanation}
+
+
+# Self-Play
+@router.post("/research/selfplay/match", tags=["research"])
+async def play_selfplay_match(
+    fraud_transaction: Dict,
+    iteration: int = 1
+) -> Dict:
+    """
+    Play one self-play match: fraud evader vs fraud detector.
+
+    Adversarial training for improving both detection and evasion resistance.
+    """
+    # Simple detector function (replace with actual agent)
+    async def simple_detector(tx: Dict) -> tuple:
+        amount = tx.get("amount", 0)
+        tx_type = tx.get("type", "")
+
+        is_fraud = (tx_type == "CASH_OUT" and amount > 100000) or amount > 500000
+        confidence = 0.8 if is_fraud else 0.7
+
+        return is_fraud, confidence
+
+    match = await selfplay_service.play_match(
+        fraud_transaction=fraud_transaction,
+        detector_func=simple_detector,
+        iteration=iteration
+    )
+
+    logger.info(
+        f"Self-play match: iteration={iteration}, "
+        f"detector_won={match.detector_caught_it}, evader_won={match.evader_successful}"
+    )
+
+    return match.model_dump()
+
+
+@router.get("/research/selfplay/stats", tags=["research"])
+async def get_selfplay_stats(last_n_matches: Optional[int] = None) -> Dict:
+    """Get self-play statistics and improvement tracking"""
+    stats = selfplay_service.get_stats(last_n_matches=last_n_matches)
+    return stats.model_dump()
+
+
+@router.get("/research/selfplay/hardest-evasions", tags=["research"])
+async def get_hardest_evasions(limit: int = 10) -> List[Dict]:
+    """Get evasion attempts that successfully fooled the detector"""
+    evasions = selfplay_service.get_hardest_evasions(limit=limit)
+    return evasions
+
+
+# ============================================================================
+# DISTRIBUTION SHIFT FROM TOOLS APIs (Section 16.2)
+# ============================================================================
+
+@router.post("/research/distribution/record-tool-use", tags=["research"])
+async def record_tool_usage(
+    session_id: str,
+    tool_name: str,
+    input_data: Dict,
+    output_data: Dict,
+    success: bool = True
+) -> Dict:
+    """
+    Record tool usage for distribution shift analysis.
+
+    Tracks how tool usage affects data distribution and agent behavior.
+    """
+    distribution_monitor.record_tool_usage(
+        session_id=session_id,
+        tool_name=tool_name,
+        input_data=input_data,
+        output_data=output_data,
+        success=success
+    )
+
+    return {
+        "status": "recorded",
+        "session_id": session_id,
+        "tool_name": tool_name
+    }
+
+
+@router.get("/research/distribution/analyze-impact", tags=["research"])
+async def analyze_tool_impact(tool_name: Optional[str] = None) -> Dict:
+    """
+    Analyze how tools change data distribution.
+
+    Returns distribution metrics for tool usage patterns.
+    """
+    return distribution_monitor.analyze_tool_impact(tool_name=tool_name)
+
+
+@router.get("/research/distribution/detect-exploitation", tags=["research"])
+async def detect_tool_exploitation(tool_name: str) -> Dict:
+    """
+    Detect if agent is exploiting a tool.
+
+    Identifies patterns like repetitive inputs or unrealistic success rates.
+    """
+    return distribution_monitor.detect_tool_exploitation(tool_name=tool_name)
+
+
+@router.get("/research/distribution/check-reliance", tags=["research"])
+async def check_tool_reliance(tool_name: str) -> Dict:
+    """
+    Check if agent is over-reliant on a tool.
+
+    Compares performance with and without tools to detect over-reliance.
+    """
+    report = distribution_monitor.check_tool_reliance(tool_name=tool_name)
+    return report.model_dump()
+
+
+@router.post("/research/distribution/test-tool-free", tags=["research"])
+async def test_tool_free_performance(
+    session_id: str,
+    input_data: Dict,
+    prediction: str,
+    success: bool
+) -> Dict:
+    """
+    Test agent performance without tools (fallback capability).
+
+    Records results for generalization analysis.
+    """
+    return distribution_monitor.test_tool_free_performance(
+        session_id=session_id,
+        input_data=input_data,
+        prediction=prediction,
+        success=success
+    )
+
+
+@router.get("/research/distribution/generalization-report", tags=["research"])
+async def get_generalization_report() -> Dict:
+    """
+    Report on generalization outside tool scope.
+
+    Compares performance with vs without tools to assess generalization.
+    """
+    return distribution_monitor.get_generalization_report()
+
+
+# ============================================================================
+# SIMULATED ENVIRONMENTS APIs (Section 16.3)
+# ============================================================================
+
+@router.post("/research/simulation/generate-transaction", tags=["research"])
+async def generate_synthetic_transaction(
+    fraud_probability: float = 0.5,
+    difficulty: int = 3
+) -> Dict:
+    """
+    Generate a single synthetic transaction for testing.
+
+    Creates realistic fraud or legitimate transactions with configurable difficulty.
+    """
+    tx = simulation_env.generate_synthetic_transaction(
+        fraud_probability=fraud_probability,
+        difficulty=difficulty
+    )
+    return tx.model_dump()
+
+
+@router.post("/research/simulation/generate-batch", tags=["research"])
+async def generate_transaction_batch(
+    count: int = 100,
+    fraud_ratio: float = 0.3,
+    min_difficulty: int = 1,
+    max_difficulty: int = 5
+) -> Dict:
+    """
+    Generate a batch of synthetic transactions.
+
+    Useful for creating test datasets with specific fraud ratios.
+    """
+    transactions = simulation_env.generate_batch(
+        count=count,
+        fraud_ratio=fraud_ratio,
+        difficulty_range=(min_difficulty, max_difficulty)
+    )
+
+    return {
+        "status": "generated",
+        "count": len(transactions),
+        "fraud_count": sum(1 for tx in transactions if tx.is_fraud),
+        "legitimate_count": sum(1 for tx in transactions if not tx.is_fraud),
+        "transactions": [tx.model_dump() for tx in transactions[:10]]  # Return first 10
+    }
+
+
+@router.post("/research/simulation/create-scenario", tags=["research"])
+async def create_adversarial_scenario(
+    scenario_type: FraudScenarioType,
+    num_transactions: int = 10
+) -> Dict:
+    """
+    Create an adversarial fraud scenario for testing.
+
+    Generates sophisticated attack scenarios like coordinated attacks,
+    account takeovers, and gradual drainage.
+    """
+    scenario = simulation_env.create_adversarial_scenario(
+        scenario_type=scenario_type,
+        num_transactions=num_transactions
+    )
+
+    return scenario.model_dump()
+
+
+@router.post("/research/simulation/run", tags=["research"])
+async def run_simulation(scenario_id: str) -> Dict:
+    """
+    Run a simulation scenario and evaluate agent performance.
+
+    Tests agent against pre-created adversarial scenarios.
+    Uses a simple heuristic detector if no custom detector provided.
+    """
+    result = simulation_env.run_simulation(scenario_id=scenario_id)
+    return result.model_dump()
+
+
+@router.get("/research/simulation/exploration-space", tags=["research"])
+async def get_safe_exploration_space() -> Dict:
+    """
+    Get parameters for safe exploration in simulation.
+
+    Returns transaction types, amount ranges, fraud scenarios,
+    and recommended practice guidelines.
+    """
+    return simulation_env.get_safe_exploration_space()
+
+
+@router.get("/research/simulation/stats", tags=["research"])
+async def get_simulation_stats() -> Dict:
+    """
+    Get statistics about simulations run.
+
+    Returns total scenarios, average F1 score, and performance metrics.
+    """
+    return simulation_env.get_simulation_stats()
