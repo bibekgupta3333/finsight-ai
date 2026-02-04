@@ -4855,6 +4855,10 @@ from app.services.research.test_suite import test_suite, TestType
 from app.services.security.safety_guard import safety_guard
 from app.services.security.security_manager import security_manager, RateLimitConfig
 from app.services.security.privacy_handler import privacy_handler, GDPRConsent
+from app.services.research.tokenization_service import tokenization_service
+from app.services.research.context_manager import context_manager
+from app.services.research.sampling_optimizer import sampling_optimizer
+from app.services.research.llm_knowledge import llm_knowledge
 
 
 # RLHF - Feedback Collection
@@ -6542,5 +6546,590 @@ async def get_privacy_dashboard(days: int = Query(7)) -> Dict:
 
     return dashboard
 
+
+# ================================
+# SECTION 18: TOKENIZATION ENGINEERING
+# ================================
+
+class TokenAnalysisRequest(BaseModel):
+    """Request to analyze token efficiency"""
+    text: str
+
+
+@router.post("/research/tokenization/analyze", tags=["research", "tokenization"])
+async def analyze_tokens(request: TokenAnalysisRequest) -> Dict:
+    """
+    Analyze token efficiency of text.
+
+    Returns:
+    - Token count estimate
+    - Efficiency score (0-1)
+    - Issues and recommendations
+    - Tokens per word ratio
+    """
+    result = tokenization_service.analyze_tokens(request.text)
+
+    return result.model_dump()
+
+
+class OptimizationRequest(BaseModel):
+    """Request to optimize prompt"""
+    text: str
+    aggressive: bool = False
+
+
+@router.post("/research/tokenization/optimize", tags=["research", "tokenization"])
+async def optimize_prompt(request: OptimizationRequest) -> Dict:
+    """
+    Optimize prompt for token efficiency.
+
+    Applies:
+    - Verbose phrase replacement
+    - Fraud-specific term simplification
+    - Filler word removal (if aggressive)
+    - Whitespace normalization
+
+    Returns optimized text and token savings.
+    """
+    result = tokenization_service.optimize_prompt(
+        request.text,
+        aggressive=request.aggressive
+    )
+
+    return result.model_dump()
+
+
+@router.get("/research/tokenization/tokenizer-behavior", tags=["research", "tokenization"])
+async def get_tokenizer_behavior() -> Dict:
+    """
+    Get Mistral tokenizer behavior analysis.
+
+    Returns:
+    - Average tokens per word
+    - Common tokenization patterns
+    - Special tokens list
+    - Subword tokenization examples
+    - Efficiency tips
+    """
+    result = tokenization_service.analyze_tokenizer_behavior()
+
+    return result.model_dump()
+
+
+class PromptComparisonRequest(BaseModel):
+    """Request to compare prompt variants"""
+    prompts: List[Dict[str, str]]  # [{name: str, text: str}, ...]
+
+
+@router.post("/research/tokenization/compare-prompts", tags=["research", "tokenization"])
+async def compare_prompts(request: PromptComparisonRequest) -> Dict:
+    """
+    Compare multiple prompt variants for efficiency.
+
+    Returns best variant based on:
+    - Lowest token count
+    - Highest efficiency score
+    - Fewest issues
+    """
+    result = tokenization_service.compare_prompts(request.prompts)
+
+    return result.model_dump()
+
+
+class SpecialTokenRequest(BaseModel):
+    """Request to validate special tokens"""
+    text: str
+
+
+@router.post("/research/tokenization/validate-special-tokens", tags=["research", "tokenization"])
+async def validate_special_tokens(request: SpecialTokenRequest) -> Dict:
+    """
+    Validate special token usage.
+
+    Checks:
+    - ChatML tag balance (<|im_start|>, <|im_end|>)
+    - Mistral instruction tag balance ([INST], [/INST])
+    - Format mixing warnings
+    - Unknown special tokens
+    """
+    result = tokenization_service.validate_special_tokens(request.text)
+
     return result
 
+
+class MultilingualRequest(BaseModel):
+    """Request to analyze multilingual text"""
+    text: str
+    language: str = "en"
+
+
+@router.post("/research/tokenization/multilingual-analysis", tags=["research", "tokenization"])
+async def analyze_multilingual(request: MultilingualRequest) -> Dict:
+    """
+    Analyze tokenization for non-English text.
+
+    Languages supported:
+    - en (English - baseline)
+    - es (Spanish)
+    - fr (French)
+    - de (German)
+    - zh (Chinese)
+    - ja (Japanese)
+    - ar (Arabic)
+    - ru (Russian)
+
+    Returns token count estimate with language-specific multiplier.
+    """
+    result = tokenization_service.analyze_multilingual(
+        request.text,
+        language=request.language
+    )
+
+    return result
+
+
+# ==================== Context Window Management ====================
+
+class SlidingWindowRequest(BaseModel):
+    """Request for sliding window operation"""
+    messages: List[Dict[str, Any]] = Field(..., description="Conversation messages")
+    window_size: int = Field(default=10, description="Maximum messages to keep")
+    preserve_system: bool = Field(default=True, description="Always keep system messages")
+
+
+class SummarizationRequest(BaseModel):
+    """Request for context summarization"""
+    messages: List[Dict[str, Any]] = Field(..., description="Messages to summarize")
+    target_compression: float = Field(default=0.5, ge=0.1, le=0.9, description="Target compression ratio")
+
+
+class ImportantContentRequest(BaseModel):
+    """Request for important content detection"""
+    messages: List[Dict[str, Any]] = Field(..., description="Messages to analyze")
+    threshold: float = Field(default=0.3, ge=0.0, le=1.0, description="Importance threshold")
+
+
+class OverflowCheckRequest(BaseModel):
+    """Request for overflow checking"""
+    messages: List[Dict[str, Any]] = Field(..., description="Messages to check")
+    max_tokens: int = Field(default=4096, description="Maximum context window")
+    output_reserve: int = Field(default=1024, description="Tokens reserved for output")
+
+
+class DynamicAllocationRequest(BaseModel):
+    """Request for dynamic allocation"""
+    total_budget: int = Field(default=4096, description="Total token budget")
+    system_prompt: Optional[str] = Field(default=None, description="System prompt text")
+    expected_output_length: Literal["short", "medium", "long"] = Field(default="medium", description="Expected output length")
+
+
+class ConversationManagementRequest(BaseModel):
+    """Request for comprehensive conversation management"""
+    messages: List[Dict[str, Any]] = Field(..., description="Conversation messages")
+    max_tokens: int = Field(default=4096, description="Maximum context window")
+    window_size: int = Field(default=10, description="Sliding window size")
+    preserve_important: bool = Field(default=True, description="Keep important messages")
+    auto_summarize: bool = Field(default=True, description="Auto-summarize when needed")
+
+
+@router.post("/research/context/sliding-window", tags=["research", "context"])
+async def apply_sliding_window(request: SlidingWindowRequest) -> Dict:
+    """
+    Apply sliding window to keep only recent messages.
+
+    Keeps the most recent N messages while optionally preserving system messages.
+    Useful for long conversations that exceed context limits.
+
+    Returns:
+    - Windowed messages with token counts
+    - Total tokens after windowing
+    - Overflow detection
+    """
+    result = context_manager.apply_sliding_window(
+        messages=request.messages,
+        window_size=request.window_size,
+        preserve_system=request.preserve_system
+    )
+
+    return result.dict()
+
+
+@router.post("/research/context/summarize", tags=["research", "context"])
+async def summarize_context(request: SummarizationRequest) -> Dict:
+    """
+    Summarize conversation context using extractive summarization.
+
+    Selects most important sentences based on keyword scoring.
+    No LLM required - heuristic-based for M4 Pro efficiency.
+
+    Args:
+    - messages: Conversation to summarize
+    - target_compression: 0.5 = 50% reduction
+
+    Returns:
+    - Summary text
+    - Compression metrics
+    - Token savings
+    """
+    result = context_manager.summarize_context(
+        messages=request.messages,
+        target_compression=request.target_compression
+    )
+
+    return result.dict()
+
+
+@router.post("/research/context/detect-important", tags=["research", "context"])
+async def detect_important_content(request: ImportantContentRequest) -> Dict:
+    """
+    Detect important messages that should be retained.
+
+    Scores messages based on:
+    - Importance keywords (fraud, risk, decision, etc.)
+    - Decision-related content
+    - Numerical data (amounts, scores)
+    - Policy/rule references
+    - System messages
+
+    Returns list of important messages with scores and reasons.
+    """
+    result = context_manager.detect_important_content(
+        messages=request.messages,
+        threshold=request.threshold
+    )
+
+    return {"important_content": [item.dict() for item in result]}
+
+
+@router.post("/research/context/check-overflow", tags=["research", "context"])
+async def check_overflow(request: OverflowCheckRequest) -> Dict:
+    """
+    Check for context window overflow.
+
+    Analyzes current token usage vs maximum limit.
+    Returns risk level and recommended actions.
+
+    Risk levels:
+    - safe: <75% utilization
+    - warning: 75-90% utilization
+    - critical: 90-100% utilization
+    - overflow: >100% utilization
+
+    Accounts for output reserve tokens.
+    """
+    result = context_manager.check_overflow(
+        messages=request.messages,
+        max_tokens=request.max_tokens,
+        output_reserve=request.output_reserve
+    )
+
+    return result.dict()
+
+
+@router.post("/research/context/allocate-dynamic", tags=["research", "context"])
+async def allocate_dynamic(request: DynamicAllocationRequest) -> Dict:
+    """
+    Dynamically allocate context window budget.
+
+    Divides total budget into:
+    - System tokens (10%)
+    - History tokens (60%)
+    - Output tokens (15-40% based on expected length)
+    - Safety margin (5%)
+
+    Calculates maximum messages that can fit in history.
+    """
+    result = context_manager.allocate_dynamic(
+        total_budget=request.total_budget,
+        system_prompt=request.system_prompt,
+        expected_output_length=request.expected_output_length
+    )
+
+    return result.dict()
+
+
+@router.post("/research/context/manage-conversation", tags=["research", "context"])
+async def manage_conversation(request: ConversationManagementRequest) -> Dict:
+    """
+    Comprehensive conversation management with all strategies.
+
+    Applies multiple techniques:
+    1. Overflow detection
+    2. Important content identification
+    3. Sliding window for recent messages
+    4. Automatic summarization when needed
+    5. System message preservation
+
+    Returns fully managed conversation ready for LLM input.
+    Prevents context overflow while retaining critical information.
+    """
+    result = context_manager.manage_conversation(
+        messages=request.messages,
+        max_tokens=request.max_tokens,
+        window_size=request.window_size,
+        preserve_important=request.preserve_important,
+        auto_summarize=request.auto_summarize
+    )
+
+    return result.dict()
+
+
+# ==================== Sampling Strategy Optimization ====================
+
+class SamplingRecommendationRequest(BaseModel):
+    """Request for sampling parameter recommendation"""
+    use_case: str = Field(..., description="Use case (fraud_detection, fraud_explanation, creative_fraud_scenarios, quick_classification, balanced_analysis)")
+    custom_constraints: Optional[Dict[str, Any]] = Field(default=None, description="Custom parameter constraints")
+
+
+class TemperatureScheduleRequest(BaseModel):
+    """Request for temperature schedule"""
+    schedule_type: Literal["static", "linear", "exponential", "cosine", "adaptive"] = Field(..., description="Schedule type")
+    initial_temp: float = Field(..., ge=0.0, le=2.0, description="Initial temperature")
+    final_temp: float = Field(..., ge=0.0, le=2.0, description="Final temperature")
+    steps: int = Field(..., ge=1, le=1000, description="Number of steps")
+
+
+class ParameterValidationRequest(BaseModel):
+    """Request for parameter validation"""
+    config: Dict[str, Any] = Field(..., description="Sampling configuration")
+    use_case: Optional[str] = Field(default=None, description="Optional use case for context")
+
+
+class ParameterComparisonRequest(BaseModel):
+    """Request for parameter comparison"""
+    config_a: Dict[str, Any] = Field(..., description="First configuration")
+    config_b: Dict[str, Any] = Field(..., description="Second configuration")
+    use_cases: List[str] = Field(default_factory=list, description="Use cases to evaluate")
+
+
+class EarlyStoppingRequest(BaseModel):
+    """Request for early stopping strategy"""
+    strategy_type: Literal["stop_sequences", "max_tokens", "confidence_threshold", "repetition_detection", "combined"] = Field(..., description="Strategy type")
+    stop_sequences: Optional[List[str]] = Field(default=None, description="Stop sequences")
+    max_tokens: Optional[int] = Field(default=512, description="Max tokens")
+    confidence_threshold: Optional[float] = Field(default=0.9, description="Confidence threshold")
+    repetition_window: Optional[int] = Field(default=10, description="Repetition window")
+
+
+@router.post("/research/sampling/recommend", tags=["research", "sampling"])
+async def recommend_sampling_parameters(request: SamplingRecommendationRequest) -> Dict:
+    """
+    Recommend sampling parameters for a use case.
+
+    Built-in use cases:
+    - fraud_detection: Low temp (0.3), consistent decisions
+    - fraud_explanation: Medium temp (0.5), clear reasoning
+    - creative_fraud_scenarios: High temp (0.8), diverse scenarios
+    - quick_classification: Very low temp (0.1), fast responses
+    - balanced_analysis: Balanced (0.7), general purpose
+
+    Returns recommended config + reasoning + alternatives.
+    """
+    result = sampling_optimizer.recommend_parameters(
+        use_case=request.use_case,
+        custom_constraints=request.custom_constraints
+    )
+
+    return result.dict()
+
+
+@router.post("/research/sampling/schedule", tags=["research", "sampling"])
+async def create_temperature_schedule(request: TemperatureScheduleRequest) -> Dict:
+    """
+    Create temperature schedule for adaptive sampling.
+
+    Schedule types:
+    - static: Constant temperature
+    - linear: Linear interpolation
+    - exponential: Exponential decay/growth
+    - cosine: Cosine annealing
+    - adaptive: Sine wave pattern
+
+    Returns temperature values for each step.
+    """
+    result = sampling_optimizer.create_temperature_schedule(
+        schedule_type=request.schedule_type,
+        initial_temp=request.initial_temp,
+        final_temp=request.final_temp,
+        steps=request.steps
+    )
+
+    return result.dict()
+
+
+@router.post("/research/sampling/validate", tags=["research", "sampling"])
+async def validate_sampling_parameters(request: ParameterValidationRequest) -> Dict:
+    """
+    Validate sampling parameters.
+
+    Checks:
+    - Parameter ranges (temp, top_p, etc.)
+    - Conflicting settings
+    - Use case appropriateness
+
+    Returns validation result with issues, warnings, suggestions.
+    """
+    result = sampling_optimizer.validate_parameters(
+        config=request.config,
+        use_case=request.use_case
+    )
+
+    return result.dict()
+
+
+@router.post("/research/sampling/compare", tags=["research", "sampling"])
+async def compare_sampling_configs(request: ParameterComparisonRequest) -> Dict:
+    """
+    Compare two sampling configurations.
+
+    Analyzes:
+    - Parameter differences
+    - Use case fit scores
+    - Conservative vs creative tradeoffs
+
+    Returns comparison with recommendation.
+    """
+    result = sampling_optimizer.compare_configs(
+        config_a=request.config_a,
+        config_b=request.config_b,
+        use_cases=request.use_cases
+    )
+
+    return result.dict()
+
+
+@router.post("/research/sampling/early-stopping", tags=["research", "sampling"])
+async def create_early_stopping_strategy(request: EarlyStoppingRequest) -> Dict:
+    """
+    Create early stopping strategy.
+
+    Strategies:
+    - stop_sequences: Stop on specific tokens/sequences
+    - max_tokens: Hard token limit
+    - confidence_threshold: Stop when confident enough
+    - repetition_detection: Stop on repetitive output
+    - combined: All strategies together
+
+    Returns early stopping configuration.
+    """
+    kwargs = {}
+    if request.stop_sequences:
+        kwargs["stop_sequences"] = request.stop_sequences
+    if request.max_tokens:
+        kwargs["max_tokens"] = request.max_tokens
+    if request.confidence_threshold:
+        kwargs["confidence_threshold"] = request.confidence_threshold
+    if request.repetition_window:
+        kwargs["repetition_window"] = request.repetition_window
+
+    result = sampling_optimizer.create_early_stopping_strategy(
+        strategy_type=request.strategy_type,
+        **kwargs
+    )
+
+    return result.dict()
+
+
+# ==================== LLM Knowledge (MoE, Speculative Decoding, Distillation) ====================
+
+class MoEAnalysisRequest(BaseModel):
+    """Request for MoE analysis"""
+    model_type: str = Field(default="Mixtral-8x7B", description="MoE model type")
+
+
+class SpeculativeDecodingRequest(BaseModel):
+    """Request for speculative decoding analysis"""
+    draft_model: str = Field(default="Mistral-7B-Instruct", description="Draft model")
+    verification_model: str = Field(default="Mixtral-8x7B-Instruct", description="Verification model")
+
+
+class DistillationDecisionRequest(BaseModel):
+    """Request for distillation vs prompting decision"""
+    scenario: str = Field(..., description="Task scenario")
+    data_size: int = Field(default=0, description="Number of labeled examples")
+    task_variability: Literal["fixed", "variable", "unknown"] = Field(default="unknown", description="Task variability")
+
+
+class HybridApproachRequest(BaseModel):
+    """Request for hybrid approach"""
+    approach_name: str = Field(default="Fraud Detection Hybrid", description="Approach name")
+
+
+@router.get("/research/llm-knowledge/moe", tags=["research", "llm-knowledge"])
+async def analyze_moe_architecture(model_type: str = "Mixtral-8x7B") -> Dict:
+    """
+    Analyze Mixture-of-Experts (MoE) architecture.
+
+    Explains:
+    - MoE routing mechanism
+    - When experts activate
+    - Cost implications (active vs total params)
+    - Inference efficiency benefits
+    - Best use cases
+
+    Example: Mixtral-8x7B has 46.7B total params but only 12.9B active per token.
+    """
+    result = llm_knowledge.analyze_moe(model_type=model_type)
+
+    return result.dict()
+
+
+@router.post("/research/llm-knowledge/speculative-decoding", tags=["research", "llm-knowledge"])
+async def analyze_speculative_decoding(request: SpeculativeDecodingRequest) -> Dict:
+    """
+    Analyze speculative decoding technique.
+
+    Explains:
+    - How draft + verification works
+    - Latency reduction benefits (2-3x speedup)
+    - When applicable (long-form generation)
+    - Limitations and requirements
+
+    Conceptual understanding for optimization decisions.
+    """
+    result = llm_knowledge.analyze_speculative_decoding(
+        draft_model=request.draft_model,
+        verification_model=request.verification_model
+    )
+
+    return result.dict()
+
+
+@router.post("/research/llm-knowledge/distillation-decision", tags=["research", "llm-knowledge"])
+async def decide_distillation_vs_prompting(request: DistillationDecisionRequest) -> Dict:
+    """
+    Decision framework: distillation vs prompting.
+
+    Recommends:
+    - Distillation: Lots of data (>10k), fixed task
+    - Prompting: Few examples (<100), flexible task
+    - Hybrid: Moderate data (1k-10k), mixed requirements
+
+    Returns recommendation with reasoning and tradeoffs.
+    """
+    result = llm_knowledge.decide_distillation_vs_prompting(
+        scenario=request.scenario,
+        data_size=request.data_size,
+        task_variability=request.task_variability
+    )
+
+    return result.dict()
+
+
+@router.post("/research/llm-knowledge/hybrid-approach", tags=["research", "llm-knowledge"])
+async def create_hybrid_approach(request: HybridApproachRequest) -> Dict:
+    """
+    Create hybrid distillation + prompting strategy.
+
+    Combines:
+    - Distillation for core task (speed)
+    - Prompting for variations (flexibility)
+
+    Returns integration strategy with example workflow.
+    """
+    result = llm_knowledge.create_hybrid_approach(
+        approach_name=request.approach_name
+    )
+
+    return result.dict()
