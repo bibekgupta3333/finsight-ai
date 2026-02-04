@@ -10,7 +10,7 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Literal
 
 import numpy as np
 
@@ -4849,6 +4849,9 @@ from app.services.research.world_model import world_model
 from app.services.research.selfplay_service import selfplay_service
 from app.services.research.distribution_shift import distribution_monitor
 from app.services.research.simulation_env import simulation_env, FraudScenarioType
+from app.services.research.trace_debugger import trace_debugger, StepType
+from app.services.research.metrics_collector import metrics_collector
+from app.services.research.test_suite import test_suite, TestType
 
 
 # RLHF - Feedback Collection
@@ -5378,3 +5381,577 @@ async def get_simulation_stats() -> Dict:
     Returns total scenarios, average F1 score, and performance metrics.
     """
     return simulation_env.get_simulation_stats()
+
+
+# ============================================================================
+# SECTION 17: ADVANCED EVALUATION & DEBUGGING
+# ============================================================================
+
+# 17.1 Agent Debugging Tools - Trace Debugger Endpoints
+
+@router.post("/research/debug/start-trace", tags=["research", "debugging"])
+async def start_execution_trace(
+    session_id: str,
+    transaction_id: str
+) -> Dict:
+    """
+    Start a new execution trace for debugging.
+
+    Returns trace_id to use for adding steps and ending trace.
+    """
+    trace = trace_debugger.start_trace(
+        session_id=session_id,
+        transaction_id=transaction_id
+    )
+
+    return {
+        "status": "trace_started",
+        "trace_id": trace.trace_id,
+        "session_id": trace.session_id,
+        "transaction_id": trace.transaction_id,
+        "start_time": trace.start_time
+    }
+
+
+class StepRequest(BaseModel):
+    """Request to add a step to trace"""
+    trace_id: str
+    step_type: StepType
+    content: str
+    tool_name: Optional[str] = None
+    tool_input: Optional[Dict[str, Any]] = None
+    tool_output: Optional[Dict[str, Any]] = None
+    is_decision: bool = False
+    confidence: Optional[float] = None
+
+
+@router.post("/research/debug/add-step", tags=["research", "debugging"])
+async def add_trace_step(request: StepRequest) -> Dict:
+    """
+    Add a reasoning step to an active trace.
+
+    Logs step-level execution with timestamps, tool calls, and decisions.
+    """
+    # Get trace from file
+    trace = trace_debugger.get_trace(request.trace_id)
+    if not trace:
+        raise HTTPException(status_code=404, detail=f"Trace {request.trace_id} not found")
+
+    step = trace_debugger.add_step(
+        trace=trace,
+        step_type=request.step_type,
+        content=request.content,
+        tool_name=request.tool_name,
+        tool_input=request.tool_input,
+        tool_output=request.tool_output,
+        is_decision=request.is_decision,
+        confidence=request.confidence
+    )
+
+    return {
+        "status": "step_added",
+        "trace_id": request.trace_id,
+        "step_id": step.step_id,
+        "step_number": step.step_number,
+        "step_type": step.step_type
+    }
+
+
+class EndTraceRequest(BaseModel):
+    """Request to end a trace"""
+    trace_id: str
+    final_decision: str
+    success: bool
+    error: Optional[str] = None
+    token_usage: int = 0
+    cost_usd: float = 0.0
+
+
+@router.post("/research/debug/end-trace", tags=["research", "debugging"])
+async def end_execution_trace(request: EndTraceRequest) -> Dict:
+    """
+    End an execution trace and save to file.
+
+    Also saves to failures file if not successful.
+    """
+    trace = trace_debugger.get_trace(request.trace_id)
+    if not trace:
+        raise HTTPException(status_code=404, detail=f"Trace {request.trace_id} not found")
+
+    final_trace = trace_debugger.end_trace(
+        trace=trace,
+        final_decision=request.final_decision,
+        success=request.success,
+        error=request.error,
+        token_usage=request.token_usage,
+        cost_usd=request.cost_usd
+    )
+
+    return {
+        "status": "trace_ended",
+        "trace_id": final_trace.trace_id,
+        "success": final_trace.success,
+        "total_steps": len(final_trace.steps),
+        "total_duration_ms": final_trace.total_duration_ms,
+        "token_usage": final_trace.token_usage,
+        "cost_usd": final_trace.cost_usd
+    }
+
+
+@router.get("/research/debug/trace/{trace_id}", tags=["research", "debugging"])
+async def get_trace_details(trace_id: str) -> Dict:
+    """
+    Get detailed execution trace.
+
+    Returns all steps with timestamps, tool calls, and decisions.
+    """
+    trace = trace_debugger.get_trace(trace_id)
+    if not trace:
+        raise HTTPException(status_code=404, detail=f"Trace {trace_id} not found")
+
+    return trace.model_dump()
+
+
+@router.get("/research/debug/export-trace/{trace_id}", tags=["research", "debugging"])
+async def export_trace_json(trace_id: str) -> Dict:
+    """
+    Export trace in JSON format for external debugging tools.
+
+    Returns formatted trace with step summaries.
+    """
+    return trace_debugger.export_trace(trace_id)
+
+
+@router.get("/research/debug/inspect-thoughts/{trace_id}", tags=["research", "debugging"])
+async def inspect_agent_thoughts(trace_id: str) -> Dict:
+    """
+    Analyze internal reasoning quality.
+
+    Validates Chain-of-Thought consistency, identifies reasoning errors,
+    detects logic gaps, and calculates efficiency score.
+    """
+    analysis = trace_debugger.inspect_thoughts(trace_id)
+    return analysis.model_dump()
+
+
+class ToolReplayRequest(BaseModel):
+    """Request to replay a tool call"""
+    tool_name: str
+    tool_input: Dict[str, Any]
+    use_cache: bool = True
+
+
+@router.post("/research/debug/replay-tool", tags=["research", "debugging"])
+async def replay_tool_call(request: ToolReplayRequest) -> Dict:
+    """
+    Replay a tool call from cache for debugging.
+
+    Deterministically re-executes using cached results.
+    """
+    output = trace_debugger.replay_tool_call(
+        tool_name=request.tool_name,
+        tool_input=request.tool_input,
+        use_cache=request.use_cache
+    )
+
+    if output is None:
+        return {
+            "status": "cache_miss",
+            "message": f"No cached result for {request.tool_name}"
+        }
+
+    return {
+        "status": "replayed",
+        "tool_name": request.tool_name,
+        "output": output
+    }
+
+
+@router.post("/research/debug/deterministic-replay/{trace_id}", tags=["research", "debugging"])
+async def deterministic_replay_trace(trace_id: str, random_seed: int = 42) -> Dict:
+    """
+    Replay exact agent execution deterministically.
+
+    Uses fixed random seeds and cached tool results to reproduce bugs reliably.
+    """
+    replay_trace = trace_debugger.deterministic_replay(
+        trace_id=trace_id,
+        random_seed=random_seed
+    )
+
+    return {
+        "status": "replay_complete",
+        "original_trace_id": trace_id,
+        "replay_trace_id": replay_trace.trace_id,
+        "steps_replayed": len(replay_trace.steps),
+        "success": replay_trace.success
+    }
+
+
+@router.get("/research/debug/cluster-failures", tags=["research", "debugging"])
+async def cluster_failure_patterns() -> Dict:
+    """
+    Identify and group similar failures.
+
+    Returns failure patterns with root cause hypotheses and priority.
+    """
+    patterns = trace_debugger.cluster_failures()
+
+    return {
+        "status": "analyzed",
+        "total_patterns": len(patterns),
+        "patterns": [p.model_dump() for p in patterns]
+    }
+
+
+# 17.2 Comprehensive Metrics - Metrics Collection Endpoints
+
+class TaskRecordRequest(BaseModel):
+    """Request to record task result"""
+    task_id: str
+    transaction_id: str
+    predicted: str
+    ground_truth: Optional[str] = None
+    aligned_with_human: Optional[bool] = None
+    completed: bool = True
+    error: Optional[str] = None
+
+
+@router.post("/research/metrics/record-task", tags=["research", "metrics"])
+async def record_task_result(request: TaskRecordRequest) -> Dict:
+    """
+    Record task execution result.
+
+    Tracks classification accuracy, human alignment, and completion rate.
+    """
+    result = metrics_collector.record_task(
+        task_id=request.task_id,
+        transaction_id=request.transaction_id,
+        predicted=request.predicted,
+        ground_truth=request.ground_truth,
+        aligned_with_human=request.aligned_with_human,
+        completed=request.completed,
+        error=request.error
+    )
+
+    return {
+        "status": "recorded",
+        "task_id": result.task_id,
+        "correct": result.correct,
+        "completed": result.completed
+    }
+
+
+class ToolCallRecordRequest(BaseModel):
+    """Request to record tool call"""
+    tool_name: str
+    tool_input: Dict[str, Any]
+    tool_output: Optional[Dict[str, Any]]
+    success: bool
+    duration_ms: float
+    error: Optional[str] = None
+    was_necessary: Optional[bool] = None
+    parameter_correctness: Optional[float] = None
+
+
+@router.post("/research/metrics/record-tool-call", tags=["research", "metrics"])
+async def record_tool_call_metrics(request: ToolCallRecordRequest) -> Dict:
+    """
+    Record tool call metrics.
+
+    Tracks tool success rate, selection accuracy, parameter correctness.
+    """
+    call = metrics_collector.record_tool_call(
+        tool_name=request.tool_name,
+        tool_input=request.tool_input,
+        tool_output=request.tool_output,
+        success=request.success,
+        duration_ms=request.duration_ms,
+        error=request.error,
+        was_necessary=request.was_necessary,
+        parameter_correctness=request.parameter_correctness
+    )
+
+    return {
+        "status": "recorded",
+        "call_id": call.call_id,
+        "tool_name": call.tool_name,
+        "success": call.success
+    }
+
+
+class CostRecordRequest(BaseModel):
+    """Request to record cost metrics"""
+    task_id: str
+    token_usage: int
+    api_calls: int
+    cost_usd: float
+    model_used: str = "mistral-7b"
+
+
+@router.post("/research/metrics/record-cost", tags=["research", "metrics"])
+async def record_cost_metrics(request: CostRecordRequest) -> Dict:
+    """
+    Record cost metrics for a task.
+
+    Tracks token usage, API calls, and $ cost per transaction.
+    """
+    metrics = metrics_collector.record_cost(
+        task_id=request.task_id,
+        token_usage=request.token_usage,
+        api_calls=request.api_calls,
+        cost_usd=request.cost_usd,
+        model_used=request.model_used
+    )
+
+    return {
+        "status": "recorded",
+        "task_id": metrics.task_id,
+        "cost_usd": metrics.cost_usd,
+        "token_usage": metrics.token_usage
+    }
+
+
+class LatencyRecordRequest(BaseModel):
+    """Request to record latency metrics"""
+    task_id: str
+    total_latency_ms: float
+    reasoning_latency_ms: float
+    tool_call_latency_ms: float
+    step_latencies: List[float]
+
+
+@router.post("/research/metrics/record-latency", tags=["research", "metrics"])
+async def record_latency_metrics(request: LatencyRecordRequest) -> Dict:
+    """
+    Record latency metrics.
+
+    Tracks p50, p95, p99 latencies and step-by-step breakdown.
+    """
+    metrics = metrics_collector.record_latency(
+        task_id=request.task_id,
+        total_latency_ms=request.total_latency_ms,
+        reasoning_latency_ms=request.reasoning_latency_ms,
+        tool_call_latency_ms=request.tool_call_latency_ms,
+        step_latencies=request.step_latencies
+    )
+
+    return {
+        "status": "recorded",
+        "task_id": metrics.task_id,
+        "total_latency_ms": metrics.total_latency_ms
+    }
+
+
+class RecoveryRecordRequest(BaseModel):
+    """Request to record recovery event"""
+    task_id: str
+    failure_type: str
+    recovery_attempted: bool
+    recovery_successful: bool
+    recovery_time_ms: Optional[float] = None
+    escalated_to_human: bool = False
+    human_intervention_time_ms: Optional[float] = None
+
+
+@router.post("/research/metrics/record-recovery", tags=["research", "metrics"])
+async def record_recovery_event(request: RecoveryRecordRequest) -> Dict:
+    """
+    Record failure recovery event.
+
+    Tracks recovery rate, escalation rate, and human intervention.
+    """
+    event = metrics_collector.record_recovery(
+        task_id=request.task_id,
+        failure_type=request.failure_type,
+        recovery_attempted=request.recovery_attempted,
+        recovery_successful=request.recovery_successful,
+        recovery_time_ms=request.recovery_time_ms,
+        escalated_to_human=request.escalated_to_human,
+        human_intervention_time_ms=request.human_intervention_time_ms
+    )
+
+    return {
+        "status": "recorded",
+        "event_id": event.event_id,
+        "recovery_successful": event.recovery_successful,
+        "escalated": event.escalated_to_human
+    }
+
+
+class ViolationRecordRequest(BaseModel):
+    """Request to record alignment violation"""
+    task_id: str
+    violation_type: Literal["safety", "constraint", "refusal_failure", "false_refusal"]
+    description: str
+    severity: Literal["low", "medium", "high", "critical"]
+    rule_violated: Optional[str] = None
+
+
+@router.post("/research/metrics/record-violation", tags=["research", "metrics"])
+async def record_alignment_violation(request: ViolationRecordRequest) -> Dict:
+    """
+    Record alignment violation.
+
+    Tracks safety rule violations, constraint violations, and refusal failures.
+    """
+    violation = metrics_collector.record_violation(
+        task_id=request.task_id,
+        violation_type=request.violation_type,
+        description=request.description,
+        severity=request.severity,
+        rule_violated=request.rule_violated
+    )
+
+    return {
+        "status": "recorded",
+        "violation_id": violation.violation_id,
+        "severity": violation.severity,
+        "violation_type": violation.violation_type
+    }
+
+
+@router.get("/research/metrics/aggregated", tags=["research", "metrics"])
+async def get_aggregated_metrics(days: int = 7) -> Dict:
+    """
+    Get comprehensive aggregated metrics.
+
+    Returns task success rate, tool accuracy, cost metrics, latency metrics,
+    recovery rate, and alignment violations for the last N days.
+    """
+    metrics = metrics_collector.get_aggregated_metrics(days=days)
+    return metrics.model_dump()
+
+
+@router.get("/research/metrics/tool-breakdown", tags=["research", "metrics"])
+async def get_tool_breakdown() -> Dict:
+    """
+    Get detailed breakdown by tool.
+
+    Returns success rate, average duration, and error count per tool.
+    """
+    return metrics_collector.get_tool_breakdown()
+
+
+@router.get("/research/metrics/latency-breakdown", tags=["research", "metrics"])
+async def get_latency_breakdown() -> Dict:
+    """
+    Get latency breakdown by component.
+
+    Returns average reasoning time, tool call time, and total time.
+    """
+    return metrics_collector.get_latency_breakdown()
+
+
+# 17.3 Automated Testing Suite Endpoints
+
+class TestCaseRequest(BaseModel):
+    """Request to create a test case"""
+    test_name: str
+    test_type: TestType
+    description: str
+    inputs: Dict[str, Any]
+    expected_output: Optional[Any] = None
+    expected_behavior: Optional[str] = None
+    tags: List[str] = []
+    timeout_ms: int = 30000
+    critical: bool = False
+
+
+@router.post("/research/testing/create-test-case", tags=["research", "testing"])
+async def create_test_case(request: TestCaseRequest) -> Dict:
+    """
+    Create a new test case.
+
+    Can be unit, integration, regression, adversarial, edge case, or performance test.
+    """
+    test = test_suite.add_test_case(
+        test_name=request.test_name,
+        test_type=request.test_type,
+        description=request.description,
+        inputs=request.inputs,
+        expected_output=request.expected_output,
+        expected_behavior=request.expected_behavior,
+        tags=request.tags,
+        timeout_ms=request.timeout_ms,
+        critical=request.critical
+    )
+
+    return {
+        "status": "created",
+        "test_id": test.test_id,
+        "test_name": test.test_name,
+        "test_type": test.test_type
+    }
+
+
+@router.get("/research/testing/adversarial-tests", tags=["research", "testing"])
+async def get_adversarial_tests() -> Dict:
+    """
+    Get pre-built adversarial test cases.
+
+    Includes prompt injection, financial advice refusal, extreme amounts,
+    missing data, and balance manipulation tests.
+    """
+    tests = test_suite.create_adversarial_tests()
+
+    return {
+        "status": "generated",
+        "count": len(tests),
+        "tests": [t.model_dump() for t in tests]
+    }
+
+
+@router.get("/research/testing/edge-case-tests", tags=["research", "testing"])
+async def get_edge_case_tests() -> Dict:
+    """
+    Get pre-built edge case tests.
+
+    Includes zero amounts, negative amounts, self-transfers,
+    and very long descriptions.
+    """
+    tests = test_suite.create_edge_case_tests()
+
+    return {
+        "status": "generated",
+        "count": len(tests),
+        "tests": [t.model_dump() for t in tests]
+    }
+
+
+class BaselineRequest(BaseModel):
+    """Request to save regression baseline"""
+    metrics: Dict[str, float]
+
+
+@router.post("/research/testing/save-baseline", tags=["research", "testing"])
+async def save_regression_baseline(request: BaselineRequest) -> Dict:
+    """
+    Save baseline metrics for regression testing.
+
+    Future runs will be compared against this baseline.
+    """
+    test_suite.save_regression_baseline(request.metrics)
+
+    return {
+        "status": "baseline_saved",
+        "metrics_count": len(request.metrics),
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+class RegressionCheckRequest(BaseModel):
+    """Request to check for regression"""
+    current_metrics: Dict[str, float]
+
+
+@router.post("/research/testing/check-regression", tags=["research", "testing"])
+async def check_regression(request: RegressionCheckRequest) -> Dict:
+    """
+    Check for performance regression.
+
+    Compares current metrics against baseline. Flags regressions >5%.
+    """
+    result = test_suite.check_regression(request.current_metrics)
+    return result
+

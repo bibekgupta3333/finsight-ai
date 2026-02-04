@@ -1,0 +1,14 @@
+{
+  "dd9e7922e4df7cd319c270f72dc3ee04": {
+    "tool_name": "fraud_analyzer",
+    "input": {
+      "amount": 85000,
+      "type": "CASH_OUT"
+    },
+    "output": {
+      "confidence": 0.92,
+      "is_fraud": true
+    },
+    "timestamp": "2026-02-04T16:52:36.537985"
+  }
+}
