@@ -4852,6 +4852,9 @@ from app.services.research.simulation_env import simulation_env, FraudScenarioTy
 from app.services.research.trace_debugger import trace_debugger, StepType
 from app.services.research.metrics_collector import metrics_collector
 from app.services.research.test_suite import test_suite, TestType
+from app.services.security.safety_guard import safety_guard
+from app.services.security.security_manager import security_manager, RateLimitConfig
+from app.services.security.privacy_handler import privacy_handler, GDPRConsent
 
 
 # RLHF - Feedback Collection
@@ -5953,5 +5956,591 @@ async def check_regression(request: RegressionCheckRequest) -> Dict:
     Compares current metrics against baseline. Flags regressions >5%.
     """
     result = test_suite.check_regression(request.current_metrics)
+
+    return result
+
+
+# ================================
+# SECTION 8: SAFETY, SECURITY & ALIGNMENT
+# ================================
+
+# ========== LLM Safety Guard ==========
+
+class PromptCheckRequest(BaseModel):
+    """Request to check for prompt injection"""
+    prompt: str
+
+
+@router.post("/security/safety/check-injection", tags=["security", "safety"])
+async def check_prompt_injection(request: PromptCheckRequest) -> Dict:
+    """
+    Detect prompt injection attacks.
+
+    Checks for:
+    - Instruction override attempts
+    - System message manipulation
+    - Role confusion
+    - Delimiter manipulation
+    """
+    result = safety_guard.detect_prompt_injection(request.prompt)
+
+    return result.model_dump()
+
+
+@router.post("/security/safety/check-jailbreak", tags=["security", "safety"])
+async def check_jailbreak(request: PromptCheckRequest) -> Dict:
+    """
+    Detect jailbreak attempts.
+
+    Checks for:
+    - DAN (Do Anything Now) prompts
+    - Hypothetical scenario jailbreaks
+    - Unfiltered mode requests
+    - Roleplay jailbreaks
+    """
+    result = safety_guard.detect_jailbreak(request.prompt)
+
+    return result.model_dump()
+
+
+class RefusalCheckRequest(BaseModel):
+    """Request to check if should refuse"""
+    request_text: str
+
+
+@router.post("/security/safety/should-refuse", tags=["security", "safety"])
+async def should_refuse(request: RefusalCheckRequest) -> Dict:
+    """
+    Check if request should be refused.
+
+    Refuses:
+    - Financial advice requests
+    - Illegal activity
+    - Harmful content
+    """
+    result = safety_guard.should_refuse_request(request.request_text)
+
+    return result.model_dump()
+
+
+class UncertaintyRequest(BaseModel):
+    """Request to quantify uncertainty"""
+    prediction: str
+    confidence: float
+    transaction_amount: float = 0.0
+
+
+@router.post("/security/safety/uncertainty", tags=["security", "safety"])
+async def quantify_uncertainty(request: UncertaintyRequest) -> Dict:
+    """
+    Quantify prediction uncertainty.
+
+    Determines if human escalation is needed based on:
+    - Low confidence (<0.7)
+    - High-value transactions (>$100k)
+    - Edge cases
+    """
+    context = {"amount": request.transaction_amount} if request.transaction_amount else None
+
+    result = safety_guard.quantify_uncertainty(
+        prediction=request.prediction,
+        confidence=request.confidence,
+        context=context
+    )
+
+    return result.model_dump()
+
+
+class SanitizeRequest(BaseModel):
+    """Request to sanitize output"""
+    output_text: str
+
+
+@router.post("/security/safety/sanitize-output", tags=["security", "safety"])
+async def sanitize_output(request: SanitizeRequest) -> Dict:
+    """
+    Sanitize LLM output.
+
+    Removes:
+    - PII (emails, phones, SSNs, credit cards)
+    - Extreme language
+    """
+    sanitized = safety_guard.sanitize_output(request.output_text)
+
+    return {
+        "sanitized_output": sanitized,
+        "original_length": len(request.output_text),
+        "sanitized_length": len(sanitized)
+    }
+
+
+class BiasAuditRequest(BaseModel):
+    """Request to audit bias"""
+    predictions: List[Dict[str, Any]]  # List of {amount: float, prediction: bool}
+
+
+@router.post("/security/safety/audit-bias", tags=["security", "safety"])
+async def audit_bias(request: BiasAuditRequest) -> Dict:
+    """
+    Audit model for bias.
+
+    Analyzes fraud detection rates across transaction amount buckets:
+    - Micro ($0-100)
+    - Small ($100-1k)
+    - Medium ($1k-10k)
+    - Large ($10k-100k)
+    - Very Large ($100k+)
+    """
+    result = safety_guard.audit_bias(request.predictions)
+
+    return result.model_dump()
+
+
+class FairnessRequest(BaseModel):
+    """Request to calculate fairness metrics"""
+    group_a_predictions: List[bool]
+    group_b_predictions: List[bool]
+    group_a_labels: List[bool]
+    group_b_labels: List[bool]
+
+
+@router.post("/security/safety/fairness-metrics", tags=["security", "safety"])
+async def calculate_fairness(request: FairnessRequest) -> Dict:
+    """
+    Calculate fairness metrics.
+
+    Computes:
+    - Demographic parity difference
+    - Equal opportunity difference
+    - Disparate impact ratio (80% rule)
+    """
+    result = safety_guard.calculate_fairness_metrics(
+        group_a_predictions=request.group_a_predictions,
+        group_b_predictions=request.group_b_predictions,
+        group_a_labels=request.group_a_labels,
+        group_b_labels=request.group_b_labels
+    )
+
+    return result.model_dump()
+
+
+@router.get("/security/safety/dashboard", tags=["security", "safety"])
+async def get_safety_dashboard(days: int = 7) -> Dict:
+    """
+    Get safety dashboard.
+
+    Shows:
+    - Total incidents
+    - Incidents by type
+    - Incidents by severity
+    - Recent incidents (last 10)
+    """
+    dashboard = safety_guard.get_safety_dashboard(days=days)
+
+    return dashboard
+
+
+# ========== Security Manager ==========
+
+class TokenRequest(BaseModel):
+    """Request to create access token"""
+    user_id: str
+    username: str
+    roles: List[str] = Field(default_factory=list)
+
+
+@router.post("/security/auth/create-token", tags=["security", "auth"])
+async def create_token(request: TokenRequest) -> Dict:
+    """
+    Create JWT access token.
+
+    Token expires in 24 hours by default.
+    """
+    token = security_manager.create_access_token(
+        user_id=request.user_id,
+        username=request.username,
+        roles=request.roles
+    )
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "expires_in": 86400  # 24 hours in seconds
+    }
+
+
+class TokenVerifyRequest(BaseModel):
+    """Request to verify token"""
+    token: str
+
+
+@router.post("/security/auth/verify-token", tags=["security", "auth"])
+async def verify_token(request: TokenVerifyRequest) -> Dict:
+    """
+    Verify JWT token.
+
+    Returns token data if valid, error if invalid/expired.
+    """
+    token_data = security_manager.verify_token(request.token)
+
+    if not token_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+
+    return token_data.model_dump()
+
+
+@router.post("/security/auth/refresh-token", tags=["security", "auth"])
+async def refresh_token(request: TokenVerifyRequest) -> Dict:
+    """
+    Refresh JWT token.
+
+    Creates new token with same data if old token is valid.
+    """
+    new_token = security_manager.refresh_token(request.token)
+
+    if not new_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Cannot refresh invalid/expired token"
+        )
+
+    return {
+        "access_token": new_token,
+        "token_type": "bearer",
+        "expires_in": 86400
+    }
+
+
+@router.post("/security/rate-limit/check", tags=["security", "rate-limit"])
+async def check_rate_limit(
+    identifier: str = Query(..., description="IP, user_id, or API key"),
+    max_requests: int = Query(100, description="Max requests"),
+    window_seconds: int = Query(60, description="Time window in seconds")
+) -> Dict:
+    """
+    Check rate limit.
+
+    Uses token bucket algorithm.
+    """
+    config = RateLimitConfig(
+        max_requests=max_requests,
+        window_seconds=window_seconds,
+        identifier=identifier
+    )
+
+    within_limit = security_manager.check_rate_limit(config)
+
+    if not within_limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Rate limit exceeded: {max_requests} requests per {window_seconds}s"
+        )
+
+    return {
+        "within_limit": True,
+        "identifier": identifier,
+        "max_requests": max_requests,
+        "window_seconds": window_seconds
+    }
+
+
+@router.get("/security/rate-limit/status", tags=["security", "rate-limit"])
+async def get_rate_limit_status(
+    identifier: str = Query(..., description="IP, user_id, or API key"),
+    window_seconds: int = Query(60, description="Time window in seconds")
+) -> Dict:
+    """
+    Get rate limit status.
+
+    Shows current request count for identifier.
+    """
+    status_data = security_manager.get_rate_limit_status(identifier, window_seconds)
+
+    return status_data
+
+
+class ValidationRequest(BaseModel):
+    """Request to validate input"""
+    transaction_data: Dict[str, Any]
+
+
+@router.post("/security/validate/transaction", tags=["security", "validation"])
+async def validate_transaction(request: ValidationRequest) -> Dict:
+    """
+    Validate and sanitize transaction input.
+
+    Checks for:
+    - Required fields
+    - Data types
+    - SQL injection
+    - XSS attacks
+    """
+    result = security_manager.validate_transaction_input(request.transaction_data)
+
+    return result.model_dump()
+
+
+class FileValidationRequest(BaseModel):
+    """Request to validate file upload"""
+    filename: str
+    file_content: str  # Base64 encoded
+
+
+@router.post("/security/validate/file", tags=["security", "validation"])
+async def validate_file(request: FileValidationRequest) -> Dict:
+    """
+    Validate file upload.
+
+    Checks:
+    - File extension whitelist
+    - File size limits
+    - Magic bytes verification
+    """
+    import base64
+
+    try:
+        file_bytes = base64.b64decode(request.file_content)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid base64 file content"
+        )
+
+    result = security_manager.validate_file_upload(request.filename, file_bytes)
+
+    return result.model_dump()
+
+
+class APIKeyRequest(BaseModel):
+    """Request to generate API key"""
+    prefix: str = "fsk"
+
+
+@router.post("/security/secrets/generate-api-key", tags=["security", "secrets"])
+async def generate_api_key(request: APIKeyRequest) -> Dict:
+    """
+    Generate secure API key.
+
+    Returns key and hash (store hash in database).
+    """
+    api_key = security_manager.generate_api_key(prefix=request.prefix)
+    api_key_hash = security_manager.hash_api_key(api_key)
+
+    return {
+        "api_key": api_key,
+        "api_key_hash": api_key_hash,
+        "note": "Store the hash in database. The raw key is shown only once."
+    }
+
+
+class APIKeyVerifyRequest(BaseModel):
+    """Request to verify API key"""
+    provided_key: str
+    stored_hash: str
+
+
+@router.post("/security/secrets/verify-api-key", tags=["security", "secrets"])
+async def verify_api_key(request: APIKeyVerifyRequest) -> Dict:
+    """
+    Verify API key against stored hash.
+
+    Uses constant-time comparison.
+    """
+    is_valid = security_manager.verify_api_key(
+        request.provided_key,
+        request.stored_hash
+    )
+
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key"
+        )
+
+    return {"valid": True}
+
+
+# ========== Privacy Handler ==========
+
+class PIIDetectionRequest(BaseModel):
+    """Request to detect PII"""
+    text: str
+
+
+@router.post("/security/privacy/detect-pii", tags=["security", "privacy"])
+async def detect_pii(request: PIIDetectionRequest) -> Dict:
+    """
+    Detect personally identifiable information (PII).
+
+    Detects:
+    - Emails
+    - Phone numbers
+    - SSNs
+    - Credit cards
+    - IP addresses
+    - Dates of birth
+    - Names
+    - Addresses
+    """
+    result = privacy_handler.detect_pii(request.text)
+
+    return result.model_dump()
+
+
+class TransactionSanitizeRequest(BaseModel):
+    """Request to sanitize transaction"""
+    transaction: Dict[str, Any]
+
+
+@router.post("/security/privacy/sanitize-transaction", tags=["security", "privacy"])
+async def sanitize_transaction(request: TransactionSanitizeRequest) -> Dict:
+    """
+    Sanitize transaction data.
+
+    Redacts PII from transaction fields.
+    """
+    sanitized = privacy_handler.sanitize_transaction_data(request.transaction)
+
+    return {
+        "sanitized_transaction": sanitized,
+        "original_fields": len(request.transaction),
+        "sanitized_fields": len(sanitized)
+    }
+
+
+class AnonymizeRequest(BaseModel):
+    """Request to anonymize user ID"""
+    user_id: str
+    method: Literal["hash", "pseudonym", "token"] = "hash"
+
+
+@router.post("/security/privacy/anonymize", tags=["security", "privacy"])
+async def anonymize_user(request: AnonymizeRequest) -> Dict:
+    """
+    Anonymize user identifier.
+
+    Methods:
+    - hash: SHA-256 hash (irreversible)
+    - pseudonym: Random pseudonym (reversible if mapping stored)
+    - token: Secure token (irreversible)
+    """
+    result = privacy_handler.anonymize_user_id(
+        user_id=request.user_id,
+        method=request.method
+    )
+
+    return result.model_dump()
+
+
+@router.post("/security/privacy/consent", tags=["security", "privacy"])
+async def record_consent(request: GDPRConsent) -> Dict:
+    """
+    Record GDPR consent.
+
+    Consent types:
+    - data_collection
+    - data_processing
+    - data_sharing
+    """
+    privacy_handler.record_consent(request)
+
+    return {
+        "status": "consent_recorded",
+        "user_id": request.user_id,
+        "consent_type": request.consent_type,
+        "granted": request.granted,
+        "timestamp": request.timestamp.isoformat()
+    }
+
+
+@router.get("/security/privacy/verify-consent", tags=["security", "privacy"])
+async def verify_consent(
+    user_id: str = Query(...),
+    consent_type: str = Query(...)
+) -> Dict:
+    """
+    Verify GDPR consent.
+
+    Checks if user has granted consent for specific type.
+    """
+    has_consent = privacy_handler.verify_consent(user_id, consent_type)
+
+    return {
+        "user_id": user_id,
+        "consent_type": consent_type,
+        "has_consent": has_consent
+    }
+
+
+@router.get("/security/privacy/user-data/{user_id}", tags=["security", "privacy"])
+async def get_user_data(user_id: str) -> Dict:
+    """
+    Get all user data (GDPR data portability right).
+
+    Returns all data for a user.
+    """
+    user_data = privacy_handler.get_user_data(user_id)
+
+    return user_data
+
+
+@router.delete("/security/privacy/user-data/{user_id}", tags=["security", "privacy"])
+async def delete_user_data(user_id: str) -> Dict:
+    """
+    Delete all user data (GDPR right to erasure).
+
+    Deletes all data for a user.
+    """
+    deleted_counts = privacy_handler.delete_user_data(user_id)
+
+    return {
+        "status": "data_deleted",
+        "user_id": user_id,
+        "deleted_counts": deleted_counts
+    }
+
+
+@router.get("/security/privacy/retention-policy", tags=["security", "privacy"])
+async def get_retention_policy(data_type: str = Query(...)) -> Dict:
+    """
+    Get data retention policy.
+
+    Data types:
+    - transaction_logs (7 years)
+    - user_data (1 year)
+    - fraud_reports (5 years)
+    - audit_logs (7 years)
+    - pii_data (1 year)
+    """
+    policy = privacy_handler.get_retention_policy(data_type)
+
+    if not policy:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No retention policy for data type: {data_type}"
+        )
+
+    return policy.model_dump()
+
+
+@router.get("/security/privacy/dashboard", tags=["security", "privacy"])
+async def get_privacy_dashboard(days: int = Query(7)) -> Dict:
+    """
+    Get privacy compliance dashboard.
+
+    Shows:
+    - Total audits
+    - Consent violations
+    - Retention violations
+    - Data types accessed
+    - Recent audits
+    """
+    dashboard = privacy_handler.get_privacy_dashboard(days=days)
+
+    return dashboard
+
     return result
 
