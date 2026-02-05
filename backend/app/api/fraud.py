@@ -7270,3 +7270,311 @@ async def get_time_series(
         metric_name, time_window_hours, granularity_minutes
     )
     return {"metric_name": metric_name, "data": time_series}
+
+
+# ==============================================================================
+# MODEL TRAINING & PROMPT ENGINEERING ENDPOINTS
+# ==============================================================================
+
+from app.services.ml import model_trainer, prompt_manager
+from app.services.ml.finetuning_generator import finetuning_generator
+
+
+class TrainModelRequest(BaseModel):
+    """Request to train a model"""
+    model_type: Literal["random_forest", "xgboost"]
+    sample_size: Optional[int] = Field(None, description="Sample size for quick training (e.g., 10000)")
+    tune_hyperparameters: bool = Field(False, description="Whether to tune hyperparameters with Optuna")
+    n_trials: int = Field(20, description="Number of Optuna trials")
+
+
+class PromptTestRequest(BaseModel):
+    """Request to test a prompt template"""
+    template_id: str
+    transaction: Dict[str, Any]
+
+
+class CreatePromptRequest(BaseModel):
+    """Request to create a custom prompt template"""
+    name: str
+    strategy: str  # "zero_shot", "few_shot", etc.
+    version: str
+    system_prompt: str
+    user_prompt_template: str
+
+
+@router.post("/ml/train-model")
+async def train_model_endpoint(request: TrainModelRequest):
+    """
+    Train a fraud detection model
+
+    Models supported:
+    - random_forest: Fast, interpretable, good baseline
+    - xgboost: Higher accuracy, slower training
+
+    Args:
+        model_type: Type of model to train
+        sample_size: Optional sample size for quick training (M4 Pro optimization)
+        tune_hyperparameters: Whether to use Optuna for hyperparameter tuning
+        n_trials: Number of Optuna trials (default 20 for M4 Pro)
+
+    Returns:
+        {
+            "model_id": "...",
+            "metrics": {
+                "accuracy": 0.95,
+                "f1_score": 0.85,
+                ...
+            },
+            "training_time_seconds": 120.5
+        }
+    """
+    try:
+        # Train model
+        model_id = model_trainer.train_and_save(
+            model_type=request.model_type,
+            sample_size=request.sample_size,
+            tune=request.tune_hyperparameters,
+            n_trials=request.n_trials
+        )
+
+        # Get model artifact
+        artifact = next((a for a in model_trainer.registry if a.model_id == model_id), None)
+
+        if not artifact:
+            raise HTTPException(status_code=500, detail="Model trained but artifact not found")
+
+        return {
+            "model_id": model_id,
+            "model_name": artifact.model_name,
+            "model_type": artifact.model_type,
+            "metrics": {
+                "accuracy": artifact.metrics.accuracy,
+                "precision": artifact.metrics.precision,
+                "recall": artifact.metrics.recall,
+                "f1_score": artifact.metrics.f1_score,
+                "roc_auc": artifact.metrics.roc_auc
+            },
+            "training_time_seconds": artifact.metrics.training_time_seconds,
+            "inference_time_ms": artifact.metrics.inference_time_ms,
+            "created_at": artifact.created_at
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
+
+
+@router.get("/ml/models")
+async def list_models():
+    """
+    List all trained models with comparison
+
+    Returns DataFrame-like comparison of all models by F1 score
+    """
+    comparison = model_trainer.compare_models()
+
+    if comparison.empty:
+        return {"models": [], "message": "No models trained yet"}
+
+    return {
+        "models": comparison.to_dict(orient="records"),
+        "best_model": comparison.iloc[0].to_dict()
+    }
+
+
+@router.get("/ml/models/{model_id}")
+async def get_model_details(model_id: str):
+    """Get detailed metrics for a specific model"""
+    artifact = next((a for a in model_trainer.registry if a.model_id == model_id), None)
+
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    m = artifact.metrics
+
+    return {
+        "model_id": artifact.model_id,
+        "model_name": artifact.model_name,
+        "model_type": artifact.model_type,
+        "file_path": artifact.file_path,
+        "created_at": artifact.created_at,
+        "metrics": {
+            "accuracy": m.accuracy,
+            "precision": m.precision,
+            "recall": m.recall,
+            "f1_score": m.f1_score,
+            "roc_auc": m.roc_auc,
+            "training_time_seconds": m.training_time_seconds,
+            "inference_time_ms": m.inference_time_ms,
+            "confusion_matrix": m.confusion_matrix,
+            "feature_importance": m.feature_importance,
+            "hyperparameters": m.hyperparameters
+        }
+    }
+
+
+@router.get("/ml/models/{model_id}/download")
+async def download_model(model_id: str):
+    """Download model artifact file"""
+    from fastapi.responses import FileResponse
+
+    artifact = next((a for a in model_trainer.registry if a.model_id == model_id), None)
+
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    return FileResponse(
+        path=artifact.file_path,
+        filename=f"{model_id}.pkl",
+        media_type="application/octet-stream"
+    )
+
+
+@router.get("/prompts")
+async def list_prompts(strategy: Optional[str] = None):
+    """
+    List all prompt templates
+
+    Args:
+        strategy: Optional filter by strategy (zero_shot, few_shot, etc.)
+    """
+    from app.services.ml.prompt_manager import PromptStrategy
+
+    strategy_filter = None
+    if strategy:
+        try:
+            strategy_filter = PromptStrategy(strategy)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid strategy: {strategy}")
+
+    templates = prompt_manager.list_templates(strategy_filter)
+
+    return {
+        "templates": [
+            {
+                "template_id": t.template_id,
+                "name": t.name,
+                "strategy": t.strategy.value,
+                "version": t.version,
+                "active": t.active,
+                "created_at": t.created_at,
+                "performance_metrics": t.performance_metrics
+            }
+            for t in templates
+        ]
+    }
+
+
+@router.get("/prompts/{template_id}")
+async def get_prompt_template(template_id: str):
+    """Get specific prompt template details"""
+    template = prompt_manager.get_template(template_id)
+
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    return {
+        "template_id": template.template_id,
+        "name": template.name,
+        "strategy": template.strategy.value,
+        "version": template.version,
+        "system_prompt": template.system_prompt,
+        "user_prompt_template": template.user_prompt_template,
+        "num_examples": len(template.examples),
+        "active": template.active,
+        "created_at": template.created_at,
+        "performance_metrics": template.performance_metrics
+    }
+
+
+@router.post("/prompts/test")
+async def test_prompt_template(request: PromptTestRequest):
+    """
+    Test a prompt template with a transaction
+
+    Returns rendered prompt ready to send to LLM
+    """
+    try:
+        rendered = prompt_manager.render_prompt(
+            request.template_id,
+            request.transaction
+        )
+
+        return {
+            "template_id": request.template_id,
+            "rendered_prompt": rendered,
+            "transaction": request.transaction
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/prompts/create")
+async def create_prompt_template(request: CreatePromptRequest):
+    """Create a custom prompt template"""
+    from app.services.ml.prompt_manager import PromptStrategy
+
+    try:
+        strategy = PromptStrategy(request.strategy)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid strategy: {request.strategy}")
+
+    template_id = prompt_manager.register_template(
+        name=request.name,
+        strategy=strategy,
+        version=request.version,
+        system_prompt=request.system_prompt,
+        user_prompt_template=request.user_prompt_template,
+        examples=[]
+    )
+
+    return {
+        "template_id": template_id,
+        "message": "Template created successfully"
+    }
+
+
+@router.get("/prompts/compare")
+async def compare_prompts():
+    """Compare all prompt templates by performance metrics"""
+    comparison = prompt_manager.compare_templates()
+
+    return {
+        "templates": comparison,
+        "message": f"Showing {len(comparison)} templates"
+    }
+
+
+@router.post("/ml/generate-finetuning-dataset")
+async def generate_finetuning_dataset(sample_size: int = 1000):
+    """
+    Generate fine-tuning datasets (Alpaca, ShareGPT, preferences)
+
+    Note: This prepares the data. Actual fine-tuning skipped for M4 Pro.
+
+    Args:
+        sample_size: Number of examples to generate (default 1000)
+
+    Returns:
+        {
+            "files": [...],
+            "statistics": {...}
+        }
+    """
+    try:
+        finetuning_generator.create_full_pipeline(sample_size=sample_size)
+
+        return {
+            "status": "success",
+            "files": [
+                "data/finetuning/fraud_detection_alpaca.jsonl",
+                "data/finetuning/fraud_detection_sharegpt.jsonl",
+                "data/finetuning/fraud_detection_preferences.jsonl"
+            ],
+            "sample_size": sample_size,
+            "message": "Fine-tuning datasets generated successfully. Ready for LoRA fine-tuning on appropriate hardware."
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Dataset generation failed: {str(e)}")
