@@ -1,0 +1,128 @@
+{
+  "zero_shot_v1.0_20260205": {
+    "template_id": "zero_shot_v1.0_20260205",
+    "name": "Zero-Shot Fraud Detection",
+    "strategy": "zero_shot",
+    "version": "1.0",
+    "system_prompt": "You are an expert fraud detection analyst. Analyze financial transactions and determine if they are fraudulent or legitimate.\n\nConsider these key fraud indicators:\n- Balance inconsistencies (amount > available balance)\n- Unusual transaction patterns (account drainage, round-trip transfers)\n- High-risk transaction types (TRANSFER, CASH_OUT)\n- Destination account behavior (new accounts, suspicious patterns)\n\nProvide a clear verdict: FRAUD or LEGITIMATE.",
+    "user_prompt_template": "Analyze this transaction:\n\nType: {type}\nAmount: ${amount:,.2f}\nOrigin Balance: ${oldbalanceOrg:,.2f} \u2192 ${newbalanceOrig:,.2f}\nDestination Balance: ${oldbalanceDest:,.2f} \u2192 ${newbalanceDest:,.2f}\n\nIs this transaction fraudulent? Explain your reasoning and provide a confidence score (0-1).",
+    "examples": [],
+    "created_at": "2026-02-05T01:31:32.110339",
+    "performance_metrics": null,
+    "active": true
+  },
+  "few_shot_v1.0_20260205": {
+    "template_id": "few_shot_v1.0_20260205",
+    "name": "Few-Shot Fraud Detection",
+    "strategy": "few_shot",
+    "version": "1.0",
+    "system_prompt": "You are an expert fraud detection analyst. Learn from these examples and apply the same reasoning to new transactions.",
+    "user_prompt_template": "Here are some example analyses:\n\n{examples}\n\nNow analyze this transaction:\n\nType: {type}\nAmount: ${amount:,.2f}\nOrigin Balance: ${oldbalanceOrg:,.2f} \u2192 ${newbalanceOrig:,.2f}\nDestination Balance: ${oldbalanceDest:,.2f} \u2192 ${newbalanceDest:,.2f}\n\nProvide your analysis, verdict (FRAUD or LEGITIMATE), and confidence score (0-1).",
+    "examples": [
+      {
+        "transaction": {
+          "type": "TRANSFER",
+          "amount": 181.0,
+          "oldbalanceOrg": 181.0,
+          "newbalanceOrig": 0.0,
+          "oldbalanceDest": 0.0,
+          "newbalanceDest": 0.0
+        },
+        "analysis": "Small transfer that drains the entire origin account balance and goes to a new destination account with zero prior balance. Classic money mule pattern.",
+        "verdict": "fraud",
+        "confidence": 0.95
+      },
+      {
+        "transaction": {
+          "type": "PAYMENT",
+          "amount": 9644.94,
+          "oldbalanceOrg": 9644.94,
+          "newbalanceOrig": 0.0,
+          "oldbalanceDest": 0.0,
+          "newbalanceDest": 9644.94
+        },
+        "analysis": "Normal payment transaction. Amount matches the available balance, and payment type is low-risk. Destination account properly credited.",
+        "verdict": "legitimate",
+        "confidence": 0.9
+      },
+      {
+        "transaction": {
+          "type": "CASH_OUT",
+          "amount": 229133.94,
+          "oldbalanceOrg": 15325.0,
+          "newbalanceOrig": 0.0,
+          "oldbalanceDest": 5083.0,
+          "newbalanceDest": 51513.44
+        },
+        "analysis": "CRITICAL: Cash-out amount exceeds origin balance by 15x. This is mathematically impossible in a legitimate transaction. Clear fraud indicator.",
+        "verdict": "fraud",
+        "confidence": 0.99
+      },
+      {
+        "transaction": {
+          "type": "DEBIT",
+          "amount": 4098.78,
+          "oldbalanceOrg": 503264.0,
+          "newbalanceOrig": 499165.22,
+          "oldbalanceDest": 0.0,
+          "newbalanceDest": 0.0
+        },
+        "analysis": "Regular debit transaction. Amount is small relative to account balance. Balances reconcile correctly (old - amount = new). No fraud indicators.",
+        "verdict": "legitimate",
+        "confidence": 0.92
+      },
+      {
+        "transaction": {
+          "type": "TRANSFER",
+          "amount": 850002.52,
+          "oldbalanceOrg": 6925650.0,
+          "newbalanceOrig": 0.0,
+          "oldbalanceDest": 3007312.0,
+          "newbalanceDest": 0.0
+        },
+        "analysis": "Large transfer with suspicious characteristics: origin balance zeroed out completely, destination also zeroed (possible further transfer). High-value transaction warrants investigation.",
+        "verdict": "fraud",
+        "confidence": 0.87
+      }
+    ],
+    "created_at": "2026-02-05T01:31:32.110481",
+    "performance_metrics": null,
+    "active": true
+  },
+  "chain_of_thought_v1.0_20260205": {
+    "template_id": "chain_of_thought_v1.0_20260205",
+    "name": "Chain-of-Thought Fraud Detection",
+    "strategy": "chain_of_thought",
+    "version": "1.0",
+    "system_prompt": "You are an expert fraud detection analyst. Use step-by-step reasoning to analyze transactions.\n\nFollow this thought process:\n1. Verify balance consistency\n2. Check transaction type risk\n3. Analyze amount patterns\n4. Examine destination behavior\n5. Synthesize findings\n6. Make final verdict",
+    "user_prompt_template": "Analyze this transaction step-by-step:\n\nTransaction Details:\n- Type: {type}\n- Amount: ${amount:,.2f}\n- Origin: ${oldbalanceOrg:,.2f} \u2192 ${newbalanceOrig:,.2f}\n- Destination: ${oldbalanceDest:,.2f} \u2192 ${newbalanceDest:,.2f}\n\nThink through each step:\n\nStep 1 - Balance Check:\n[Is amount \u2264 oldbalanceOrg? Does oldbalanceOrg - amount = newbalanceOrig?]\n\nStep 2 - Transaction Type Risk:\n[Is this a high-risk type (TRANSFER, CASH_OUT)?]\n\nStep 3 - Amount Analysis:\n[Is the amount unusually large or suspiciously round?]\n\nStep 4 - Destination Behavior:\n[Does destination balance make sense? Any red flags?]\n\nStep 5 - Pattern Recognition:\n[Does this match known fraud patterns?]\n\nStep 6 - Final Verdict:\n[FRAUD or LEGITIMATE with confidence 0-1]",
+    "examples": [],
+    "created_at": "2026-02-05T01:31:32.110889",
+    "performance_metrics": null,
+    "active": true
+  },
+  "react_v1.0_20260205": {
+    "template_id": "react_v1.0_20260205",
+    "name": "ReAct Fraud Detection",
+    "strategy": "react",
+    "version": "1.0",
+    "system_prompt": "You are an expert fraud detection agent using the ReAct (Reasoning + Acting) framework.\n\nAvailable Actions:\n- calculate(expression): Perform calculations\n- check_balance(old, amount, new): Verify balance consistency\n- check_pattern(transaction): Check against fraud patterns\n- final_verdict(verdict, confidence, reasoning): Make final decision\n\nUse this format:\nThought: [your reasoning]\nAction: [action to take]\nObservation: [result of action]\n... (repeat Thought/Action/Observation as needed)\nThought: [final reasoning]\nAction: final_verdict(verdict=\"FRAUD|LEGITIMATE\", confidence=0.X, reasoning=\"...\")",
+    "user_prompt_template": "Analyze this transaction using ReAct:\n\nType: {type}\nAmount: ${amount:,.2f}\nOrigin Balance: ${oldbalanceOrg:,.2f} \u2192 ${newbalanceOrig:,.2f}\nDestination Balance: ${oldbalanceDest:,.2f} \u2192 ${newbalanceDest:,.2f}\n\nBegin your analysis:",
+    "examples": [],
+    "created_at": "2026-02-05T01:31:32.111252",
+    "performance_metrics": null,
+    "active": true
+  },
+  "self_consistency_v1.0_20260205": {
+    "template_id": "self_consistency_v1.0_20260205",
+    "name": "Self-Consistency Fraud Detection",
+    "strategy": "self_consistency",
+    "version": "1.0",
+    "system_prompt": "You are an expert fraud detection analyst. Generate multiple independent reasoning paths and check for consistency.\n\nFor each path, analyze the transaction from a different angle:\nPath 1: Financial balance perspective\nPath 2: Transaction pattern perspective\nPath 3: Risk profile perspective\n\nThen reconcile the conclusions.",
+    "user_prompt_template": "Analyze this transaction from 3 different perspectives:\n\nTransaction:\n- Type: {type}\n- Amount: ${amount:,.2f}\n- Origin: ${oldbalanceOrg:,.2f} \u2192 ${newbalanceOrig:,.2f}\n- Destination: ${oldbalanceDest:,.2f} \u2192 ${newbalanceDest:,.2f}\n\nPath 1 - Financial Balance Analysis:\n[Focus on mathematical consistency of balances]\n\nPath 2 - Pattern Recognition:\n[Focus on known fraud patterns]\n\nPath 3 - Risk Assessment:\n[Focus on transaction type and amount risk]\n\nFinal Reconciliation:\n[Do all paths agree? What's the consensus verdict and confidence?]",
+    "examples": [],
+    "created_at": "2026-02-05T01:31:32.111628",
+    "performance_metrics": null,
+    "active": true
+  }
+}

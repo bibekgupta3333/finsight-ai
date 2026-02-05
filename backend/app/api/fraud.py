@@ -10,7 +10,9 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Literal
+
+import numpy as np
 
 from fastapi import (
     APIRouter,
@@ -57,6 +59,7 @@ from app.models.fraud import (
     TaskStatusResponse,
 )
 from app.services.fraud_detection import get_fraud_service
+from app.services.ml_model_service import ml_service
 
 logger = logging.getLogger(__name__)
 
@@ -4144,3 +4147,3434 @@ async def fraud_stream_socket(websocket: WebSocket, session_id: str):
     except Exception as e:
         logger.error(f"Stream error {session_id}: {e}")
         _websocket_manager.disconnect(session_id)
+
+
+# ============================================================================
+# ML MODEL PREDICTION ENDPOINTS
+# ============================================================================
+
+
+class MLPredictionRequest(BaseModel):
+    """Request for ML model prediction."""
+
+    amount: float = Field(..., description="Transaction amount", gt=0)
+    oldbalanceOrg: float = Field(..., description="Original balance before transaction", ge=0)
+    newbalanceOrig: float = Field(..., description="New balance after transaction", ge=0)
+    oldbalanceDest: float = Field(..., description="Destination balance before transaction", ge=0)
+    newbalanceDest: float = Field(..., description="Destination balance after transaction", ge=0)
+    type: str = Field(..., description="Transaction type: CASH_IN, CASH_OUT, DEBIT, PAYMENT, or TRANSFER")
+
+
+class MLPredictionResponse(BaseModel):
+    """Response from ML model prediction."""
+
+    prediction: int = Field(..., description="Fraud prediction (0=legitimate, 1=fraud)")
+    is_fraud: bool = Field(..., description="Boolean fraud indicator")
+    fraud_probability: float = Field(..., description="Fraud probability (0-1)")
+    confidence: float = Field(..., description="Model confidence")
+    model: str = Field(..., description="Model used for prediction")
+    risk_level: str = Field(..., description="Risk level (low, medium, high, critical)")
+
+
+class HybridPredictionResponse(BaseModel):
+    """Response from hybrid ML + LLM prediction."""
+
+    ml_prediction: MLPredictionResponse = Field(..., description="ML model prediction")
+    requires_llm_review: bool = Field(..., description="Whether LLM review is needed")
+    llm_analysis: Optional[Dict[str, Any]] = Field(None, description="LLM analysis (if applicable)")
+    final_decision: str = Field(..., description="Final fraud decision")
+
+
+@router.post(
+    "/predict/ml",
+    response_model=MLPredictionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="ML-only fraud prediction",
+    description=(
+        "Pure ML prediction using trained models (RF, XGBoost, or LightGBM). "
+        "Fast inference without LLM overhead."
+    ),
+)
+async def predict_ml(
+    request: MLPredictionRequest,
+    model: str = Query("lightgbm", description="Model to use: random_forest, xgboost, or lightgbm"),
+) -> MLPredictionResponse:
+    """
+    Make ML-only fraud prediction.
+
+    Args:
+        request: Transaction features
+        model: Model name (random_forest, xgboost, lightgbm)
+
+    Returns:
+        MLPredictionResponse with prediction results
+
+    Raises:
+        HTTPException: If prediction fails
+    """
+    try:
+        # Validate model name
+        valid_models = ["random_forest", "xgboost", "lightgbm"]
+        if model not in valid_models:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid model. Choose from: {valid_models}"
+            )
+
+        # Ensure model is loaded
+        if model not in ml_service.models:
+            success = ml_service.load_model(model)
+            if not success:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"Model {model} not available. Please train the model first."
+                )
+
+        # Convert request to transaction dict
+        transaction = request.model_dump()
+
+        # Make prediction
+        result = ml_service.predict(transaction, model_name=model)
+
+        logger.info(
+            f"ML prediction ({model}): fraud={result['is_fraud']}, "
+            f"prob={result['fraud_probability']:.3f}, risk={result['risk_level']}"
+        )
+
+        return MLPredictionResponse(**result)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"ML prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction error: {str(e)}"
+        )
+
+
+@router.post(
+    "/predict/hybrid",
+    response_model=HybridPredictionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Hybrid ML + LLM fraud prediction",
+    description=(
+        "Hybrid prediction: ML model for initial screening, "
+        "LLM for low-confidence cases requiring deeper analysis."
+    ),
+)
+async def predict_hybrid(
+    request: MLPredictionRequest,
+    llm_threshold: float = Query(0.7, description="Confidence threshold for LLM review", gt=0, le=1),
+) -> HybridPredictionResponse:
+    """
+    Make hybrid ML + LLM fraud prediction.
+
+    Flow:
+    1. ML model makes initial prediction
+    2. If confidence < threshold, route to LLM for analysis
+    3. Return combined result
+
+    Args:
+        request: Transaction features
+        llm_threshold: Confidence threshold for LLM review (default: 0.7)
+
+    Returns:
+        HybridPredictionResponse with ML and optional LLM analysis
+
+    Raises:
+        HTTPException: If prediction fails
+    """
+    try:
+        # Use best model (LightGBM) for ML prediction
+        model = "lightgbm"
+
+        # Ensure model is loaded
+        if model not in ml_service.models:
+            success = ml_service.load_model(model)
+            if not success:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"Model {model} not available"
+                )
+
+        # Convert request to transaction dict
+        transaction = request.model_dump()
+
+        # Make ML prediction
+        ml_result = ml_service.predict(transaction, model_name=model)
+        ml_response = MLPredictionResponse(**ml_result)
+
+        # Check if LLM review needed
+        requires_llm = ml_result["confidence"] < llm_threshold
+
+        # LLM analysis (if needed)
+        llm_analysis = None
+        final_decision = "fraud" if ml_result["is_fraud"] else "legitimate"
+
+        if requires_llm:
+            # TODO: Integrate with LLM fraud detection service
+            # For now, return placeholder
+            llm_analysis = {
+                "status": "pending",
+                "message": "LLM analysis not yet implemented",
+                "confidence_too_low": True,
+                "ml_confidence": ml_result["confidence"],
+                "threshold": llm_threshold
+            }
+
+            # Could use existing fraud_service for LLM analysis
+            # fraud_service = get_fraud_service()
+            # llm_result = await fraud_service.analyze_transaction(...)
+
+            logger.info(
+                f"Low-confidence ML prediction ({ml_result['confidence']:.3f} < {llm_threshold}), "
+                f"LLM review recommended"
+            )
+
+        response = HybridPredictionResponse(
+            ml_prediction=ml_response,
+            requires_llm_review=requires_llm,
+            llm_analysis=llm_analysis,
+            final_decision=final_decision
+        )
+
+        logger.info(
+            f"Hybrid prediction: ML={ml_result['is_fraud']}, "
+            f"LLM_needed={requires_llm}, final={final_decision}"
+        )
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Hybrid prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction error: {str(e)}"
+        )
+
+
+@router.post(
+    "/predict/ensemble",
+    response_model=MLPredictionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Ensemble prediction using multiple models",
+    description=(
+        "Ensemble prediction combining RF, XGBoost, and LightGBM. "
+        "Uses soft voting (average probabilities) for robust predictions."
+    ),
+)
+async def predict_ensemble(
+    request: MLPredictionRequest,
+    voting: str = Query("soft", description="Voting method: soft (avg proba) or hard (majority)"),
+) -> MLPredictionResponse:
+    """
+    Make ensemble prediction using all models.
+
+    Args:
+        request: Transaction features
+        voting: Voting method ("soft" or "hard")
+
+    Returns:
+        MLPredictionResponse with ensemble results
+
+    Raises:
+        HTTPException: If prediction fails
+    """
+    try:
+        # Load all models if not loaded
+        models_loaded = ml_service.load_all_models()
+        available_models = [m for m, loaded in models_loaded.items() if loaded]
+
+        if not available_models:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No models available. Please train models first."
+            )
+
+        # Convert request to transaction dict
+        transaction = request.model_dump()
+
+        # Make ensemble prediction
+        result = ml_service.ensemble_predict(
+            transaction,
+            models=available_models,
+            voting=voting
+        )
+
+        logger.info(
+            f"Ensemble prediction ({voting}): fraud={result['is_fraud']}, "
+            f"prob={result['fraud_probability']:.3f}, models={len(available_models)}"
+        )
+
+        return MLPredictionResponse(**result)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Ensemble prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction error: {str(e)}"
+        )
+
+
+@router.get(
+    "/models/info",
+    response_model=Dict[str, Any],
+    summary="Get loaded model information",
+    description="Returns information about all loaded ML models and their metadata.",
+)
+async def get_models_info() -> Dict[str, Any]:
+    """
+    Get information about loaded models.
+
+    Returns:
+        dict: Model information including metadata and performance
+    """
+    try:
+        models_info = {}
+
+        for model_name in ["random_forest", "xgboost", "lightgbm"]:
+            info = ml_service.get_model_info(model_name)
+            models_info[model_name] = info
+
+        return {
+            "models": models_info,
+            "total_loaded": sum(1 for m in models_info.values() if m.get("loaded", False)),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    except Exception as e:
+        logger.exception(f"Failed to get model info: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error: {str(e)}"
+        )
+
+
+# ============================================================================
+# NEW ENSEMBLE ENDPOINTS (Task 7)
+# ============================================================================
+
+@router.post(
+    "/predict/weighted_blend",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Weighted blending of model predictions",
+    description=(
+        "Weighted average of predictions from all models. "
+        "Weights are based on validation performance (LightGBM: 0.45, RF: 0.30, XGBoost: 0.25)."
+    ),
+)
+async def predict_weighted_blend(
+    request: MLPredictionRequest,
+) -> Dict[str, Any]:
+    """
+    Make weighted blending prediction.
+
+    Uses performance-based weights to combine model predictions.
+    Returns high confidence when models agree, lower when they disagree.
+
+    Args:
+        request: Transaction features
+
+    Returns:
+        Dict with blended prediction, confidence, and individual predictions
+    """
+    try:
+        from app.services.ensemble_service import get_ensemble_service
+
+        ensemble_service = get_ensemble_service()
+
+        # Load all models
+        models_loaded = ml_service.load_all_models()
+        available_models = [m for m, loaded in models_loaded.items() if loaded]
+
+        if len(available_models) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Need at least 2 models for weighted blending"
+            )
+
+        # Get individual predictions
+        transaction = request.model_dump()
+        predictions = {}
+        confidences = {}
+
+        for model_name in available_models:
+            result = ml_service.predict(transaction, model_name)
+            predictions[model_name] = result["fraud_probability"]
+            confidences[model_name] = result.get("confidence", 0.5)
+
+        # Weighted blend
+        blended_prob, blended_conf = ensemble_service.weighted_blend_predictions(predictions)
+
+        # Determine if fraud
+        is_fraud = blended_prob >= 0.5
+
+        # Get risk level
+        if blended_prob < 0.2:
+            risk_level = "low"
+        elif blended_prob < 0.5:
+            risk_level = "medium"
+        elif blended_prob < 0.8:
+            risk_level = "high"
+        else:
+            risk_level = "critical"
+
+        logger.info(
+            f"Weighted blend prediction: fraud={is_fraud}, prob={blended_prob:.3f}, "
+            f"confidence={blended_conf:.3f}"
+        )
+
+        return {
+            "is_fraud": is_fraud,
+            "fraud_probability": blended_prob,
+            "confidence": blended_conf,
+            "risk_level": risk_level,
+            "method": "weighted_blending",
+            "blending_weights": ensemble_service.blending_weights,
+            "individual_predictions": predictions,
+            "models_used": available_models
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Weighted blend prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction error: {str(e)}"
+        )
+
+
+@router.post(
+    "/predict/cascade",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Cascading model prediction (fast to slow)",
+    description=(
+        "Cascading prediction: starts with fast LightGBM, escalates to XGBoost or ensemble "
+        "if confidence is low. Optimized for speed on high-confidence cases."
+    ),
+)
+async def predict_cascade(
+    request: MLPredictionRequest,
+    high_threshold: float = Query(0.95, description="High confidence threshold for fast return"),
+    low_threshold: float = Query(0.70, description="Low confidence threshold for full ensemble"),
+) -> Dict[str, Any]:
+    """
+    Make cascading prediction (fast to slow).
+
+    Strategy:
+    1. Try LightGBM first (fastest)
+    2. If confidence > high_threshold: Return immediately
+    3. If confidence < low_threshold: Use weighted ensemble
+    4. Else: Use XGBoost (more accurate)
+
+    Args:
+        request: Transaction features
+        high_threshold: Threshold for fast return (default: 0.95)
+        low_threshold: Threshold for ensemble (default: 0.70)
+
+    Returns:
+        Dict with cascade prediction results and strategy used
+    """
+    try:
+        from app.services.ensemble_service import get_ensemble_service
+
+        ensemble_service = get_ensemble_service()
+
+        # Load all models
+        models_loaded = ml_service.load_all_models()
+        available_models = [m for m, loaded in models_loaded.items() if loaded]
+
+        if not available_models:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No models available"
+            )
+
+        # Get predictions from all available models
+        transaction = request.model_dump()
+        predictions = {}
+        confidences = {}
+
+        for model_name in available_models:
+            result = ml_service.predict(transaction, model_name)
+            predictions[model_name] = result["fraud_probability"]
+            confidences[model_name] = result.get("confidence", 0.5)
+
+        # Use cascading strategy
+        cascade_result = ensemble_service.cascade_predict(
+            predictions,
+            confidences,
+            high_confidence_threshold=high_threshold,
+            low_confidence_threshold=low_threshold
+        )
+
+        # Determine risk level
+        prob = cascade_result["probability"]
+        if prob < 0.2:
+            risk_level = "low"
+        elif prob < 0.5:
+            risk_level = "medium"
+        elif prob < 0.8:
+            risk_level = "high"
+        else:
+            risk_level = "critical"
+
+        # Add is_fraud field
+        cascade_result["is_fraud"] = cascade_result["probability"] >= 0.5
+        cascade_result["risk_level"] = risk_level
+
+        logger.info(
+            f"Cascade prediction: strategy={cascade_result['strategy']}, "
+            f"model={cascade_result['selected_model']}, "
+            f"prob={cascade_result['probability']:.3f}"
+        )
+
+        return cascade_result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Cascade prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction error: {str(e)}"
+        )
+
+
+@router.post(
+    "/predict/stacking",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Stacking meta-model prediction",
+    description=(
+        "Uses a trained Logistic Regression meta-model on top of base model predictions. "
+        "Learns optimal weights from validation data."
+    ),
+)
+async def predict_stacking(
+    request: MLPredictionRequest,
+    version: str = Query("v1", description="Stacking model version"),
+) -> Dict[str, Any]:
+    """
+    Make stacking prediction using meta-model.
+
+    Requires pre-trained stacking model (run train_stacking_model.py first).
+
+    Args:
+        request: Transaction features
+        version: Stacking model version
+
+    Returns:
+        Dict with stacking prediction and learned model weights
+    """
+    try:
+        from app.services.ensemble_service import get_ensemble_service
+
+        ensemble_service = get_ensemble_service()
+
+        # Load stacking model if not already loaded
+        if ensemble_service.stacking_model is None:
+            loaded = ensemble_service.load_stacking_model(version)
+            if not loaded:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Stacking model v{version} not found. Run train_stacking_model.py first."
+                )
+
+        # Load all base models
+        models_loaded = ml_service.load_all_models()
+        available_models = [m for m, loaded in models_loaded.items() if loaded]
+
+        if len(available_models) < 3:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Need all 3 base models for stacking prediction"
+            )
+
+        # Get base model predictions (in correct order: lightgbm, xgboost, random_forest)
+        transaction = request.model_dump()
+        predictions = []
+
+        for model_name in ["lightgbm", "xgboost", "random_forest"]:
+            result = ml_service.predict(transaction, model_name)
+            predictions.append(result["fraud_probability"])
+
+        # Stack predictions
+        base_predictions = np.array(predictions)
+        stacked_prob, stacked_conf = ensemble_service.stacking_predict(base_predictions)
+
+        # Determine fraud
+        is_fraud = stacked_prob >= 0.5
+
+        # Get risk level
+        if stacked_prob < 0.2:
+            risk_level = "low"
+        elif stacked_prob < 0.5:
+            risk_level = "medium"
+        elif stacked_prob < 0.8:
+            risk_level = "high"
+        else:
+            risk_level = "critical"
+
+        logger.info(
+            f"Stacking prediction: fraud={is_fraud}, prob={stacked_prob:.3f}, "
+            f"confidence={stacked_conf:.3f}"
+        )
+
+        return {
+            "is_fraud": is_fraud,
+            "fraud_probability": float(stacked_prob),
+            "confidence": float(stacked_conf),
+            "risk_level": risk_level,
+            "method": "stacking_meta_model",
+            "base_predictions": {
+                "lightgbm": float(predictions[0]),
+                "xgboost": float(predictions[1]),
+                "random_forest": float(predictions[2])
+            },
+            "version": version
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Stacking prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction error: {str(e)}"
+        )
+
+
+@router.post(
+    "/predict/analyze_agreement",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Analyze model agreement/disagreement",
+    description=(
+        "Analyzes how much models agree on a prediction. "
+        "High disagreement indicates uncertain case requiring manual review."
+    ),
+)
+async def analyze_model_agreement(
+    request: MLPredictionRequest,
+    threshold: float = Query(0.5, description="Classification threshold"),
+) -> Dict[str, Any]:
+    """
+    Analyze model agreement on a prediction.
+
+    Useful for identifying edge cases and high-priority manual reviews.
+
+    Args:
+        request: Transaction features
+        threshold: Classification threshold
+
+    Returns:
+        Dict with agreement analysis and recommendations
+    """
+    try:
+        from app.services.ensemble_service import get_ensemble_service
+
+        ensemble_service = get_ensemble_service()
+
+        # Load all models
+        models_loaded = ml_service.load_all_models()
+        available_models = [m for m, loaded in models_loaded.items() if loaded]
+
+        if len(available_models) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Need at least 2 models for agreement analysis"
+            )
+
+        # Get predictions
+        transaction = request.model_dump()
+        predictions = {}
+
+        for model_name in available_models:
+            result = ml_service.predict(transaction, model_name)
+            predictions[model_name] = result["fraud_probability"]
+
+        # Analyze agreement
+        agreement_analysis = ensemble_service.get_model_agreement(predictions, threshold)
+
+        # Add probability statistics
+        probs = list(predictions.values())
+        agreement_analysis["probability_stats"] = {
+            "mean": float(np.mean(probs)),
+            "std": float(np.std(probs)),
+            "min": float(np.min(probs)),
+            "max": float(np.max(probs)),
+            "range": float(np.max(probs) - np.min(probs))
+        }
+
+        logger.info(
+            f"Agreement analysis: all_agree={agreement_analysis['all_models_agree']}, "
+            f"disagreement={agreement_analysis['disagreement_score']:.3f}"
+        )
+
+        return agreement_analysis
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Agreement analysis failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Analysis error: {str(e)}"
+        )
+
+
+# ============================================================================
+# RESEARCH-LEVEL AWARENESS APIs (Section 16.1)
+# ============================================================================
+
+from app.services.research.feedback_service import (
+    feedback_service,
+    FeedbackData,
+    FeedbackType,
+    FeedbackRating
+)
+from app.services.research.rlaif_service import rlaif_service
+from app.services.research.benchmark_service import benchmark_service, BenchmarkResult
+from app.services.research.emergent_monitor import emergent_monitor
+from app.services.research.world_model import world_model
+from app.services.research.selfplay_service import selfplay_service
+from app.services.research.distribution_shift import distribution_monitor
+from app.services.research.simulation_env import simulation_env, FraudScenarioType
+from app.services.research.trace_debugger import trace_debugger, StepType
+from app.services.research.metrics_collector import metrics_collector
+from app.services.research.test_suite import test_suite, TestType
+from app.services.security.safety_guard import safety_guard
+from app.services.security.security_manager import security_manager, RateLimitConfig
+from app.services.security.privacy_handler import privacy_handler, GDPRConsent
+from app.services.research.tokenization_service import tokenization_service
+from app.services.research.context_manager import context_manager
+from app.services.research.sampling_optimizer import sampling_optimizer
+from app.services.research.llm_knowledge import llm_knowledge
+
+
+# RLHF - Feedback Collection
+class FeedbackRequest(BaseModel):
+    """Request model for collecting feedback"""
+    transaction_id: str
+    explanation: str
+    feedback_type: FeedbackType
+    prediction: str
+    confidence: float
+    reasoning_steps: List[str] = []
+    rating: Optional[FeedbackRating] = None
+    comment: Optional[str] = None
+    user_id: Optional[str] = None
+    session_id: Optional[str] = None
+    agent_type: str = "single"
+
+
+@router.post("/research/feedback", tags=["research"])
+async def collect_feedback(request: FeedbackRequest) -> Dict:
+    """
+    Collect user feedback (thumbs up/down) for RLHF.
+
+    This enables reinforcement learning from human preferences.
+    """
+    feedback = FeedbackData(
+        feedback_id=str(uuid.uuid4()),
+        **request.model_dump()
+    )
+
+    result = feedback_service.collect_feedback(feedback)
+    logger.info(f"Feedback collected: {feedback.feedback_id}, type={request.feedback_type}")
+
+    return result
+
+
+@router.get("/research/feedback/stats", tags=["research"])
+async def get_feedback_stats() -> Dict:
+    """Get aggregated feedback statistics"""
+    stats = feedback_service.get_feedback_stats()
+    return stats.model_dump()
+
+
+@router.get("/research/feedback/export", tags=["research"])
+async def export_feedback_for_training() -> Dict:
+    """Export preference pairs for RLHF training"""
+    output_path = feedback_service.export_for_training()
+    return {
+        "status": "success",
+        "output_path": output_path,
+        "message": "Preference pairs exported successfully"
+    }
+
+
+# RLAIF - LLM as Judge
+@router.post("/research/rlaif/judge", tags=["research"])
+async def judge_explanation(
+    explanation: str,
+    transaction_context: Dict,
+    prediction: str,
+    reasoning_steps: List[str]
+) -> Dict:
+    """
+    Use LLM to judge the quality of an explanation (RLAIF).
+
+    Enables scalable quality assessment without human feedback.
+    """
+    judgment = await rlaif_service.judge_explanation(
+        explanation=explanation,
+        transaction_context=transaction_context,
+        prediction=prediction,
+        reasoning_steps=reasoning_steps
+    )
+
+    logger.info(f"AI Judgment: score={judgment.overall_score:.2f}, model={judgment.judge_model}")
+
+    return judgment.model_dump()
+
+
+@router.post("/research/rlaif/compare", tags=["research"])
+async def compare_explanations(
+    explanation_a: str,
+    explanation_b: str,
+    transaction_context: Dict
+) -> Dict:
+    """Compare two explanations and select the better one"""
+    result = await rlaif_service.compare_explanations(
+        explanation_a=explanation_a,
+        explanation_b=explanation_b,
+        transaction_context=transaction_context
+    )
+
+    logger.info(f"Comparison: winner={result.winner}, confidence={result.confidence:.2f}")
+
+    return result.model_dump()
+
+
+@router.post("/research/rlaif/improve", tags=["research"])
+async def self_improve_explanation(
+    explanation: str,
+    max_iterations: int = 3
+) -> Dict:
+    """Iteratively improve explanation using AI feedback (self-improvement loop)"""
+    result = await rlaif_service.self_improvement_loop(
+        explanation=explanation,
+        max_iterations=max_iterations
+    )
+
+    logger.info(
+        f"Self-improvement: iterations={result['iterations']}, "
+        f"score {result['initial_score']:.2f} -> {result['final_score']:.2f}"
+    )
+
+    return result
+
+
+# Agent Benchmarks
+@router.get("/research/benchmarks/tests", tags=["research"])
+async def get_benchmark_tests() -> List[Dict]:
+    """Get all benchmark test cases"""
+    tests = benchmark_service.get_test_suite()
+    return [test.model_dump() for test in tests]
+
+
+@router.post("/research/benchmarks/run", tags=["research"])
+async def run_benchmark(
+    agent_type: str = "single",
+    test_ids: Optional[List[str]] = None
+) -> Dict:
+    """
+    Run agent against benchmark test suite.
+
+    Evaluates performance on standardized test cases.
+    """
+    tests = benchmark_service.get_test_suite()
+
+    if test_ids:
+        tests = [t for t in tests if t.test_id in test_ids]
+
+    results = []
+
+    for test in tests:
+        start_time = datetime.utcnow()
+
+        # Use simple heuristic for testing (replace with actual agent later)
+        # For demo, predict based on amount and type
+        tx = test.transaction
+        amount = tx.get("amount", 0)
+        tx_type = tx.get("type", "")
+
+        # Simple heuristic prediction
+        if tx_type == "CASH_OUT" and amount > 100000:
+            prediction = "fraud"
+            confidence = 0.85
+        elif amount > 500000:
+            prediction = "fraud"
+            confidence = 0.75
+        else:
+            prediction = "legitimate"
+            confidence = 0.70
+
+        latency_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+
+        correct = prediction == test.expected_prediction
+        error_type = None
+        if not correct:
+            if prediction == "fraud":
+                error_type = "false_positive"
+            else:
+                error_type = "false_negative"
+        else:
+            error_type = "correct"
+
+        result = BenchmarkResult(
+            test_id=test.test_id,
+            agent_type=agent_type,
+            prediction=prediction,
+            confidence=confidence,
+            correct=correct,
+            latency_ms=latency_ms,
+            reasoning_steps=[],
+            error_type=error_type
+        )
+
+        benchmark_service.record_result(result)
+        results.append(result.model_dump())
+
+    logger.info(f"Benchmark run complete: {len(results)} tests, agent_type={agent_type}")
+
+    return {
+        "status": "complete",
+        "total_tests": len(results),
+        "results": results
+    }
+
+
+@router.get("/research/benchmarks/report", tags=["research"])
+async def get_benchmark_report(agent_type: Optional[str] = None) -> Dict:
+    """Get benchmark performance report"""
+    report = benchmark_service.generate_report(agent_type=agent_type)
+    return report.model_dump()
+
+
+@router.get("/research/benchmarks/compare", tags=["research"])
+async def compare_agents() -> List[Dict]:
+    """Compare performance across different agent types"""
+    rankings = benchmark_service.compare_agents()
+    return rankings
+
+
+# Emergent Behavior Monitoring
+@router.post("/research/emergent/track", tags=["research"])
+async def track_agent_behavior(
+    session_id: str,
+    agent_type: str,
+    tools_used: List[str],
+    reasoning_steps: List[str],
+    outcome: str,
+    success: bool
+) -> Dict:
+    """Track agent behavior for emergent pattern detection"""
+    emergent_monitor.track_agent_behavior(
+        session_id=session_id,
+        agent_type=agent_type,
+        tools_used=tools_used,
+        reasoning_steps=reasoning_steps,
+        outcome=outcome,
+        success=success
+    )
+
+    return {"status": "tracked", "session_id": session_id}
+
+
+@router.get("/research/emergent/capabilities", tags=["research"])
+async def detect_emergent_capabilities(lookback_days: int = 7) -> List[Dict]:
+    """Detect emergent capabilities (tool use, self-correction, etc.)"""
+    capabilities = emergent_monitor.detect_emergent_capabilities(lookback_days)
+    return [c.model_dump() for c in capabilities]
+
+
+@router.get("/research/emergent/failures", tags=["research"])
+async def detect_failure_modes(lookback_days: int = 7) -> List[Dict]:
+    """Detect failure modes (reward hacking, reasoning loops, etc.)"""
+    failures = emergent_monitor.detect_failure_modes(lookback_days)
+    return [f.model_dump() for f in failures]
+
+
+@router.get("/research/emergent/summary", tags=["research"])
+async def get_emergent_behavior_summary(lookback_days: int = 7) -> Dict:
+    """Get comprehensive emergent behavior summary"""
+    summary = emergent_monitor.get_behavior_summary(lookback_days)
+    return summary
+
+
+# World Models
+@router.post("/research/worldmodel/predict", tags=["research"])
+async def predict_transaction_outcome(transaction: Dict) -> Dict:
+    """Predict transaction outcome using world model"""
+    outcome = world_model.predict_outcome(transaction)
+    return outcome.model_dump()
+
+
+@router.post("/research/worldmodel/counterfactual", tags=["research"])
+async def simulate_counterfactual(
+    original_transaction: Dict,
+    modifications: Dict
+) -> Dict:
+    """
+    Simulate counterfactual: 'What if amount was different?'
+
+    Enables what-if analysis for understanding fraud dynamics.
+    """
+    scenario = world_model.simulate_counterfactual(
+        original_transaction=original_transaction,
+        modifications=modifications
+    )
+
+    logger.info(f"Counterfactual: {scenario.description}")
+
+    return scenario.model_dump()
+
+
+@router.post("/research/worldmodel/explain", tags=["research"])
+async def explain_world_model_prediction(transaction: Dict) -> Dict:
+    """Get explanation of world model's prediction"""
+    explanation = world_model.explain_prediction(transaction)
+    return {"explanation": explanation}
+
+
+# Self-Play
+@router.post("/research/selfplay/match", tags=["research"])
+async def play_selfplay_match(
+    fraud_transaction: Dict,
+    iteration: int = 1
+) -> Dict:
+    """
+    Play one self-play match: fraud evader vs fraud detector.
+
+    Adversarial training for improving both detection and evasion resistance.
+    """
+    # Simple detector function (replace with actual agent)
+    async def simple_detector(tx: Dict) -> tuple:
+        amount = tx.get("amount", 0)
+        tx_type = tx.get("type", "")
+
+        is_fraud = (tx_type == "CASH_OUT" and amount > 100000) or amount > 500000
+        confidence = 0.8 if is_fraud else 0.7
+
+        return is_fraud, confidence
+
+    match = await selfplay_service.play_match(
+        fraud_transaction=fraud_transaction,
+        detector_func=simple_detector,
+        iteration=iteration
+    )
+
+    logger.info(
+        f"Self-play match: iteration={iteration}, "
+        f"detector_won={match.detector_caught_it}, evader_won={match.evader_successful}"
+    )
+
+    return match.model_dump()
+
+
+@router.get("/research/selfplay/stats", tags=["research"])
+async def get_selfplay_stats(last_n_matches: Optional[int] = None) -> Dict:
+    """Get self-play statistics and improvement tracking"""
+    stats = selfplay_service.get_stats(last_n_matches=last_n_matches)
+    return stats.model_dump()
+
+
+@router.get("/research/selfplay/hardest-evasions", tags=["research"])
+async def get_hardest_evasions(limit: int = 10) -> List[Dict]:
+    """Get evasion attempts that successfully fooled the detector"""
+    evasions = selfplay_service.get_hardest_evasions(limit=limit)
+    return evasions
+
+
+# ============================================================================
+# DISTRIBUTION SHIFT FROM TOOLS APIs (Section 16.2)
+# ============================================================================
+
+@router.post("/research/distribution/record-tool-use", tags=["research"])
+async def record_tool_usage(
+    session_id: str,
+    tool_name: str,
+    input_data: Dict,
+    output_data: Dict,
+    success: bool = True
+) -> Dict:
+    """
+    Record tool usage for distribution shift analysis.
+
+    Tracks how tool usage affects data distribution and agent behavior.
+    """
+    distribution_monitor.record_tool_usage(
+        session_id=session_id,
+        tool_name=tool_name,
+        input_data=input_data,
+        output_data=output_data,
+        success=success
+    )
+
+    return {
+        "status": "recorded",
+        "session_id": session_id,
+        "tool_name": tool_name
+    }
+
+
+@router.get("/research/distribution/analyze-impact", tags=["research"])
+async def analyze_tool_impact(tool_name: Optional[str] = None) -> Dict:
+    """
+    Analyze how tools change data distribution.
+
+    Returns distribution metrics for tool usage patterns.
+    """
+    return distribution_monitor.analyze_tool_impact(tool_name=tool_name)
+
+
+@router.get("/research/distribution/detect-exploitation", tags=["research"])
+async def detect_tool_exploitation(tool_name: str) -> Dict:
+    """
+    Detect if agent is exploiting a tool.
+
+    Identifies patterns like repetitive inputs or unrealistic success rates.
+    """
+    return distribution_monitor.detect_tool_exploitation(tool_name=tool_name)
+
+
+@router.get("/research/distribution/check-reliance", tags=["research"])
+async def check_tool_reliance(tool_name: str) -> Dict:
+    """
+    Check if agent is over-reliant on a tool.
+
+    Compares performance with and without tools to detect over-reliance.
+    """
+    report = distribution_monitor.check_tool_reliance(tool_name=tool_name)
+    return report.model_dump()
+
+
+@router.post("/research/distribution/test-tool-free", tags=["research"])
+async def test_tool_free_performance(
+    session_id: str,
+    input_data: Dict,
+    prediction: str,
+    success: bool
+) -> Dict:
+    """
+    Test agent performance without tools (fallback capability).
+
+    Records results for generalization analysis.
+    """
+    return distribution_monitor.test_tool_free_performance(
+        session_id=session_id,
+        input_data=input_data,
+        prediction=prediction,
+        success=success
+    )
+
+
+@router.get("/research/distribution/generalization-report", tags=["research"])
+async def get_generalization_report() -> Dict:
+    """
+    Report on generalization outside tool scope.
+
+    Compares performance with vs without tools to assess generalization.
+    """
+    return distribution_monitor.get_generalization_report()
+
+
+# ============================================================================
+# SIMULATED ENVIRONMENTS APIs (Section 16.3)
+# ============================================================================
+
+@router.post("/research/simulation/generate-transaction", tags=["research"])
+async def generate_synthetic_transaction(
+    fraud_probability: float = 0.5,
+    difficulty: int = 3
+) -> Dict:
+    """
+    Generate a single synthetic transaction for testing.
+
+    Creates realistic fraud or legitimate transactions with configurable difficulty.
+    """
+    tx = simulation_env.generate_synthetic_transaction(
+        fraud_probability=fraud_probability,
+        difficulty=difficulty
+    )
+    return tx.model_dump()
+
+
+@router.post("/research/simulation/generate-batch", tags=["research"])
+async def generate_transaction_batch(
+    count: int = 100,
+    fraud_ratio: float = 0.3,
+    min_difficulty: int = 1,
+    max_difficulty: int = 5
+) -> Dict:
+    """
+    Generate a batch of synthetic transactions.
+
+    Useful for creating test datasets with specific fraud ratios.
+    """
+    transactions = simulation_env.generate_batch(
+        count=count,
+        fraud_ratio=fraud_ratio,
+        difficulty_range=(min_difficulty, max_difficulty)
+    )
+
+    return {
+        "status": "generated",
+        "count": len(transactions),
+        "fraud_count": sum(1 for tx in transactions if tx.is_fraud),
+        "legitimate_count": sum(1 for tx in transactions if not tx.is_fraud),
+        "transactions": [tx.model_dump() for tx in transactions[:10]]  # Return first 10
+    }
+
+
+@router.post("/research/simulation/create-scenario", tags=["research"])
+async def create_adversarial_scenario(
+    scenario_type: FraudScenarioType,
+    num_transactions: int = 10
+) -> Dict:
+    """
+    Create an adversarial fraud scenario for testing.
+
+    Generates sophisticated attack scenarios like coordinated attacks,
+    account takeovers, and gradual drainage.
+    """
+    scenario = simulation_env.create_adversarial_scenario(
+        scenario_type=scenario_type,
+        num_transactions=num_transactions
+    )
+
+    return scenario.model_dump()
+
+
+@router.post("/research/simulation/run", tags=["research"])
+async def run_simulation(scenario_id: str) -> Dict:
+    """
+    Run a simulation scenario and evaluate agent performance.
+
+    Tests agent against pre-created adversarial scenarios.
+    Uses a simple heuristic detector if no custom detector provided.
+    """
+    result = simulation_env.run_simulation(scenario_id=scenario_id)
+    return result.model_dump()
+
+
+@router.get("/research/simulation/exploration-space", tags=["research"])
+async def get_safe_exploration_space() -> Dict:
+    """
+    Get parameters for safe exploration in simulation.
+
+    Returns transaction types, amount ranges, fraud scenarios,
+    and recommended practice guidelines.
+    """
+    return simulation_env.get_safe_exploration_space()
+
+
+@router.get("/research/simulation/stats", tags=["research"])
+async def get_simulation_stats() -> Dict:
+    """
+    Get statistics about simulations run.
+
+    Returns total scenarios, average F1 score, and performance metrics.
+    """
+    return simulation_env.get_simulation_stats()
+
+
+# ============================================================================
+# SECTION 17: ADVANCED EVALUATION & DEBUGGING
+# ============================================================================
+
+# 17.1 Agent Debugging Tools - Trace Debugger Endpoints
+
+@router.post("/research/debug/start-trace", tags=["research", "debugging"])
+async def start_execution_trace(
+    session_id: str,
+    transaction_id: str
+) -> Dict:
+    """
+    Start a new execution trace for debugging.
+
+    Returns trace_id to use for adding steps and ending trace.
+    """
+    trace = trace_debugger.start_trace(
+        session_id=session_id,
+        transaction_id=transaction_id
+    )
+
+    return {
+        "status": "trace_started",
+        "trace_id": trace.trace_id,
+        "session_id": trace.session_id,
+        "transaction_id": trace.transaction_id,
+        "start_time": trace.start_time
+    }
+
+
+class StepRequest(BaseModel):
+    """Request to add a step to trace"""
+    trace_id: str
+    step_type: StepType
+    content: str
+    tool_name: Optional[str] = None
+    tool_input: Optional[Dict[str, Any]] = None
+    tool_output: Optional[Dict[str, Any]] = None
+    is_decision: bool = False
+    confidence: Optional[float] = None
+
+
+@router.post("/research/debug/add-step", tags=["research", "debugging"])
+async def add_trace_step(request: StepRequest) -> Dict:
+    """
+    Add a reasoning step to an active trace.
+
+    Logs step-level execution with timestamps, tool calls, and decisions.
+    """
+    # Get trace from file
+    trace = trace_debugger.get_trace(request.trace_id)
+    if not trace:
+        raise HTTPException(status_code=404, detail=f"Trace {request.trace_id} not found")
+
+    step = trace_debugger.add_step(
+        trace=trace,
+        step_type=request.step_type,
+        content=request.content,
+        tool_name=request.tool_name,
+        tool_input=request.tool_input,
+        tool_output=request.tool_output,
+        is_decision=request.is_decision,
+        confidence=request.confidence
+    )
+
+    return {
+        "status": "step_added",
+        "trace_id": request.trace_id,
+        "step_id": step.step_id,
+        "step_number": step.step_number,
+        "step_type": step.step_type
+    }
+
+
+class EndTraceRequest(BaseModel):
+    """Request to end a trace"""
+    trace_id: str
+    final_decision: str
+    success: bool
+    error: Optional[str] = None
+    token_usage: int = 0
+    cost_usd: float = 0.0
+
+
+@router.post("/research/debug/end-trace", tags=["research", "debugging"])
+async def end_execution_trace(request: EndTraceRequest) -> Dict:
+    """
+    End an execution trace and save to file.
+
+    Also saves to failures file if not successful.
+    """
+    trace = trace_debugger.get_trace(request.trace_id)
+    if not trace:
+        raise HTTPException(status_code=404, detail=f"Trace {request.trace_id} not found")
+
+    final_trace = trace_debugger.end_trace(
+        trace=trace,
+        final_decision=request.final_decision,
+        success=request.success,
+        error=request.error,
+        token_usage=request.token_usage,
+        cost_usd=request.cost_usd
+    )
+
+    return {
+        "status": "trace_ended",
+        "trace_id": final_trace.trace_id,
+        "success": final_trace.success,
+        "total_steps": len(final_trace.steps),
+        "total_duration_ms": final_trace.total_duration_ms,
+        "token_usage": final_trace.token_usage,
+        "cost_usd": final_trace.cost_usd
+    }
+
+
+@router.get("/research/debug/trace/{trace_id}", tags=["research", "debugging"])
+async def get_trace_details(trace_id: str) -> Dict:
+    """
+    Get detailed execution trace.
+
+    Returns all steps with timestamps, tool calls, and decisions.
+    """
+    trace = trace_debugger.get_trace(trace_id)
+    if not trace:
+        raise HTTPException(status_code=404, detail=f"Trace {trace_id} not found")
+
+    return trace.model_dump()
+
+
+@router.get("/research/debug/export-trace/{trace_id}", tags=["research", "debugging"])
+async def export_trace_json(trace_id: str) -> Dict:
+    """
+    Export trace in JSON format for external debugging tools.
+
+    Returns formatted trace with step summaries.
+    """
+    return trace_debugger.export_trace(trace_id)
+
+
+@router.get("/research/debug/inspect-thoughts/{trace_id}", tags=["research", "debugging"])
+async def inspect_agent_thoughts(trace_id: str) -> Dict:
+    """
+    Analyze internal reasoning quality.
+
+    Validates Chain-of-Thought consistency, identifies reasoning errors,
+    detects logic gaps, and calculates efficiency score.
+    """
+    analysis = trace_debugger.inspect_thoughts(trace_id)
+    return analysis.model_dump()
+
+
+class ToolReplayRequest(BaseModel):
+    """Request to replay a tool call"""
+    tool_name: str
+    tool_input: Dict[str, Any]
+    use_cache: bool = True
+
+
+@router.post("/research/debug/replay-tool", tags=["research", "debugging"])
+async def replay_tool_call(request: ToolReplayRequest) -> Dict:
+    """
+    Replay a tool call from cache for debugging.
+
+    Deterministically re-executes using cached results.
+    """
+    output = trace_debugger.replay_tool_call(
+        tool_name=request.tool_name,
+        tool_input=request.tool_input,
+        use_cache=request.use_cache
+    )
+
+    if output is None:
+        return {
+            "status": "cache_miss",
+            "message": f"No cached result for {request.tool_name}"
+        }
+
+    return {
+        "status": "replayed",
+        "tool_name": request.tool_name,
+        "output": output
+    }
+
+
+@router.post("/research/debug/deterministic-replay/{trace_id}", tags=["research", "debugging"])
+async def deterministic_replay_trace(trace_id: str, random_seed: int = 42) -> Dict:
+    """
+    Replay exact agent execution deterministically.
+
+    Uses fixed random seeds and cached tool results to reproduce bugs reliably.
+    """
+    replay_trace = trace_debugger.deterministic_replay(
+        trace_id=trace_id,
+        random_seed=random_seed
+    )
+
+    return {
+        "status": "replay_complete",
+        "original_trace_id": trace_id,
+        "replay_trace_id": replay_trace.trace_id,
+        "steps_replayed": len(replay_trace.steps),
+        "success": replay_trace.success
+    }
+
+
+@router.get("/research/debug/cluster-failures", tags=["research", "debugging"])
+async def cluster_failure_patterns() -> Dict:
+    """
+    Identify and group similar failures.
+
+    Returns failure patterns with root cause hypotheses and priority.
+    """
+    patterns = trace_debugger.cluster_failures()
+
+    return {
+        "status": "analyzed",
+        "total_patterns": len(patterns),
+        "patterns": [p.model_dump() for p in patterns]
+    }
+
+
+# 17.2 Comprehensive Metrics - Metrics Collection Endpoints
+
+class TaskRecordRequest(BaseModel):
+    """Request to record task result"""
+    task_id: str
+    transaction_id: str
+    predicted: str
+    ground_truth: Optional[str] = None
+    aligned_with_human: Optional[bool] = None
+    completed: bool = True
+    error: Optional[str] = None
+
+
+@router.post("/research/metrics/record-task", tags=["research", "metrics"])
+async def record_task_result(request: TaskRecordRequest) -> Dict:
+    """
+    Record task execution result.
+
+    Tracks classification accuracy, human alignment, and completion rate.
+    """
+    result = metrics_collector.record_task(
+        task_id=request.task_id,
+        transaction_id=request.transaction_id,
+        predicted=request.predicted,
+        ground_truth=request.ground_truth,
+        aligned_with_human=request.aligned_with_human,
+        completed=request.completed,
+        error=request.error
+    )
+
+    return {
+        "status": "recorded",
+        "task_id": result.task_id,
+        "correct": result.correct,
+        "completed": result.completed
+    }
+
+
+class ToolCallRecordRequest(BaseModel):
+    """Request to record tool call"""
+    tool_name: str
+    tool_input: Dict[str, Any]
+    tool_output: Optional[Dict[str, Any]]
+    success: bool
+    duration_ms: float
+    error: Optional[str] = None
+    was_necessary: Optional[bool] = None
+    parameter_correctness: Optional[float] = None
+
+
+@router.post("/research/metrics/record-tool-call", tags=["research", "metrics"])
+async def record_tool_call_metrics(request: ToolCallRecordRequest) -> Dict:
+    """
+    Record tool call metrics.
+
+    Tracks tool success rate, selection accuracy, parameter correctness.
+    """
+    call = metrics_collector.record_tool_call(
+        tool_name=request.tool_name,
+        tool_input=request.tool_input,
+        tool_output=request.tool_output,
+        success=request.success,
+        duration_ms=request.duration_ms,
+        error=request.error,
+        was_necessary=request.was_necessary,
+        parameter_correctness=request.parameter_correctness
+    )
+
+    return {
+        "status": "recorded",
+        "call_id": call.call_id,
+        "tool_name": call.tool_name,
+        "success": call.success
+    }
+
+
+class CostRecordRequest(BaseModel):
+    """Request to record cost metrics"""
+    task_id: str
+    token_usage: int
+    api_calls: int
+    cost_usd: float
+    model_used: str = "mistral-7b"
+
+
+@router.post("/research/metrics/record-cost", tags=["research", "metrics"])
+async def record_cost_metrics(request: CostRecordRequest) -> Dict:
+    """
+    Record cost metrics for a task.
+
+    Tracks token usage, API calls, and $ cost per transaction.
+    """
+    metrics = metrics_collector.record_cost(
+        task_id=request.task_id,
+        token_usage=request.token_usage,
+        api_calls=request.api_calls,
+        cost_usd=request.cost_usd,
+        model_used=request.model_used
+    )
+
+    return {
+        "status": "recorded",
+        "task_id": metrics.task_id,
+        "cost_usd": metrics.cost_usd,
+        "token_usage": metrics.token_usage
+    }
+
+
+class LatencyRecordRequest(BaseModel):
+    """Request to record latency metrics"""
+    task_id: str
+    total_latency_ms: float
+    reasoning_latency_ms: float
+    tool_call_latency_ms: float
+    step_latencies: List[float]
+
+
+@router.post("/research/metrics/record-latency", tags=["research", "metrics"])
+async def record_latency_metrics(request: LatencyRecordRequest) -> Dict:
+    """
+    Record latency metrics.
+
+    Tracks p50, p95, p99 latencies and step-by-step breakdown.
+    """
+    metrics = metrics_collector.record_latency(
+        task_id=request.task_id,
+        total_latency_ms=request.total_latency_ms,
+        reasoning_latency_ms=request.reasoning_latency_ms,
+        tool_call_latency_ms=request.tool_call_latency_ms,
+        step_latencies=request.step_latencies
+    )
+
+    return {
+        "status": "recorded",
+        "task_id": metrics.task_id,
+        "total_latency_ms": metrics.total_latency_ms
+    }
+
+
+class RecoveryRecordRequest(BaseModel):
+    """Request to record recovery event"""
+    task_id: str
+    failure_type: str
+    recovery_attempted: bool
+    recovery_successful: bool
+    recovery_time_ms: Optional[float] = None
+    escalated_to_human: bool = False
+    human_intervention_time_ms: Optional[float] = None
+
+
+@router.post("/research/metrics/record-recovery", tags=["research", "metrics"])
+async def record_recovery_event(request: RecoveryRecordRequest) -> Dict:
+    """
+    Record failure recovery event.
+
+    Tracks recovery rate, escalation rate, and human intervention.
+    """
+    event = metrics_collector.record_recovery(
+        task_id=request.task_id,
+        failure_type=request.failure_type,
+        recovery_attempted=request.recovery_attempted,
+        recovery_successful=request.recovery_successful,
+        recovery_time_ms=request.recovery_time_ms,
+        escalated_to_human=request.escalated_to_human,
+        human_intervention_time_ms=request.human_intervention_time_ms
+    )
+
+    return {
+        "status": "recorded",
+        "event_id": event.event_id,
+        "recovery_successful": event.recovery_successful,
+        "escalated": event.escalated_to_human
+    }
+
+
+class ViolationRecordRequest(BaseModel):
+    """Request to record alignment violation"""
+    task_id: str
+    violation_type: Literal["safety", "constraint", "refusal_failure", "false_refusal"]
+    description: str
+    severity: Literal["low", "medium", "high", "critical"]
+    rule_violated: Optional[str] = None
+
+
+@router.post("/research/metrics/record-violation", tags=["research", "metrics"])
+async def record_alignment_violation(request: ViolationRecordRequest) -> Dict:
+    """
+    Record alignment violation.
+
+    Tracks safety rule violations, constraint violations, and refusal failures.
+    """
+    violation = metrics_collector.record_violation(
+        task_id=request.task_id,
+        violation_type=request.violation_type,
+        description=request.description,
+        severity=request.severity,
+        rule_violated=request.rule_violated
+    )
+
+    return {
+        "status": "recorded",
+        "violation_id": violation.violation_id,
+        "severity": violation.severity,
+        "violation_type": violation.violation_type
+    }
+
+
+@router.get("/research/metrics/aggregated", tags=["research", "metrics"])
+async def get_aggregated_metrics(days: int = 7) -> Dict:
+    """
+    Get comprehensive aggregated metrics.
+
+    Returns task success rate, tool accuracy, cost metrics, latency metrics,
+    recovery rate, and alignment violations for the last N days.
+    """
+    metrics = metrics_collector.get_aggregated_metrics(days=days)
+    return metrics.model_dump()
+
+
+@router.get("/research/metrics/tool-breakdown", tags=["research", "metrics"])
+async def get_tool_breakdown() -> Dict:
+    """
+    Get detailed breakdown by tool.
+
+    Returns success rate, average duration, and error count per tool.
+    """
+    return metrics_collector.get_tool_breakdown()
+
+
+@router.get("/research/metrics/latency-breakdown", tags=["research", "metrics"])
+async def get_latency_breakdown() -> Dict:
+    """
+    Get latency breakdown by component.
+
+    Returns average reasoning time, tool call time, and total time.
+    """
+    return metrics_collector.get_latency_breakdown()
+
+
+# 17.3 Automated Testing Suite Endpoints
+
+class TestCaseRequest(BaseModel):
+    """Request to create a test case"""
+    test_name: str
+    test_type: TestType
+    description: str
+    inputs: Dict[str, Any]
+    expected_output: Optional[Any] = None
+    expected_behavior: Optional[str] = None
+    tags: List[str] = []
+    timeout_ms: int = 30000
+    critical: bool = False
+
+
+@router.post("/research/testing/create-test-case", tags=["research", "testing"])
+async def create_test_case(request: TestCaseRequest) -> Dict:
+    """
+    Create a new test case.
+
+    Can be unit, integration, regression, adversarial, edge case, or performance test.
+    """
+    test = test_suite.add_test_case(
+        test_name=request.test_name,
+        test_type=request.test_type,
+        description=request.description,
+        inputs=request.inputs,
+        expected_output=request.expected_output,
+        expected_behavior=request.expected_behavior,
+        tags=request.tags,
+        timeout_ms=request.timeout_ms,
+        critical=request.critical
+    )
+
+    return {
+        "status": "created",
+        "test_id": test.test_id,
+        "test_name": test.test_name,
+        "test_type": test.test_type
+    }
+
+
+@router.get("/research/testing/adversarial-tests", tags=["research", "testing"])
+async def get_adversarial_tests() -> Dict:
+    """
+    Get pre-built adversarial test cases.
+
+    Includes prompt injection, financial advice refusal, extreme amounts,
+    missing data, and balance manipulation tests.
+    """
+    tests = test_suite.create_adversarial_tests()
+
+    return {
+        "status": "generated",
+        "count": len(tests),
+        "tests": [t.model_dump() for t in tests]
+    }
+
+
+@router.get("/research/testing/edge-case-tests", tags=["research", "testing"])
+async def get_edge_case_tests() -> Dict:
+    """
+    Get pre-built edge case tests.
+
+    Includes zero amounts, negative amounts, self-transfers,
+    and very long descriptions.
+    """
+    tests = test_suite.create_edge_case_tests()
+
+    return {
+        "status": "generated",
+        "count": len(tests),
+        "tests": [t.model_dump() for t in tests]
+    }
+
+
+class BaselineRequest(BaseModel):
+    """Request to save regression baseline"""
+    metrics: Dict[str, float]
+
+
+@router.post("/research/testing/save-baseline", tags=["research", "testing"])
+async def save_regression_baseline(request: BaselineRequest) -> Dict:
+    """
+    Save baseline metrics for regression testing.
+
+    Future runs will be compared against this baseline.
+    """
+    test_suite.save_regression_baseline(request.metrics)
+
+    return {
+        "status": "baseline_saved",
+        "metrics_count": len(request.metrics),
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+class RegressionCheckRequest(BaseModel):
+    """Request to check for regression"""
+    current_metrics: Dict[str, float]
+
+
+@router.post("/research/testing/check-regression", tags=["research", "testing"])
+async def check_regression(request: RegressionCheckRequest) -> Dict:
+    """
+    Check for performance regression.
+
+    Compares current metrics against baseline. Flags regressions >5%.
+    """
+    result = test_suite.check_regression(request.current_metrics)
+
+    return result
+
+
+# ================================
+# SECTION 8: SAFETY, SECURITY & ALIGNMENT
+# ================================
+
+# ========== LLM Safety Guard ==========
+
+class PromptCheckRequest(BaseModel):
+    """Request to check for prompt injection"""
+    prompt: str
+
+
+@router.post("/security/safety/check-injection", tags=["security", "safety"])
+async def check_prompt_injection(request: PromptCheckRequest) -> Dict:
+    """
+    Detect prompt injection attacks.
+
+    Checks for:
+    - Instruction override attempts
+    - System message manipulation
+    - Role confusion
+    - Delimiter manipulation
+    """
+    result = safety_guard.detect_prompt_injection(request.prompt)
+
+    return result.model_dump()
+
+
+@router.post("/security/safety/check-jailbreak", tags=["security", "safety"])
+async def check_jailbreak(request: PromptCheckRequest) -> Dict:
+    """
+    Detect jailbreak attempts.
+
+    Checks for:
+    - DAN (Do Anything Now) prompts
+    - Hypothetical scenario jailbreaks
+    - Unfiltered mode requests
+    - Roleplay jailbreaks
+    """
+    result = safety_guard.detect_jailbreak(request.prompt)
+
+    return result.model_dump()
+
+
+class RefusalCheckRequest(BaseModel):
+    """Request to check if should refuse"""
+    request_text: str
+
+
+@router.post("/security/safety/should-refuse", tags=["security", "safety"])
+async def should_refuse(request: RefusalCheckRequest) -> Dict:
+    """
+    Check if request should be refused.
+
+    Refuses:
+    - Financial advice requests
+    - Illegal activity
+    - Harmful content
+    """
+    result = safety_guard.should_refuse_request(request.request_text)
+
+    return result.model_dump()
+
+
+class UncertaintyRequest(BaseModel):
+    """Request to quantify uncertainty"""
+    prediction: str
+    confidence: float
+    transaction_amount: float = 0.0
+
+
+@router.post("/security/safety/uncertainty", tags=["security", "safety"])
+async def quantify_uncertainty(request: UncertaintyRequest) -> Dict:
+    """
+    Quantify prediction uncertainty.
+
+    Determines if human escalation is needed based on:
+    - Low confidence (<0.7)
+    - High-value transactions (>$100k)
+    - Edge cases
+    """
+    context = {"amount": request.transaction_amount} if request.transaction_amount else None
+
+    result = safety_guard.quantify_uncertainty(
+        prediction=request.prediction,
+        confidence=request.confidence,
+        context=context
+    )
+
+    return result.model_dump()
+
+
+class SanitizeRequest(BaseModel):
+    """Request to sanitize output"""
+    output_text: str
+
+
+@router.post("/security/safety/sanitize-output", tags=["security", "safety"])
+async def sanitize_output(request: SanitizeRequest) -> Dict:
+    """
+    Sanitize LLM output.
+
+    Removes:
+    - PII (emails, phones, SSNs, credit cards)
+    - Extreme language
+    """
+    sanitized = safety_guard.sanitize_output(request.output_text)
+
+    return {
+        "sanitized_output": sanitized,
+        "original_length": len(request.output_text),
+        "sanitized_length": len(sanitized)
+    }
+
+
+class BiasAuditRequest(BaseModel):
+    """Request to audit bias"""
+    predictions: List[Dict[str, Any]]  # List of {amount: float, prediction: bool}
+
+
+@router.post("/security/safety/audit-bias", tags=["security", "safety"])
+async def audit_bias(request: BiasAuditRequest) -> Dict:
+    """
+    Audit model for bias.
+
+    Analyzes fraud detection rates across transaction amount buckets:
+    - Micro ($0-100)
+    - Small ($100-1k)
+    - Medium ($1k-10k)
+    - Large ($10k-100k)
+    - Very Large ($100k+)
+    """
+    result = safety_guard.audit_bias(request.predictions)
+
+    return result.model_dump()
+
+
+class FairnessRequest(BaseModel):
+    """Request to calculate fairness metrics"""
+    group_a_predictions: List[bool]
+    group_b_predictions: List[bool]
+    group_a_labels: List[bool]
+    group_b_labels: List[bool]
+
+
+@router.post("/security/safety/fairness-metrics", tags=["security", "safety"])
+async def calculate_fairness(request: FairnessRequest) -> Dict:
+    """
+    Calculate fairness metrics.
+
+    Computes:
+    - Demographic parity difference
+    - Equal opportunity difference
+    - Disparate impact ratio (80% rule)
+    """
+    result = safety_guard.calculate_fairness_metrics(
+        group_a_predictions=request.group_a_predictions,
+        group_b_predictions=request.group_b_predictions,
+        group_a_labels=request.group_a_labels,
+        group_b_labels=request.group_b_labels
+    )
+
+    return result.model_dump()
+
+
+@router.get("/security/safety/dashboard", tags=["security", "safety"])
+async def get_safety_dashboard(days: int = 7) -> Dict:
+    """
+    Get safety dashboard.
+
+    Shows:
+    - Total incidents
+    - Incidents by type
+    - Incidents by severity
+    - Recent incidents (last 10)
+    """
+    dashboard = safety_guard.get_safety_dashboard(days=days)
+
+    return dashboard
+
+
+# ========== Security Manager ==========
+
+class TokenRequest(BaseModel):
+    """Request to create access token"""
+    user_id: str
+    username: str
+    roles: List[str] = Field(default_factory=list)
+
+
+@router.post("/security/auth/create-token", tags=["security", "auth"])
+async def create_token(request: TokenRequest) -> Dict:
+    """
+    Create JWT access token.
+
+    Token expires in 24 hours by default.
+    """
+    token = security_manager.create_access_token(
+        user_id=request.user_id,
+        username=request.username,
+        roles=request.roles
+    )
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "expires_in": 86400  # 24 hours in seconds
+    }
+
+
+class TokenVerifyRequest(BaseModel):
+    """Request to verify token"""
+    token: str
+
+
+@router.post("/security/auth/verify-token", tags=["security", "auth"])
+async def verify_token(request: TokenVerifyRequest) -> Dict:
+    """
+    Verify JWT token.
+
+    Returns token data if valid, error if invalid/expired.
+    """
+    token_data = security_manager.verify_token(request.token)
+
+    if not token_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+
+    return token_data.model_dump()
+
+
+@router.post("/security/auth/refresh-token", tags=["security", "auth"])
+async def refresh_token(request: TokenVerifyRequest) -> Dict:
+    """
+    Refresh JWT token.
+
+    Creates new token with same data if old token is valid.
+    """
+    new_token = security_manager.refresh_token(request.token)
+
+    if not new_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Cannot refresh invalid/expired token"
+        )
+
+    return {
+        "access_token": new_token,
+        "token_type": "bearer",
+        "expires_in": 86400
+    }
+
+
+@router.post("/security/rate-limit/check", tags=["security", "rate-limit"])
+async def check_rate_limit(
+    identifier: str = Query(..., description="IP, user_id, or API key"),
+    max_requests: int = Query(100, description="Max requests"),
+    window_seconds: int = Query(60, description="Time window in seconds")
+) -> Dict:
+    """
+    Check rate limit.
+
+    Uses token bucket algorithm.
+    """
+    config = RateLimitConfig(
+        max_requests=max_requests,
+        window_seconds=window_seconds,
+        identifier=identifier
+    )
+
+    within_limit = security_manager.check_rate_limit(config)
+
+    if not within_limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Rate limit exceeded: {max_requests} requests per {window_seconds}s"
+        )
+
+    return {
+        "within_limit": True,
+        "identifier": identifier,
+        "max_requests": max_requests,
+        "window_seconds": window_seconds
+    }
+
+
+@router.get("/security/rate-limit/status", tags=["security", "rate-limit"])
+async def get_rate_limit_status(
+    identifier: str = Query(..., description="IP, user_id, or API key"),
+    window_seconds: int = Query(60, description="Time window in seconds")
+) -> Dict:
+    """
+    Get rate limit status.
+
+    Shows current request count for identifier.
+    """
+    status_data = security_manager.get_rate_limit_status(identifier, window_seconds)
+
+    return status_data
+
+
+class ValidationRequest(BaseModel):
+    """Request to validate input"""
+    transaction_data: Dict[str, Any]
+
+
+@router.post("/security/validate/transaction", tags=["security", "validation"])
+async def validate_transaction(request: ValidationRequest) -> Dict:
+    """
+    Validate and sanitize transaction input.
+
+    Checks for:
+    - Required fields
+    - Data types
+    - SQL injection
+    - XSS attacks
+    """
+    result = security_manager.validate_transaction_input(request.transaction_data)
+
+    return result.model_dump()
+
+
+class FileValidationRequest(BaseModel):
+    """Request to validate file upload"""
+    filename: str
+    file_content: str  # Base64 encoded
+
+
+@router.post("/security/validate/file", tags=["security", "validation"])
+async def validate_file(request: FileValidationRequest) -> Dict:
+    """
+    Validate file upload.
+
+    Checks:
+    - File extension whitelist
+    - File size limits
+    - Magic bytes verification
+    """
+    import base64
+
+    try:
+        file_bytes = base64.b64decode(request.file_content)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid base64 file content"
+        )
+
+    result = security_manager.validate_file_upload(request.filename, file_bytes)
+
+    return result.model_dump()
+
+
+class APIKeyRequest(BaseModel):
+    """Request to generate API key"""
+    prefix: str = "fsk"
+
+
+@router.post("/security/secrets/generate-api-key", tags=["security", "secrets"])
+async def generate_api_key(request: APIKeyRequest) -> Dict:
+    """
+    Generate secure API key.
+
+    Returns key and hash (store hash in database).
+    """
+    api_key = security_manager.generate_api_key(prefix=request.prefix)
+    api_key_hash = security_manager.hash_api_key(api_key)
+
+    return {
+        "api_key": api_key,
+        "api_key_hash": api_key_hash,
+        "note": "Store the hash in database. The raw key is shown only once."
+    }
+
+
+class APIKeyVerifyRequest(BaseModel):
+    """Request to verify API key"""
+    provided_key: str
+    stored_hash: str
+
+
+@router.post("/security/secrets/verify-api-key", tags=["security", "secrets"])
+async def verify_api_key(request: APIKeyVerifyRequest) -> Dict:
+    """
+    Verify API key against stored hash.
+
+    Uses constant-time comparison.
+    """
+    is_valid = security_manager.verify_api_key(
+        request.provided_key,
+        request.stored_hash
+    )
+
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key"
+        )
+
+    return {"valid": True}
+
+
+# ========== Privacy Handler ==========
+
+class PIIDetectionRequest(BaseModel):
+    """Request to detect PII"""
+    text: str
+
+
+@router.post("/security/privacy/detect-pii", tags=["security", "privacy"])
+async def detect_pii(request: PIIDetectionRequest) -> Dict:
+    """
+    Detect personally identifiable information (PII).
+
+    Detects:
+    - Emails
+    - Phone numbers
+    - SSNs
+    - Credit cards
+    - IP addresses
+    - Dates of birth
+    - Names
+    - Addresses
+    """
+    result = privacy_handler.detect_pii(request.text)
+
+    return result.model_dump()
+
+
+class TransactionSanitizeRequest(BaseModel):
+    """Request to sanitize transaction"""
+    transaction: Dict[str, Any]
+
+
+@router.post("/security/privacy/sanitize-transaction", tags=["security", "privacy"])
+async def sanitize_transaction(request: TransactionSanitizeRequest) -> Dict:
+    """
+    Sanitize transaction data.
+
+    Redacts PII from transaction fields.
+    """
+    sanitized = privacy_handler.sanitize_transaction_data(request.transaction)
+
+    return {
+        "sanitized_transaction": sanitized,
+        "original_fields": len(request.transaction),
+        "sanitized_fields": len(sanitized)
+    }
+
+
+class AnonymizeRequest(BaseModel):
+    """Request to anonymize user ID"""
+    user_id: str
+    method: Literal["hash", "pseudonym", "token"] = "hash"
+
+
+@router.post("/security/privacy/anonymize", tags=["security", "privacy"])
+async def anonymize_user(request: AnonymizeRequest) -> Dict:
+    """
+    Anonymize user identifier.
+
+    Methods:
+    - hash: SHA-256 hash (irreversible)
+    - pseudonym: Random pseudonym (reversible if mapping stored)
+    - token: Secure token (irreversible)
+    """
+    result = privacy_handler.anonymize_user_id(
+        user_id=request.user_id,
+        method=request.method
+    )
+
+    return result.model_dump()
+
+
+@router.post("/security/privacy/consent", tags=["security", "privacy"])
+async def record_consent(request: GDPRConsent) -> Dict:
+    """
+    Record GDPR consent.
+
+    Consent types:
+    - data_collection
+    - data_processing
+    - data_sharing
+    """
+    privacy_handler.record_consent(request)
+
+    return {
+        "status": "consent_recorded",
+        "user_id": request.user_id,
+        "consent_type": request.consent_type,
+        "granted": request.granted,
+        "timestamp": request.timestamp.isoformat()
+    }
+
+
+@router.get("/security/privacy/verify-consent", tags=["security", "privacy"])
+async def verify_consent(
+    user_id: str = Query(...),
+    consent_type: str = Query(...)
+) -> Dict:
+    """
+    Verify GDPR consent.
+
+    Checks if user has granted consent for specific type.
+    """
+    has_consent = privacy_handler.verify_consent(user_id, consent_type)
+
+    return {
+        "user_id": user_id,
+        "consent_type": consent_type,
+        "has_consent": has_consent
+    }
+
+
+@router.get("/security/privacy/user-data/{user_id}", tags=["security", "privacy"])
+async def get_user_data(user_id: str) -> Dict:
+    """
+    Get all user data (GDPR data portability right).
+
+    Returns all data for a user.
+    """
+    user_data = privacy_handler.get_user_data(user_id)
+
+    return user_data
+
+
+@router.delete("/security/privacy/user-data/{user_id}", tags=["security", "privacy"])
+async def delete_user_data(user_id: str) -> Dict:
+    """
+    Delete all user data (GDPR right to erasure).
+
+    Deletes all data for a user.
+    """
+    deleted_counts = privacy_handler.delete_user_data(user_id)
+
+    return {
+        "status": "data_deleted",
+        "user_id": user_id,
+        "deleted_counts": deleted_counts
+    }
+
+
+@router.get("/security/privacy/retention-policy", tags=["security", "privacy"])
+async def get_retention_policy(data_type: str = Query(...)) -> Dict:
+    """
+    Get data retention policy.
+
+    Data types:
+    - transaction_logs (7 years)
+    - user_data (1 year)
+    - fraud_reports (5 years)
+    - audit_logs (7 years)
+    - pii_data (1 year)
+    """
+    policy = privacy_handler.get_retention_policy(data_type)
+
+    if not policy:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No retention policy for data type: {data_type}"
+        )
+
+    return policy.model_dump()
+
+
+@router.get("/security/privacy/dashboard", tags=["security", "privacy"])
+async def get_privacy_dashboard(days: int = Query(7)) -> Dict:
+    """
+    Get privacy compliance dashboard.
+
+    Shows:
+    - Total audits
+    - Consent violations
+    - Retention violations
+    - Data types accessed
+    - Recent audits
+    """
+    dashboard = privacy_handler.get_privacy_dashboard(days=days)
+
+    return dashboard
+
+
+# ================================
+# SECTION 18: TOKENIZATION ENGINEERING
+# ================================
+
+class TokenAnalysisRequest(BaseModel):
+    """Request to analyze token efficiency"""
+    text: str
+
+
+@router.post("/research/tokenization/analyze", tags=["research", "tokenization"])
+async def analyze_tokens(request: TokenAnalysisRequest) -> Dict:
+    """
+    Analyze token efficiency of text.
+
+    Returns:
+    - Token count estimate
+    - Efficiency score (0-1)
+    - Issues and recommendations
+    - Tokens per word ratio
+    """
+    result = tokenization_service.analyze_tokens(request.text)
+
+    return result.model_dump()
+
+
+class OptimizationRequest(BaseModel):
+    """Request to optimize prompt"""
+    text: str
+    aggressive: bool = False
+
+
+@router.post("/research/tokenization/optimize", tags=["research", "tokenization"])
+async def optimize_prompt(request: OptimizationRequest) -> Dict:
+    """
+    Optimize prompt for token efficiency.
+
+    Applies:
+    - Verbose phrase replacement
+    - Fraud-specific term simplification
+    - Filler word removal (if aggressive)
+    - Whitespace normalization
+
+    Returns optimized text and token savings.
+    """
+    result = tokenization_service.optimize_prompt(
+        request.text,
+        aggressive=request.aggressive
+    )
+
+    return result.model_dump()
+
+
+@router.get("/research/tokenization/tokenizer-behavior", tags=["research", "tokenization"])
+async def get_tokenizer_behavior() -> Dict:
+    """
+    Get Mistral tokenizer behavior analysis.
+
+    Returns:
+    - Average tokens per word
+    - Common tokenization patterns
+    - Special tokens list
+    - Subword tokenization examples
+    - Efficiency tips
+    """
+    result = tokenization_service.analyze_tokenizer_behavior()
+
+    return result.model_dump()
+
+
+class PromptComparisonRequest(BaseModel):
+    """Request to compare prompt variants"""
+    prompts: List[Dict[str, str]]  # [{name: str, text: str}, ...]
+
+
+@router.post("/research/tokenization/compare-prompts", tags=["research", "tokenization"])
+async def compare_prompts(request: PromptComparisonRequest) -> Dict:
+    """
+    Compare multiple prompt variants for efficiency.
+
+    Returns best variant based on:
+    - Lowest token count
+    - Highest efficiency score
+    - Fewest issues
+    """
+    result = tokenization_service.compare_prompts(request.prompts)
+
+    return result.model_dump()
+
+
+class SpecialTokenRequest(BaseModel):
+    """Request to validate special tokens"""
+    text: str
+
+
+@router.post("/research/tokenization/validate-special-tokens", tags=["research", "tokenization"])
+async def validate_special_tokens(request: SpecialTokenRequest) -> Dict:
+    """
+    Validate special token usage.
+
+    Checks:
+    - ChatML tag balance (<|im_start|>, <|im_end|>)
+    - Mistral instruction tag balance ([INST], [/INST])
+    - Format mixing warnings
+    - Unknown special tokens
+    """
+    result = tokenization_service.validate_special_tokens(request.text)
+
+    return result
+
+
+class MultilingualRequest(BaseModel):
+    """Request to analyze multilingual text"""
+    text: str
+    language: str = "en"
+
+
+@router.post("/research/tokenization/multilingual-analysis", tags=["research", "tokenization"])
+async def analyze_multilingual(request: MultilingualRequest) -> Dict:
+    """
+    Analyze tokenization for non-English text.
+
+    Languages supported:
+    - en (English - baseline)
+    - es (Spanish)
+    - fr (French)
+    - de (German)
+    - zh (Chinese)
+    - ja (Japanese)
+    - ar (Arabic)
+    - ru (Russian)
+
+    Returns token count estimate with language-specific multiplier.
+    """
+    result = tokenization_service.analyze_multilingual(
+        request.text,
+        language=request.language
+    )
+
+    return result
+
+
+# ==================== Context Window Management ====================
+
+class SlidingWindowRequest(BaseModel):
+    """Request for sliding window operation"""
+    messages: List[Dict[str, Any]] = Field(..., description="Conversation messages")
+    window_size: int = Field(default=10, description="Maximum messages to keep")
+    preserve_system: bool = Field(default=True, description="Always keep system messages")
+
+
+class SummarizationRequest(BaseModel):
+    """Request for context summarization"""
+    messages: List[Dict[str, Any]] = Field(..., description="Messages to summarize")
+    target_compression: float = Field(default=0.5, ge=0.1, le=0.9, description="Target compression ratio")
+
+
+class ImportantContentRequest(BaseModel):
+    """Request for important content detection"""
+    messages: List[Dict[str, Any]] = Field(..., description="Messages to analyze")
+    threshold: float = Field(default=0.3, ge=0.0, le=1.0, description="Importance threshold")
+
+
+class OverflowCheckRequest(BaseModel):
+    """Request for overflow checking"""
+    messages: List[Dict[str, Any]] = Field(..., description="Messages to check")
+    max_tokens: int = Field(default=4096, description="Maximum context window")
+    output_reserve: int = Field(default=1024, description="Tokens reserved for output")
+
+
+class DynamicAllocationRequest(BaseModel):
+    """Request for dynamic allocation"""
+    total_budget: int = Field(default=4096, description="Total token budget")
+    system_prompt: Optional[str] = Field(default=None, description="System prompt text")
+    expected_output_length: Literal["short", "medium", "long"] = Field(default="medium", description="Expected output length")
+
+
+class ConversationManagementRequest(BaseModel):
+    """Request for comprehensive conversation management"""
+    messages: List[Dict[str, Any]] = Field(..., description="Conversation messages")
+    max_tokens: int = Field(default=4096, description="Maximum context window")
+    window_size: int = Field(default=10, description="Sliding window size")
+    preserve_important: bool = Field(default=True, description="Keep important messages")
+    auto_summarize: bool = Field(default=True, description="Auto-summarize when needed")
+
+
+@router.post("/research/context/sliding-window", tags=["research", "context"])
+async def apply_sliding_window(request: SlidingWindowRequest) -> Dict:
+    """
+    Apply sliding window to keep only recent messages.
+
+    Keeps the most recent N messages while optionally preserving system messages.
+    Useful for long conversations that exceed context limits.
+
+    Returns:
+    - Windowed messages with token counts
+    - Total tokens after windowing
+    - Overflow detection
+    """
+    result = context_manager.apply_sliding_window(
+        messages=request.messages,
+        window_size=request.window_size,
+        preserve_system=request.preserve_system
+    )
+
+    return result.model_dump()
+
+
+@router.post("/research/context/summarize", tags=["research", "context"])
+async def summarize_context(request: SummarizationRequest) -> Dict:
+    """
+    Summarize conversation context using extractive summarization.
+
+    Selects most important sentences based on keyword scoring.
+    No LLM required - heuristic-based for M4 Pro efficiency.
+
+    Args:
+    - messages: Conversation to summarize
+    - target_compression: 0.5 = 50% reduction
+
+    Returns:
+    - Summary text
+    - Compression metrics
+    - Token savings
+    """
+    result = context_manager.summarize_context(
+        messages=request.messages,
+        target_compression=request.target_compression
+    )
+
+    return result.model_dump()
+
+
+@router.post("/research/context/detect-important", tags=["research", "context"])
+async def detect_important_content(request: ImportantContentRequest) -> Dict:
+    """
+    Detect important messages that should be retained.
+
+    Scores messages based on:
+    - Importance keywords (fraud, risk, decision, etc.)
+    - Decision-related content
+    - Numerical data (amounts, scores)
+    - Policy/rule references
+    - System messages
+
+    Returns list of important messages with scores and reasons.
+    """
+    result = context_manager.detect_important_content(
+        messages=request.messages,
+        threshold=request.threshold
+    )
+
+    return {"important_content": [item.dict() for item in result]}
+
+
+@router.post("/research/context/check-overflow", tags=["research", "context"])
+async def check_overflow(request: OverflowCheckRequest) -> Dict:
+    """
+    Check for context window overflow.
+
+    Analyzes current token usage vs maximum limit.
+    Returns risk level and recommended actions.
+
+    Risk levels:
+    - safe: <75% utilization
+    - warning: 75-90% utilization
+    - critical: 90-100% utilization
+    - overflow: >100% utilization
+
+    Accounts for output reserve tokens.
+    """
+    result = context_manager.check_overflow(
+        messages=request.messages,
+        max_tokens=request.max_tokens,
+        output_reserve=request.output_reserve
+    )
+
+    return result.model_dump()
+
+
+@router.post("/research/context/allocate-dynamic", tags=["research", "context"])
+async def allocate_dynamic(request: DynamicAllocationRequest) -> Dict:
+    """
+    Dynamically allocate context window budget.
+
+    Divides total budget into:
+    - System tokens (10%)
+    - History tokens (60%)
+    - Output tokens (15-40% based on expected length)
+    - Safety margin (5%)
+
+    Calculates maximum messages that can fit in history.
+    """
+    result = context_manager.allocate_dynamic(
+        total_budget=request.total_budget,
+        system_prompt=request.system_prompt,
+        expected_output_length=request.expected_output_length
+    )
+
+    return result.model_dump()
+
+
+@router.post("/research/context/manage-conversation", tags=["research", "context"])
+async def manage_conversation(request: ConversationManagementRequest) -> Dict:
+    """
+    Comprehensive conversation management with all strategies.
+
+    Applies multiple techniques:
+    1. Overflow detection
+    2. Important content identification
+    3. Sliding window for recent messages
+    4. Automatic summarization when needed
+    5. System message preservation
+
+    Returns fully managed conversation ready for LLM input.
+    Prevents context overflow while retaining critical information.
+    """
+    result = context_manager.manage_conversation(
+        messages=request.messages,
+        max_tokens=request.max_tokens,
+        window_size=request.window_size,
+        preserve_important=request.preserve_important,
+        auto_summarize=request.auto_summarize
+    )
+
+    return result.model_dump()
+
+
+# ==================== Sampling Strategy Optimization ====================
+
+class SamplingRecommendationRequest(BaseModel):
+    """Request for sampling parameter recommendation"""
+    use_case: str = Field(..., description="Use case (fraud_detection, fraud_explanation, creative_fraud_scenarios, quick_classification, balanced_analysis)")
+    custom_constraints: Optional[Dict[str, Any]] = Field(default=None, description="Custom parameter constraints")
+
+
+class TemperatureScheduleRequest(BaseModel):
+    """Request for temperature schedule"""
+    schedule_type: Literal["static", "linear", "exponential", "cosine", "adaptive"] = Field(..., description="Schedule type")
+    initial_temp: float = Field(..., ge=0.0, le=2.0, description="Initial temperature")
+    final_temp: float = Field(..., ge=0.0, le=2.0, description="Final temperature")
+    steps: int = Field(..., ge=1, le=1000, description="Number of steps")
+
+
+class ParameterValidationRequest(BaseModel):
+    """Request for parameter validation"""
+    config: Dict[str, Any] = Field(..., description="Sampling configuration")
+    use_case: Optional[str] = Field(default=None, description="Optional use case for context")
+
+
+class ParameterComparisonRequest(BaseModel):
+    """Request for parameter comparison"""
+    config_a: Dict[str, Any] = Field(..., description="First configuration")
+    config_b: Dict[str, Any] = Field(..., description="Second configuration")
+    use_cases: List[str] = Field(default_factory=list, description="Use cases to evaluate")
+
+
+class EarlyStoppingRequest(BaseModel):
+    """Request for early stopping strategy"""
+    strategy_type: Literal["stop_sequences", "max_tokens", "confidence_threshold", "repetition_detection", "combined"] = Field(..., description="Strategy type")
+    stop_sequences: Optional[List[str]] = Field(default=None, description="Stop sequences")
+    max_tokens: Optional[int] = Field(default=512, description="Max tokens")
+    confidence_threshold: Optional[float] = Field(default=0.9, description="Confidence threshold")
+    repetition_window: Optional[int] = Field(default=10, description="Repetition window")
+
+
+@router.post("/research/sampling/recommend", tags=["research", "sampling"])
+async def recommend_sampling_parameters(request: SamplingRecommendationRequest) -> Dict:
+    """
+    Recommend sampling parameters for a use case.
+
+    Built-in use cases:
+    - fraud_detection: Low temp (0.3), consistent decisions
+    - fraud_explanation: Medium temp (0.5), clear reasoning
+    - creative_fraud_scenarios: High temp (0.8), diverse scenarios
+    - quick_classification: Very low temp (0.1), fast responses
+    - balanced_analysis: Balanced (0.7), general purpose
+
+    Returns recommended config + reasoning + alternatives.
+    """
+    result = sampling_optimizer.recommend_parameters(
+        use_case=request.use_case,
+        custom_constraints=request.custom_constraints
+    )
+
+    return result.model_dump()
+
+
+@router.post("/research/sampling/schedule", tags=["research", "sampling"])
+async def create_temperature_schedule(request: TemperatureScheduleRequest) -> Dict:
+    """
+    Create temperature schedule for adaptive sampling.
+
+    Schedule types:
+    - static: Constant temperature
+    - linear: Linear interpolation
+    - exponential: Exponential decay/growth
+    - cosine: Cosine annealing
+    - adaptive: Sine wave pattern
+
+    Returns temperature values for each step.
+    """
+    result = sampling_optimizer.create_temperature_schedule(
+        schedule_type=request.schedule_type,
+        initial_temp=request.initial_temp,
+        final_temp=request.final_temp,
+        steps=request.steps
+    )
+
+    return result.model_dump()
+
+
+@router.post("/research/sampling/validate", tags=["research", "sampling"])
+async def validate_sampling_parameters(request: ParameterValidationRequest) -> Dict:
+    """
+    Validate sampling parameters.
+
+    Checks:
+    - Parameter ranges (temp, top_p, etc.)
+    - Conflicting settings
+    - Use case appropriateness
+
+    Returns validation result with issues, warnings, suggestions.
+    """
+    result = sampling_optimizer.validate_parameters(
+        config=request.config,
+        use_case=request.use_case
+    )
+
+    return result.model_dump()
+
+
+@router.post("/research/sampling/compare", tags=["research", "sampling"])
+async def compare_sampling_configs(request: ParameterComparisonRequest) -> Dict:
+    """
+    Compare two sampling configurations.
+
+    Analyzes:
+    - Parameter differences
+    - Use case fit scores
+    - Conservative vs creative tradeoffs
+
+    Returns comparison with recommendation.
+    """
+    result = sampling_optimizer.compare_configs(
+        config_a=request.config_a,
+        config_b=request.config_b,
+        use_cases=request.use_cases
+    )
+
+    return result.model_dump()
+
+
+@router.post("/research/sampling/early-stopping", tags=["research", "sampling"])
+async def create_early_stopping_strategy(request: EarlyStoppingRequest) -> Dict:
+    """
+    Create early stopping strategy.
+
+    Strategies:
+    - stop_sequences: Stop on specific tokens/sequences
+    - max_tokens: Hard token limit
+    - confidence_threshold: Stop when confident enough
+    - repetition_detection: Stop on repetitive output
+    - combined: All strategies together
+
+    Returns early stopping configuration.
+    """
+    kwargs = {}
+    if request.stop_sequences:
+        kwargs["stop_sequences"] = request.stop_sequences
+    if request.max_tokens:
+        kwargs["max_tokens"] = request.max_tokens
+    if request.confidence_threshold:
+        kwargs["confidence_threshold"] = request.confidence_threshold
+    if request.repetition_window:
+        kwargs["repetition_window"] = request.repetition_window
+
+    result = sampling_optimizer.create_early_stopping_strategy(
+        strategy_type=request.strategy_type,
+        **kwargs
+    )
+
+    return result.model_dump()
+
+
+# ==================== LLM Knowledge (MoE, Speculative Decoding, Distillation) ====================
+
+class MoEAnalysisRequest(BaseModel):
+    """Request for MoE analysis"""
+    model_type: str = Field(default="Mixtral-8x7B", description="MoE model type")
+
+
+class SpeculativeDecodingRequest(BaseModel):
+    """Request for speculative decoding analysis"""
+    draft_model: str = Field(default="Mistral-7B-Instruct", description="Draft model")
+    verification_model: str = Field(default="Mixtral-8x7B-Instruct", description="Verification model")
+
+
+class DistillationDecisionRequest(BaseModel):
+    """Request for distillation vs prompting decision"""
+    scenario: str = Field(..., description="Task scenario")
+    data_size: int = Field(default=0, description="Number of labeled examples")
+    task_variability: Literal["fixed", "variable", "unknown"] = Field(default="unknown", description="Task variability")
+
+
+class HybridApproachRequest(BaseModel):
+    """Request for hybrid approach"""
+    approach_name: str = Field(default="Fraud Detection Hybrid", description="Approach name")
+
+
+@router.get("/research/llm-knowledge/moe", tags=["research", "llm-knowledge"])
+async def analyze_moe_architecture(model_type: str = "Mixtral-8x7B") -> Dict:
+    """
+    Analyze Mixture-of-Experts (MoE) architecture.
+
+    Explains:
+    - MoE routing mechanism
+    - When experts activate
+    - Cost implications (active vs total params)
+    - Inference efficiency benefits
+    - Best use cases
+
+    Example: Mixtral-8x7B has 46.7B total params but only 12.9B active per token.
+    """
+    result = llm_knowledge.analyze_moe(model_type=model_type)
+
+    return result.model_dump()
+
+
+@router.post("/research/llm-knowledge/speculative-decoding", tags=["research", "llm-knowledge"])
+async def analyze_speculative_decoding(request: SpeculativeDecodingRequest) -> Dict:
+    """
+    Analyze speculative decoding technique.
+
+    Explains:
+    - How draft + verification works
+    - Latency reduction benefits (2-3x speedup)
+    - When applicable (long-form generation)
+    - Limitations and requirements
+
+    Conceptual understanding for optimization decisions.
+    """
+    result = llm_knowledge.analyze_speculative_decoding(
+        draft_model=request.draft_model,
+        verification_model=request.verification_model
+    )
+
+    return result.model_dump()
+
+
+@router.post("/research/llm-knowledge/distillation-decision", tags=["research", "llm-knowledge"])
+async def decide_distillation_vs_prompting(request: DistillationDecisionRequest) -> Dict:
+    """
+    Decision framework: distillation vs prompting.
+
+    Recommends:
+    - Distillation: Lots of data (>10k), fixed task
+    - Prompting: Few examples (<100), flexible task
+    - Hybrid: Moderate data (1k-10k), mixed requirements
+
+    Returns recommendation with reasoning and tradeoffs.
+    """
+    result = llm_knowledge.decide_distillation_vs_prompting(
+        scenario=request.scenario,
+        data_size=request.data_size,
+        task_variability=request.task_variability
+    )
+
+    return result.model_dump()
+
+
+@router.post("/research/llm-knowledge/hybrid-approach", tags=["research", "llm-knowledge"])
+async def create_hybrid_approach(request: HybridApproachRequest) -> Dict:
+    """
+    Create hybrid distillation + prompting strategy.
+
+    Combines:
+    - Distillation for core task (speed)
+    - Prompting for variations (flexibility)
+
+    Returns integration strategy with example workflow.
+    """
+    result = llm_knowledge.create_hybrid_approach(
+        approach_name=request.approach_name
+    )
+
+    return result.model_dump()
+
+
+# ==================== Monitoring & Observability ====================
+
+from app.services.monitoring import metrics_monitor
+
+class PredictionLogRequest(BaseModel):
+    """Request to log a prediction"""
+    transaction_id: str = Field(..., description="Transaction ID")
+    predicted_label: str = Field(..., description="Prediction (fraud/legitimate)")
+    true_label: Optional[str] = Field(None, description="Ground truth label")
+    confidence: float = Field(..., description="Prediction confidence")
+    features: Dict[str, Any] = Field(..., description="Transaction features")
+    latency_ms: float = Field(..., description="Prediction latency (ms)")
+    token_count: Optional[int] = Field(None, description="Tokens used")
+
+
+@router.post("/monitoring/log-prediction", tags=["monitoring"])
+async def log_prediction(request: PredictionLogRequest) -> Dict:
+    """
+    Log a prediction for metrics tracking.
+
+    Used to track model performance, prediction distribution, and drift.
+    """
+    metrics_monitor.log_prediction(
+        transaction_id=request.transaction_id,
+        predicted_label=request.predicted_label,
+        true_label=request.true_label,
+        confidence=request.confidence,
+        features=request.features,
+        latency_ms=request.latency_ms,
+        token_count=request.token_count
+    )
+    return {"status": "logged", "transaction_id": request.transaction_id}
+
+
+@router.get("/monitoring/metrics", tags=["monitoring"])
+async def get_metrics(time_window_hours: int = Query(24, ge=1, le=168)) -> Dict:
+    """
+    Get comprehensive metrics dashboard data.
+
+    Includes:
+    - Model performance (F1, precision, recall)
+    - Latency percentiles (p50, p95, p99)
+    - Error rates
+    - Token usage
+    - Prediction distribution
+    - Data drift detection
+
+    Args:
+        time_window_hours: Time window for metrics (1-168 hours)
+    """
+    return metrics_monitor.get_dashboard_data(time_window_hours)
+
+
+@router.get("/monitoring/model-performance", tags=["monitoring"])
+async def get_model_performance(time_window_hours: int = Query(24, ge=1, le=168)) -> Dict:
+    """
+    Get model performance metrics.
+
+    Returns confusion matrix and derived metrics (precision, recall, F1, accuracy).
+    """
+    model_metrics = metrics_monitor.calculate_model_metrics(time_window_hours)
+    from dataclasses import asdict
+    return asdict(model_metrics)
+
+
+@router.get("/monitoring/latency", tags=["monitoring"])
+async def get_latency_metrics() -> Dict:
+    """
+    Get latency percentiles for all endpoints.
+
+    Returns p50, p95, p99, mean, min, max for each monitored endpoint.
+    """
+    return metrics_monitor.get_all_latency_metrics()
+
+
+@router.get("/monitoring/errors", tags=["monitoring"])
+async def get_error_metrics(time_window_hours: int = Query(24, ge=1, le=168)) -> Dict:
+    """
+    Get error metrics by type.
+
+    Returns error counts and error rates for each error type.
+    """
+    error_metrics = metrics_monitor.calculate_error_metrics(time_window_hours)
+    from dataclasses import asdict
+    return {"errors": [asdict(err) for err in error_metrics]}
+
+
+@router.get("/monitoring/token-usage", tags=["monitoring"])
+async def get_token_usage(time_window_hours: int = Query(24, ge=1, le=168)) -> Dict:
+    """
+    Get LLM token usage statistics.
+
+    Returns total tokens, average per request, percentiles.
+    """
+    return metrics_monitor.get_token_usage_stats(time_window_hours)
+
+
+@router.get("/monitoring/drift/{feature_name}", tags=["monitoring"])
+async def get_drift_detection(
+    feature_name: str,
+    time_window_hours: int = Query(24, ge=1, le=168)
+) -> Dict:
+    """
+    Check data drift for a specific feature.
+
+    Compares current distribution to reference distribution.
+    """
+    drift = metrics_monitor.detect_drift(feature_name, time_window_hours)
+    if drift is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No reference distribution found for feature '{feature_name}'"
+        )
+    from dataclasses import asdict
+    return asdict(drift)
+
+
+@router.get("/monitoring/time-series/{metric_name}", tags=["monitoring"])
+async def get_time_series(
+    metric_name: str,
+    time_window_hours: int = Query(24, ge=1, le=168),
+    granularity_minutes: int = Query(60, ge=5, le=1440)
+) -> Dict:
+    """
+    Get time series data for a metric.
+
+    Args:
+        metric_name: 'fraud_rate', 'avg_confidence'
+        time_window_hours: Time window
+        granularity_minutes: Time bucket size
+    """
+    time_series = metrics_monitor.get_time_series_data(
+        metric_name, time_window_hours, granularity_minutes
+    )
+    return {"metric_name": metric_name, "data": time_series}
+
+
+# ==============================================================================
+# MODEL TRAINING & PROMPT ENGINEERING ENDPOINTS
+# ==============================================================================
+
+from app.services.ml import model_trainer, prompt_manager
+from app.services.ml.finetuning_generator import finetuning_generator
+
+
+class TrainModelRequest(BaseModel):
+    """Request to train a model"""
+    model_type: Literal["random_forest", "xgboost"]
+    sample_size: Optional[int] = Field(None, description="Sample size for quick training (e.g., 10000)")
+    tune_hyperparameters: bool = Field(False, description="Whether to tune hyperparameters with Optuna")
+    n_trials: int = Field(20, description="Number of Optuna trials")
+
+
+class PromptTestRequest(BaseModel):
+    """Request to test a prompt template"""
+    template_id: str
+    transaction: Dict[str, Any]
+
+
+class CreatePromptRequest(BaseModel):
+    """Request to create a custom prompt template"""
+    name: str
+    strategy: str  # "zero_shot", "few_shot", etc.
+    version: str
+    system_prompt: str
+    user_prompt_template: str
+
+
+@router.post("/ml/train-model")
+async def train_model_endpoint(request: TrainModelRequest):
+    """
+    Train a fraud detection model
+
+    Models supported:
+    - random_forest: Fast, interpretable, good baseline
+    - xgboost: Higher accuracy, slower training
+
+    Args:
+        model_type: Type of model to train
+        sample_size: Optional sample size for quick training (M4 Pro optimization)
+        tune_hyperparameters: Whether to use Optuna for hyperparameter tuning
+        n_trials: Number of Optuna trials (default 20 for M4 Pro)
+
+    Returns:
+        {
+            "model_id": "...",
+            "metrics": {
+                "accuracy": 0.95,
+                "f1_score": 0.85,
+                ...
+            },
+            "training_time_seconds": 120.5
+        }
+    """
+    try:
+        # Train model
+        model_id = model_trainer.train_and_save(
+            model_type=request.model_type,
+            sample_size=request.sample_size,
+            tune=request.tune_hyperparameters,
+            n_trials=request.n_trials
+        )
+
+        # Get model artifact
+        artifact = next((a for a in model_trainer.registry if a.model_id == model_id), None)
+
+        if not artifact:
+            raise HTTPException(status_code=500, detail="Model trained but artifact not found")
+
+        return {
+            "model_id": model_id,
+            "model_name": artifact.model_name,
+            "model_type": artifact.model_type,
+            "metrics": {
+                "accuracy": artifact.metrics.accuracy,
+                "precision": artifact.metrics.precision,
+                "recall": artifact.metrics.recall,
+                "f1_score": artifact.metrics.f1_score,
+                "roc_auc": artifact.metrics.roc_auc
+            },
+            "training_time_seconds": artifact.metrics.training_time_seconds,
+            "inference_time_ms": artifact.metrics.inference_time_ms,
+            "created_at": artifact.created_at
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
+
+
+@router.get("/ml/models")
+async def list_models():
+    """
+    List all trained models with comparison
+
+    Returns DataFrame-like comparison of all models by F1 score
+    """
+    comparison = model_trainer.compare_models()
+
+    if comparison.empty:
+        return {"models": [], "message": "No models trained yet"}
+
+    return {
+        "models": comparison.to_dict(orient="records"),
+        "best_model": comparison.iloc[0].to_dict()
+    }
+
+
+@router.get("/ml/models/{model_id}")
+async def get_model_details(model_id: str):
+    """Get detailed metrics for a specific model"""
+    artifact = next((a for a in model_trainer.registry if a.model_id == model_id), None)
+
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    m = artifact.metrics
+
+    return {
+        "model_id": artifact.model_id,
+        "model_name": artifact.model_name,
+        "model_type": artifact.model_type,
+        "file_path": artifact.file_path,
+        "created_at": artifact.created_at,
+        "metrics": {
+            "accuracy": m.accuracy,
+            "precision": m.precision,
+            "recall": m.recall,
+            "f1_score": m.f1_score,
+            "roc_auc": m.roc_auc,
+            "training_time_seconds": m.training_time_seconds,
+            "inference_time_ms": m.inference_time_ms,
+            "confusion_matrix": m.confusion_matrix,
+            "feature_importance": m.feature_importance,
+            "hyperparameters": m.hyperparameters
+        }
+    }
+
+
+@router.get("/ml/models/{model_id}/download")
+async def download_model(model_id: str):
+    """Download model artifact file"""
+    from fastapi.responses import FileResponse
+
+    artifact = next((a for a in model_trainer.registry if a.model_id == model_id), None)
+
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    return FileResponse(
+        path=artifact.file_path,
+        filename=f"{model_id}.pkl",
+        media_type="application/octet-stream"
+    )
+
+
+@router.get("/prompts")
+async def list_prompts(strategy: Optional[str] = None):
+    """
+    List all prompt templates
+
+    Args:
+        strategy: Optional filter by strategy (zero_shot, few_shot, etc.)
+    """
+    from app.services.ml.prompt_manager import PromptStrategy
+
+    strategy_filter = None
+    if strategy:
+        try:
+            strategy_filter = PromptStrategy(strategy)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid strategy: {strategy}")
+
+    templates = prompt_manager.list_templates(strategy_filter)
+
+    return {
+        "templates": [
+            {
+                "template_id": t.template_id,
+                "name": t.name,
+                "strategy": t.strategy.value,
+                "version": t.version,
+                "active": t.active,
+                "created_at": t.created_at,
+                "performance_metrics": t.performance_metrics
+            }
+            for t in templates
+        ]
+    }
+
+
+@router.get("/prompts/{template_id}")
+async def get_prompt_template(template_id: str):
+    """Get specific prompt template details"""
+    template = prompt_manager.get_template(template_id)
+
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    return {
+        "template_id": template.template_id,
+        "name": template.name,
+        "strategy": template.strategy.value,
+        "version": template.version,
+        "system_prompt": template.system_prompt,
+        "user_prompt_template": template.user_prompt_template,
+        "num_examples": len(template.examples),
+        "active": template.active,
+        "created_at": template.created_at,
+        "performance_metrics": template.performance_metrics
+    }
+
+
+@router.post("/prompts/test")
+async def test_prompt_template(request: PromptTestRequest):
+    """
+    Test a prompt template with a transaction
+
+    Returns rendered prompt ready to send to LLM
+    """
+    try:
+        rendered = prompt_manager.render_prompt(
+            request.template_id,
+            request.transaction
+        )
+
+        return {
+            "template_id": request.template_id,
+            "rendered_prompt": rendered,
+            "transaction": request.transaction
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/prompts/create")
+async def create_prompt_template(request: CreatePromptRequest):
+    """Create a custom prompt template"""
+    from app.services.ml.prompt_manager import PromptStrategy
+
+    try:
+        strategy = PromptStrategy(request.strategy)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid strategy: {request.strategy}")
+
+    template_id = prompt_manager.register_template(
+        name=request.name,
+        strategy=strategy,
+        version=request.version,
+        system_prompt=request.system_prompt,
+        user_prompt_template=request.user_prompt_template,
+        examples=[]
+    )
+
+    return {
+        "template_id": template_id,
+        "message": "Template created successfully"
+    }
+
+
+@router.get("/prompts/compare")
+async def compare_prompts():
+    """Compare all prompt templates by performance metrics"""
+    comparison = prompt_manager.compare_templates()
+
+    return {
+        "templates": comparison,
+        "message": f"Showing {len(comparison)} templates"
+    }
+
+
+@router.post("/ml/generate-finetuning-dataset")
+async def generate_finetuning_dataset(sample_size: int = 1000):
+    """
+    Generate fine-tuning datasets (Alpaca, ShareGPT, preferences)
+
+    Note: This prepares the data. Actual fine-tuning skipped for M4 Pro.
+
+    Args:
+        sample_size: Number of examples to generate (default 1000)
+
+    Returns:
+        {
+            "files": [...],
+            "statistics": {...}
+        }
+    """
+    try:
+        finetuning_generator.create_full_pipeline(sample_size=sample_size)
+
+        return {
+            "status": "success",
+            "files": [
+                "data/finetuning/fraud_detection_alpaca.jsonl",
+                "data/finetuning/fraud_detection_sharegpt.jsonl",
+                "data/finetuning/fraud_detection_preferences.jsonl"
+            ],
+            "sample_size": sample_size,
+            "message": "Fine-tuning datasets generated successfully. Ready for LoRA fine-tuning on appropriate hardware."
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Dataset generation failed: {str(e)}")

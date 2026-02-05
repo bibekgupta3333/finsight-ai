@@ -1,0 +1,129 @@
+[
+  {
+    "test_id": "basic_fraud_001",
+    "category": "basic",
+    "transaction": {
+      "type": "CASH_OUT",
+      "amount": 500000.0,
+      "oldbalanceOrg": 1000000.0,
+      "newbalanceOrig": 500000.0,
+      "oldbalanceDest": 0.0,
+      "newbalanceDest": 500000.0
+    },
+    "expected_prediction": "fraud",
+    "expected_confidence_min": 0.8,
+    "difficulty": 1,
+    "description": "Clear fraud: Large CASH_OUT with balance mismatch",
+    "key_indicators": [
+      "large_amount",
+      "cash_out",
+      "balance_mismatch"
+    ]
+  },
+  {
+    "test_id": "basic_legit_001",
+    "category": "basic",
+    "transaction": {
+      "type": "PAYMENT",
+      "amount": 50.0,
+      "oldbalanceOrg": 1000.0,
+      "newbalanceOrig": 950.0,
+      "oldbalanceDest": 500.0,
+      "newbalanceDest": 550.0
+    },
+    "expected_prediction": "legitimate",
+    "expected_confidence_min": 0.8,
+    "difficulty": 1,
+    "description": "Clear legitimate: Small PAYMENT with correct balances",
+    "key_indicators": [
+      "small_amount",
+      "payment",
+      "balance_match"
+    ]
+  },
+  {
+    "test_id": "edge_tiny_fraud_001",
+    "category": "edge_cases",
+    "transaction": {
+      "type": "TRANSFER",
+      "amount": 1.0,
+      "oldbalanceOrg": 100.0,
+      "newbalanceOrig": 0.0,
+      "oldbalanceDest": 0.0,
+      "newbalanceDest": 0.0
+    },
+    "expected_prediction": "fraud",
+    "expected_confidence_min": 0.6,
+    "difficulty": 5,
+    "description": "Tiny amount but suspicious: entire account drained, money disappeared",
+    "key_indicators": [
+      "account_drained",
+      "disappeared_money",
+      "unusual_pattern"
+    ]
+  },
+  {
+    "test_id": "edge_high_legit_001",
+    "category": "high_amount",
+    "transaction": {
+      "type": "PAYMENT",
+      "amount": 900000.0,
+      "oldbalanceOrg": 1000000.0,
+      "newbalanceOrig": 100000.0,
+      "oldbalanceDest": 500000.0,
+      "newbalanceDest": 1400000.0
+    },
+    "expected_prediction": "legitimate",
+    "expected_confidence_min": 0.6,
+    "difficulty": 4,
+    "description": "High amount but balances match perfectly - legitimate large payment",
+    "key_indicators": [
+      "high_amount",
+      "balance_match",
+      "payment_type"
+    ]
+  },
+  {
+    "test_id": "drained_fraud_001",
+    "category": "account_drained",
+    "transaction": {
+      "type": "CASH_OUT",
+      "amount": 750000.0,
+      "oldbalanceOrg": 750000.0,
+      "newbalanceOrig": 0.0,
+      "oldbalanceDest": 0.0,
+      "newbalanceDest": 0.0
+    },
+    "expected_prediction": "fraud",
+    "expected_confidence_min": 0.7,
+    "difficulty": 3,
+    "description": "Complete account drain with money disappearing",
+    "key_indicators": [
+      "account_drained",
+      "disappeared_money",
+      "cash_out"
+    ]
+  },
+  {
+    "test_id": "rapid_fraud_001",
+    "category": "rapid_succession",
+    "transaction": {
+      "type": "TRANSFER",
+      "amount": 200000.0,
+      "oldbalanceOrg": 250000.0,
+      "newbalanceOrig": 50000.0,
+      "oldbalanceDest": 0.0,
+      "newbalanceDest": 0.0,
+      "step": 100
+    },
+    "expected_prediction": "fraud",
+    "expected_confidence_min": 0.65,
+    "difficulty": 4,
+    "description": "Large transfer with money disappearing - possible rapid succession fraud",
+    "key_indicators": [
+      "large_transfer",
+      "disappeared_money",
+      "suspicious_pattern"
+    ]
+  }
+]

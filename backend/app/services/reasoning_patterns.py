@@ -218,11 +218,13 @@ Respond in JSON:
     def _parse_thought(self, response: str) -> Dict[str, Any]:
         """Parse LLM's thought response."""
         try:
-            return json.loads(response)
+            # Extract text from GenerateResponse if needed
+            response_text = response.text if hasattr(response, 'text') else str(response)
+            return json.loads(response_text)
         except json.JSONDecodeError:
             # Fallback: extract any JSON-like content
             return {
-                "reasoning": response,
+                "reasoning": str(response),
                 "action": None,
                 "should_decide": True,
                 "confidence": 0.5,
@@ -873,7 +875,9 @@ Respond in JSON:
 
         response = await llm_client.generate(prompt)
         try:
-            return json.loads(response)
+            # Extract text from GenerateResponse if needed
+            response_text = response.text if hasattr(response, 'text') else str(response)
+            return json.loads(response_text)
         except json.JSONDecodeError:
             return {"needs_revision": False, "issues_found": [], "suggestions": ""}
 
@@ -987,7 +991,9 @@ Respond in JSON:
 
         response = await llm_client.generate(prompt)
         try:
-            return json.loads(response)
+            # Extract text from GenerateResponse if needed
+            response_text = response.text if hasattr(response, 'text') else str(response)
+            return json.loads(response_text)
         except json.JSONDecodeError:
             return {"aligned": True, "issues": [], "policy_citations": []}
 
@@ -1015,7 +1021,9 @@ Respond in JSON:
 
         response = await llm_client.generate(prompt)
         try:
-            return json.loads(response)
+            # Extract text from GenerateResponse if needed
+            response_text = response.text if hasattr(response, 'text') else str(response)
+            return json.loads(response_text)
         except json.JSONDecodeError:
             return {"valid": True, "issues": [], "confidence": 1.0}
 
