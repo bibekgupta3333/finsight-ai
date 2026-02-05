@@ -6751,7 +6751,7 @@ async def apply_sliding_window(request: SlidingWindowRequest) -> Dict:
         preserve_system=request.preserve_system
     )
 
-    return result.dict()
+    return result.model_dump()
 
 
 @router.post("/research/context/summarize", tags=["research", "context"])
@@ -6776,7 +6776,7 @@ async def summarize_context(request: SummarizationRequest) -> Dict:
         target_compression=request.target_compression
     )
 
-    return result.dict()
+    return result.model_dump()
 
 
 @router.post("/research/context/detect-important", tags=["research", "context"])
@@ -6823,7 +6823,7 @@ async def check_overflow(request: OverflowCheckRequest) -> Dict:
         output_reserve=request.output_reserve
     )
 
-    return result.dict()
+    return result.model_dump()
 
 
 @router.post("/research/context/allocate-dynamic", tags=["research", "context"])
@@ -6845,7 +6845,7 @@ async def allocate_dynamic(request: DynamicAllocationRequest) -> Dict:
         expected_output_length=request.expected_output_length
     )
 
-    return result.dict()
+    return result.model_dump()
 
 
 @router.post("/research/context/manage-conversation", tags=["research", "context"])
@@ -6871,7 +6871,7 @@ async def manage_conversation(request: ConversationManagementRequest) -> Dict:
         auto_summarize=request.auto_summarize
     )
 
-    return result.dict()
+    return result.model_dump()
 
 
 # ==================== Sampling Strategy Optimization ====================
@@ -6931,7 +6931,7 @@ async def recommend_sampling_parameters(request: SamplingRecommendationRequest) 
         custom_constraints=request.custom_constraints
     )
 
-    return result.dict()
+    return result.model_dump()
 
 
 @router.post("/research/sampling/schedule", tags=["research", "sampling"])
@@ -6955,7 +6955,7 @@ async def create_temperature_schedule(request: TemperatureScheduleRequest) -> Di
         steps=request.steps
     )
 
-    return result.dict()
+    return result.model_dump()
 
 
 @router.post("/research/sampling/validate", tags=["research", "sampling"])
@@ -6975,7 +6975,7 @@ async def validate_sampling_parameters(request: ParameterValidationRequest) -> D
         use_case=request.use_case
     )
 
-    return result.dict()
+    return result.model_dump()
 
 
 @router.post("/research/sampling/compare", tags=["research", "sampling"])
@@ -6996,7 +6996,7 @@ async def compare_sampling_configs(request: ParameterComparisonRequest) -> Dict:
         use_cases=request.use_cases
     )
 
-    return result.dict()
+    return result.model_dump()
 
 
 @router.post("/research/sampling/early-stopping", tags=["research", "sampling"])
@@ -7028,7 +7028,7 @@ async def create_early_stopping_strategy(request: EarlyStoppingRequest) -> Dict:
         **kwargs
     )
 
-    return result.dict()
+    return result.model_dump()
 
 
 # ==================== LLM Knowledge (MoE, Speculative Decoding, Distillation) ====================
@@ -7072,7 +7072,7 @@ async def analyze_moe_architecture(model_type: str = "Mixtral-8x7B") -> Dict:
     """
     result = llm_knowledge.analyze_moe(model_type=model_type)
 
-    return result.dict()
+    return result.model_dump()
 
 
 @router.post("/research/llm-knowledge/speculative-decoding", tags=["research", "llm-knowledge"])
@@ -7093,7 +7093,7 @@ async def analyze_speculative_decoding(request: SpeculativeDecodingRequest) -> D
         verification_model=request.verification_model
     )
 
-    return result.dict()
+    return result.model_dump()
 
 
 @router.post("/research/llm-knowledge/distillation-decision", tags=["research", "llm-knowledge"])
@@ -7114,7 +7114,7 @@ async def decide_distillation_vs_prompting(request: DistillationDecisionRequest)
         task_variability=request.task_variability
     )
 
-    return result.dict()
+    return result.model_dump()
 
 
 @router.post("/research/llm-knowledge/hybrid-approach", tags=["research", "llm-knowledge"])
@@ -7132,4 +7132,4 @@ async def create_hybrid_approach(request: HybridApproachRequest) -> Dict:
         approach_name=request.approach_name
     )
 
-    return result.dict()
+    return result.model_dump()

@@ -49,7 +49,7 @@ class ParameterComparison(BaseModel):
     config_a: SamplingConfig = Field(..., description="First configuration")
     config_b: SamplingConfig = Field(..., description="Second configuration")
     differences: Dict[str, Any] = Field(default_factory=dict, description="Parameter differences")
-    use_case_fit: Dict[str, float] = Field(default_factory=dict, description="Fit scores for use cases")
+    use_case_fit: Dict[str, Dict[str, Any]] = Field(default_factory=dict, description="Fit scores for use cases")
     recommendation: str = Field(..., description="Which config to use when")
 
 
@@ -253,7 +253,7 @@ class SamplingOptimizer:
         self._log_recommendation({
             "timestamp": datetime.now().isoformat(),
             "use_case": use_case,
-            "config": config.dict(),
+            "config": config.model_dump(),
             "custom_constraints": custom_constraints
         })
 
@@ -450,7 +450,7 @@ class SamplingOptimizer:
 
         # Find differences
         differences = {}
-        for field in cfg_a.__fields__:
+        for field in cfg_a.model_fields:
             val_a = getattr(cfg_a, field)
             val_b = getattr(cfg_b, field)
             if val_a != val_b:
