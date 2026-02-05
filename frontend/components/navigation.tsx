@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { BarChart3, Brain, Home, Layers, Menu, Shield, Upload, FileText, Info, ChevronDown, Activity, Sliders, Cpu, GitBranch } from 'lucide-react';
+import { BarChart3, Brain, Home, Layers, Menu, Shield, Upload, FileText, Info, ChevronDown, Activity, Sliders, Cpu, GitBranch, LineChart } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -41,6 +41,7 @@ export function Navigation() {
     { href: '/dashboard/sampling', label: 'Sampling Optimizer', icon: Sliders, description: 'Parameter tuning & schedules' },
     { href: '/dashboard/moe-explorer', label: 'MoE Cost Explorer', icon: Cpu, description: 'Mixture-of-Experts analysis' },
     { href: '/dashboard/distillation', label: 'Distillation Decision', icon: GitBranch, description: 'Model distillation framework' },
+    { href: '/dashboard/monitoring', label: 'Monitoring', icon: LineChart, description: 'Metrics & observability' },
   ];
 
   const isDashboardActive = dashboardItems.some(item => pathname === item.href);

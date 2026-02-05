@@ -7133,3 +7133,140 @@ async def create_hybrid_approach(request: HybridApproachRequest) -> Dict:
     )
 
     return result.model_dump()
+
+
+# ==================== Monitoring & Observability ====================
+
+from app.services.monitoring import metrics_monitor
+
+class PredictionLogRequest(BaseModel):
+    """Request to log a prediction"""
+    transaction_id: str = Field(..., description="Transaction ID")
+    predicted_label: str = Field(..., description="Prediction (fraud/legitimate)")
+    true_label: Optional[str] = Field(None, description="Ground truth label")
+    confidence: float = Field(..., description="Prediction confidence")
+    features: Dict[str, Any] = Field(..., description="Transaction features")
+    latency_ms: float = Field(..., description="Prediction latency (ms)")
+    token_count: Optional[int] = Field(None, description="Tokens used")
+
+
+@router.post("/monitoring/log-prediction", tags=["monitoring"])
+async def log_prediction(request: PredictionLogRequest) -> Dict:
+    """
+    Log a prediction for metrics tracking.
+
+    Used to track model performance, prediction distribution, and drift.
+    """
+    metrics_monitor.log_prediction(
+        transaction_id=request.transaction_id,
+        predicted_label=request.predicted_label,
+        true_label=request.true_label,
+        confidence=request.confidence,
+        features=request.features,
+        latency_ms=request.latency_ms,
+        token_count=request.token_count
+    )
+    return {"status": "logged", "transaction_id": request.transaction_id}
+
+
+@router.get("/monitoring/metrics", tags=["monitoring"])
+async def get_metrics(time_window_hours: int = Query(24, ge=1, le=168)) -> Dict:
+    """
+    Get comprehensive metrics dashboard data.
+
+    Includes:
+    - Model performance (F1, precision, recall)
+    - Latency percentiles (p50, p95, p99)
+    - Error rates
+    - Token usage
+    - Prediction distribution
+    - Data drift detection
+
+    Args:
+        time_window_hours: Time window for metrics (1-168 hours)
+    """
+    return metrics_monitor.get_dashboard_data(time_window_hours)
+
+
+@router.get("/monitoring/model-performance", tags=["monitoring"])
+async def get_model_performance(time_window_hours: int = Query(24, ge=1, le=168)) -> Dict:
+    """
+    Get model performance metrics.
+
+    Returns confusion matrix and derived metrics (precision, recall, F1, accuracy).
+    """
+    model_metrics = metrics_monitor.calculate_model_metrics(time_window_hours)
+    from dataclasses import asdict
+    return asdict(model_metrics)
+
+
+@router.get("/monitoring/latency", tags=["monitoring"])
+async def get_latency_metrics() -> Dict:
+    """
+    Get latency percentiles for all endpoints.
+
+    Returns p50, p95, p99, mean, min, max for each monitored endpoint.
+    """
+    return metrics_monitor.get_all_latency_metrics()
+
+
+@router.get("/monitoring/errors", tags=["monitoring"])
+async def get_error_metrics(time_window_hours: int = Query(24, ge=1, le=168)) -> Dict:
+    """
+    Get error metrics by type.
+
+    Returns error counts and error rates for each error type.
+    """
+    error_metrics = metrics_monitor.calculate_error_metrics(time_window_hours)
+    from dataclasses import asdict
+    return {"errors": [asdict(err) for err in error_metrics]}
+
+
+@router.get("/monitoring/token-usage", tags=["monitoring"])
+async def get_token_usage(time_window_hours: int = Query(24, ge=1, le=168)) -> Dict:
+    """
+    Get LLM token usage statistics.
+
+    Returns total tokens, average per request, percentiles.
+    """
+    return metrics_monitor.get_token_usage_stats(time_window_hours)
+
+
+@router.get("/monitoring/drift/{feature_name}", tags=["monitoring"])
+async def get_drift_detection(
+    feature_name: str,
+    time_window_hours: int = Query(24, ge=1, le=168)
+) -> Dict:
+    """
+    Check data drift for a specific feature.
+
+    Compares current distribution to reference distribution.
+    """
+    drift = metrics_monitor.detect_drift(feature_name, time_window_hours)
+    if drift is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No reference distribution found for feature '{feature_name}'"
+        )
+    from dataclasses import asdict
+    return asdict(drift)
+
+
+@router.get("/monitoring/time-series/{metric_name}", tags=["monitoring"])
+async def get_time_series(
+    metric_name: str,
+    time_window_hours: int = Query(24, ge=1, le=168),
+    granularity_minutes: int = Query(60, ge=5, le=1440)
+) -> Dict:
+    """
+    Get time series data for a metric.
+
+    Args:
+        metric_name: 'fraud_rate', 'avg_confidence'
+        time_window_hours: Time window
+        granularity_minutes: Time bucket size
+    """
+    time_series = metrics_monitor.get_time_series_data(
+        metric_name, time_window_hours, granularity_minutes
+    )
+    return {"metric_name": metric_name, "data": time_series}
