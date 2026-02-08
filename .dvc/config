@@ -1,5 +1,8 @@
 [core]
-    remote = local_storage
+    remote = dagshub
     autostage = true
 ['remote "local_storage"']
     url = /Users/bibekgupta/Documents/personal/bibek-portfolio/finsight-ai/.dvc_storage
+['remote "dagshub"']
+    url = https://dagshub.com/bibekgupta3333/finsight-ai.dvc
+    auth = basic

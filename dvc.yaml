@@ -1,0 +1,144 @@
+# DVC Pipeline for FinSight AI Data Management
+# This pipeline tracks the complete data processing workflow from raw data to train-ready datasets
+# 
+# Pipeline Stages:
+# 1. clean: Clean and preprocess raw data
+# 2. split_stratified: Create stratified train/val/test splits
+# 3. split_temporal: Create temporal train/val/test splits
+# 4. balance: Create balanced training datasets using SMOTE
+# 5. generate_features: Generate additional features for training
+#
+# Author: FinSight AI Team
+# Date: February 8, 2026
+
+stages:
+  clean:
+    cmd: python backend/scripts/data_cleaning.py
+    deps:
+      - backend/scripts/data_cleaning.py
+      - data/raw/PS_20174392719_1491204439457_log.csv
+    outs:
+      - data/processed/paysim_cleaned.csv
+      - data/processed/cleaning_statistics.json
+      - data/processed/cleaned_metadata.json
+    params:
+      - normalization_method
+      - random_seed
+    metrics:
+      - data/processed/cleaning_statistics.json:
+          cache: false
+    desc: |
+      Clean and preprocess raw PaySim transaction data.
+      Steps:
+      - Remove duplicates
+      - Handle missing values  
+      - PII masking (hash account IDs)
+      - Normalize transaction amounts
+      - Time feature extraction (hour, day, day_of_week)
+      - Feature engineering (balance ratios, amount ratios)
+
+  split_stratified:
+    cmd: python backend/scripts/dataset_splitting.py --strategy stratified
+    deps:
+      - backend/scripts/dataset_splitting.py
+      - data/processed/paysim_cleaned.csv
+    outs:
+      - data/splits/stratified/train.csv
+      - data/splits/stratified/val.csv
+      - data/splits/stratified/test.csv
+      - data/splits/split_metadata.json
+    params:
+      - train_size
+      - val_size
+      - test_size
+      - random_seed
+    metrics:
+      - data/splits/split_metadata.json:
+          cache: false
+    desc: |
+      Create stratified train/val/test splits (60/20/20).
+      Preserves fraud rate across all splits for unbiased evaluation.
+      Uses stratified sampling to maintain class distribution.
+
+  split_temporal:
+    cmd: python backend/scripts/dataset_splitting.py --strategy temporal
+    deps:
+      - backend/scripts/dataset_splitting.py
+      - data/processed/paysim_cleaned.csv
+    outs:
+      - data/splits/temporal/train.csv
+      - data/splits/temporal/val.csv
+      - data/splits/temporal/test.csv
+    params:
+      - train_size
+      - val_size
+      - test_size
+    desc: |
+      Create temporal train/val/test splits (60/20/20).
+      Respects chronological order to simulate production deployment.
+      Earlier transactions → training, later → validation/test.
+
+  balance:
+    cmd: python backend/scripts/data_augmentation.py
+    deps:
+      - backend/scripts/data_augmentation.py
+      - data/splits/stratified/train.csv
+    outs:
+      - data/balanced/train_balanced_smote.csv
+      - data/balanced/train_balanced_combined.csv
+      - data/balanced/train_balanced_with_synthetic.csv
+      - data/balanced/augmentation_metadata.json
+    params:
+      - smote_sampling_strategy
+      - smote_k_neighbors
+      - random_seed
+    metrics:
+      - data/balanced/augmentation_metadata.json:
+          cache: false
+    desc: |
+      Balance the training dataset using SMOTE and synthetic data generation.
+      Addresses class imbalance (0.13% fraud rate → 10% fraud rate).
+      Generates 3 balanced versions:
+      - SMOTE only
+      - Combined approach
+      - With additional synthetic edge cases
+
+  generate_annotations:
+    cmd: python backend/scripts/generate_explanations.py
+    deps:
+      - backend/scripts/generate_explanations.py
+      - data/splits/stratified/train.csv
+      - data/fraud_policies/*.md
+    outs:
+      - data/annotations/fraud_explanations.json
+      - data/annotations/preference_pairs.json
+    params:
+      - num_samples
+      - random_seed
+    desc: |
+      Generate fraud explanations and preference pairs for training.
+      Uses policy-guided LLM to create high-quality annotations.
+      Produces:
+      - Fraud explanations (chain-of-thought reasoning)
+      - Preference pairs (for RLHF/DPO fine-tuning)
+
+  quality_check:
+    cmd: python backend/scripts/data_quality_check.py
+    deps:
+      - backend/scripts/data_quality_check.py
+      - data/splits/stratified/train.csv
+      - data/splits/temporal/train.csv
+      - data/balanced/train_balanced_smote.csv
+    outs:
+      - data/analysis/data_quality_report.json
+    metrics:
+      - data/analysis/data_quality_report.json:
+          cache: false
+    desc: |
+      Validate data quality across all pipeline stages.
+      Checks:
+      - No missing values
+      - No duplicates
+      - Fraud rate consistency
+      - Data shape correctness
+

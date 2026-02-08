@@ -1,0 +1,46 @@
+# DVC Pipeline Parameters for FinSight AI
+# These parameters control the behavior of data processing stages
+# Override values here to experiment with different configurations
+#
+# Author: FinSight AI Team
+# Date: February 8, 2026
+
+# Data Cleaning Parameters
+normalization_method: "standard"  # Options: "standard", "minmax", "robust"
+handle_outliers: true
+outlier_threshold: 3.0
+pii_hashing: true
+
+# Global Random Seed (for reproducibility)
+random_seed: 42
+
+# Dataset Splitting Parameters
+train_size: 0.6
+val_size: 0.2
+test_size: 0.2
+shuffle: true
+stratify_column: "isFraud"
+
+# SMOTE Parameters (for balancing)
+smote_sampling_strategy: 0.1  # Target fraud rate after balancing
+smote_k_neighbors: 5
+smote_random_state: 42
+
+# Synthetic Data Generation Parameters
+synthetic_fraud_cases: 5000
+synthetic_edge_cases: 1000
+
+# Annotation Generation Parameters
+num_samples: 1000  # Number of fraud cases to annotate
+use_llm_explanations: true
+policy_guided: true
+
+# Feature Engineering Parameters
+extract_time_features: true
+extract_velocity_features: true
+extract_behavioral_features: true
+
+# Data Quality Thresholds
+min_fraud_rate: 0.001  # 0.1% minimum
+max_missing_percentage: 0.05  # 5% maximum
+max_duplicate_percentage: 0.01  # 1% maximum
