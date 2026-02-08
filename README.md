@@ -129,6 +129,36 @@ python scripts/prepare_data_pipeline.py --generate-report
 
 See [backend/scripts/README.md](backend/scripts/README.md) for detailed documentation.
 
+### Data Quality Validation
+
+Automated data validation ensures data quality throughout the MLOps pipeline:
+
+```bash
+# Validate raw data
+pnpm data:validate
+
+# Validate cleaned data
+pnpm data:validate:cleaned
+
+# Strict mode (fail on warnings)
+pnpm data:validate:strict
+
+# Drift detection (compare current vs baseline)
+pnpm data:validate:drift
+```
+
+**Validation Checks:**
+- ✅ Schema validation (columns, data types)
+- ✅ Missing value detection
+- ✅ Duplicate detection
+- ✅ Outlier detection (IQR method)
+- ✅ Fraud rate validation
+- ✅ Drift detection (KS test)
+
+**Quality Score:** 0-100 weighted score across all validations
+
+See [docs/DATA-VALIDATION-GUIDE.md](docs/DATA-VALIDATION-GUIDE.md) for comprehensive documentation.
+
 ---
 
 ## 🧠 Why This Project is AGI-Level

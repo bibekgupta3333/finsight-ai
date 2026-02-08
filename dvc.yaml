@@ -12,6 +12,24 @@
 # Date: February 8, 2026
 
 stages:
+  validate_raw:
+    cmd: python backend/scripts/validate_data.py data/raw/PS_20174392719_1491204439457_log.csv --output-dir data/analysis --report-name raw_data_quality_report.json
+    deps:
+      - backend/scripts/validate_data.py
+      - data/raw/PS_20174392719_1491204439457_log.csv
+    metrics:
+      - data/analysis/raw_data_quality_report.json:
+          cache: false
+    desc: |
+      Validate raw data quality before processing.
+      Checks:
+      - Schema validation (columns, dtypes)
+      - Missing values
+      - Duplicate detection
+      - Fraud rate sanity check
+      - Outlier detection
+      Quality gates ensure data meets minimum standards.
+
   clean:
     cmd: python backend/scripts/data_cleaning.py
     deps:
@@ -129,7 +147,7 @@ stages:
       - data/splits/temporal/train.csv
       - data/balanced/train_balanced_smote.csv
     metrics:
-      - data/analysis/data_quality_report.json:
+      - data/analysis/processed_data_quality_report.json:
           cache: false
     desc: |
       Validate data quality across all pipeline stages.

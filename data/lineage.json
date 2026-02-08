@@ -1,7 +1,7 @@
 {
   "project": "FinSight AI - Fraud Detection",
   "created_at": "2025-12-29T00:37:59.630116",
-  "last_updated": "2025-12-29T00:37:59.630136",
+  "last_updated": "2026-02-08T14:49:14.111649",
   "data_versions": {
     "v1_raw": {
       "files": [
@@ -117,6 +117,169 @@
         "preference_pairs_created": 491
       },
       "timestamp": "2025-12-29T00:37:59.630135"
+    },
+    {
+      "id": "data_cleaning_pipeline",
+      "input_files": [
+        "/Users/bibekgupta/Downloads/projects/finsight-ai/data/raw/PS_20174392719_1491204439457_log.csv"
+      ],
+      "output_files": [
+        "/Users/bibekgupta/Downloads/projects/finsight-ai/data/processed/paysim_cleaned.csv"
+      ],
+      "input_version": "v1_raw",
+      "output_version": "v2_cleaned",
+      "script": "/Users/bibekgupta/Downloads/projects/finsight-ai/backend/scripts/data_cleaning.py",
+      "operations": [
+        "handle_missing",
+        "remove_duplicates",
+        "mask_pii",
+        "normalize_amounts",
+        "create_temporal_features",
+        "engineer_features"
+      ],
+      "metadata": {
+        "script_hash": "5fc7888cb8573fcc8cf044473817b3d4c75c643d78c7ca1d3258a3cf4ca02cf1",
+        "input_hash": "16910f90577b0d981bf8ff289714510bb89bc71bff7d3f220f024e287e4eea6b",
+        "output_hash": "26c000fab41b759d0f086d1b1e31fc0ad23bff196977a31f7ec8a4b49feb8c04",
+        "execution_time_sec": null,
+        "features_created": [
+          "nameOrig_hash",
+          "nameDest_hash",
+          "amount_normalized",
+          "hour",
+          "day",
+          "day_of_week",
+          "time_period",
+          "balance_change_orig",
+          "balance_change_dest",
+          "balance_change_ratio_orig",
+          "balance_change_ratio_dest",
+          "amount_to_balance_ratio",
+          "zero_balance_orig",
+          "zero_balance_dest",
+          "balance_inconsistency",
+          "is_high_value",
+          "is_round_amount"
+        ],
+        "quality_checks_passed": true
+      },
+      "timestamp": "2026-02-08T14:45:51.490030"
+    },
+    {
+      "id": "dataset_splitting_pipeline",
+      "input_files": [
+        "/Users/bibekgupta/Downloads/projects/finsight-ai/data/processed/paysim_cleaned.csv"
+      ],
+      "output_files": [
+        "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/stratified/train.csv",
+        "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/stratified/val.csv",
+        "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/stratified/test.csv",
+        "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/temporal/train.csv",
+        "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/temporal/val.csv",
+        "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/temporal/test.csv"
+      ],
+      "input_version": "v2_cleaned",
+      "output_version": "v2_splits",
+      "script": "/Users/bibekgupta/Downloads/projects/finsight-ai/backend/scripts/dataset_splitting.py",
+      "operations": [
+        "stratified_split",
+        "temporal_split"
+      ],
+      "metadata": {
+        "script_hash": "1e6e610ccba28e2471ce90df4df95e12b3941b537024cefd691e9de0479c35b4",
+        "input_hash": "26c000fab41b759d0f086d1b1e31fc0ad23bff196977a31f7ec8a4b49feb8c04",
+        "output_hashes": {
+          "strat_train": "f98810cf37cd9bc3570286de9bcb034bd9f7cdf7c0104ad5148cabf03e2c3eba",
+          "strat_val": "643818ad5bbbdff42c120834544f9a8994445c3e3479c166de107eefc54a0b7c",
+          "strat_test": "4e9dc7caf11ceadaa4e256df15518a5af502aa7735c59281093c09f0413f73dd",
+          "temp_train": "81b049f53c7c1bbca820db7f0799168e1cabd56735d9f89f5994e1998ec510d0",
+          "temp_val": "0b9b8bbafee605c507ac74a8825eec87156a1bd772d6259f6fae801e929b01be",
+          "temp_test": "b1dcfd070aed1476594aef4ab41fa35b65db3b71f8e138a70e2846407bae2612"
+        },
+        "split_metadata": {
+          "stratified": {
+            "split_type": "stratified",
+            "split_config": {
+              "train_size": 0.6,
+              "val_size": 0.2,
+              "test_size": 0.2,
+              "random_seed": 42
+            },
+            "split_statistics": {
+              "train": {
+                "total_count": 3817572,
+                "fraud_count": 4928,
+                "legitimate_count": 3812644,
+                "fraud_rate": 0.001290872837499856
+              },
+              "val": {
+                "total_count": 1272524,
+                "fraud_count": 1642,
+                "legitimate_count": 1270882,
+                "fraud_rate": 0.0012903489443028186
+              },
+              "test": {
+                "total_count": 1272524,
+                "fraud_count": 1643,
+                "legitimate_count": 1270881,
+                "fraud_rate": 0.0012911347840983745
+              }
+            },
+            "split_paths": {
+              "train": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/stratified/train.csv",
+              "val": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/stratified/val.csv",
+              "test": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/stratified/test.csv"
+            }
+          },
+          "temporal": {
+            "split_type": "temporal",
+            "split_config": {
+              "train_size": 0.6,
+              "val_size": 0.2,
+              "test_size": 0.2,
+              "random_seed": 42
+            },
+            "split_statistics": {
+              "train": {
+                "total_count": 3817572,
+                "fraud_count": 3191,
+                "legitimate_count": 3814381,
+                "fraud_rate": 0.000835871595872979,
+                "time_range": {
+                  "min_step": 1,
+                  "max_step": 281
+                }
+              },
+              "val": {
+                "total_count": 1272524,
+                "fraud_count": 768,
+                "legitimate_count": 1271756,
+                "fraud_rate": 0.0006035249629869456,
+                "time_range": {
+                  "min_step": 281,
+                  "max_step": 355
+                }
+              },
+              "test": {
+                "total_count": 1272524,
+                "fraud_count": 4254,
+                "legitimate_count": 1268270,
+                "fraud_rate": 0.0033429624902948786,
+                "time_range": {
+                  "min_step": 355,
+                  "max_step": 743
+                }
+              }
+            },
+            "split_paths": {
+              "train": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/temporal/train.csv",
+              "val": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/temporal/val.csv",
+              "test": "/Users/bibekgupta/Downloads/projects/finsight-ai/data/splits/temporal/test.csv"
+            }
+          }
+        }
+      },
+      "timestamp": "2026-02-08T14:49:14.111640"
     }
   ]
 }

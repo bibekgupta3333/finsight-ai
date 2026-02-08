@@ -20,14 +20,14 @@ def check_data_quality():
     print("="*80)
     print("FinSight AI Data Quality Check")
     print("="*80)
-    
+
     # Load all datasets
     print("\n[1/4] Loading datasets...")
     train_strat = pd.read_csv('data/splits/stratified/train.csv')
     train_temp = pd.read_csv('data/splits/temporal/train.csv')
     train_balanced = pd.read_csv('data/balanced/train_balanced_smote.csv')
     print("✓ All datasets loaded successfully")
-    
+
     # Calculate quality metrics
     print("\n[2/4] Calculating quality metrics...")
     quality_metrics = {
@@ -45,14 +45,14 @@ def check_data_quality():
         'duplicates_balanced': int(train_balanced.duplicated().sum())
     }
     print("✓ Quality metrics calculated")
-    
+
     # Save metrics
     print("\n[3/4] Saving quality report...")
     Path('data/analysis').mkdir(exist_ok=True)
-    with open('data/analysis/data_quality_report.json', 'w') as f:
+    with open('data/analysis/processed_data_quality_report.json', 'w') as f:
         json.dump(quality_metrics, f, indent=2)
-    print("✓ Report saved to data/analysis/data_quality_report.json")
-    
+    print("✓ Report saved to data/analysis/processed_data_quality_report.json")
+
     # Print summary
     print("\n[4/4] Quality Check Summary:")
     print("-"*80)
@@ -72,10 +72,10 @@ def check_data_quality():
     print(f"Duplicates (temporal):   {quality_metrics['duplicates_temporal']}")
     print(f"Duplicates (balanced):   {quality_metrics['duplicates_balanced']}")
     print("-"*80)
-    
+
     # Validation checks
     print("\n✓ Data quality check complete!")
-    
+
     # Check for issues
     issues = []
     if quality_metrics['missing_values_stratified'] > 0:
@@ -84,7 +84,7 @@ def check_data_quality():
         issues.append("Temporal dataset has missing values")
     if quality_metrics['missing_values_balanced'] > 0:
         issues.append("Balanced dataset has missing values")
-    
+
     if issues:
         print("\n⚠️  Issues found:")
         for issue in issues:
@@ -99,6 +99,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run data quality checks")
     parser.add_argument('--strict', action='store_true', help='Fail on any quality issues')
     args = parser.parse_args()
-    
+
     exit_code = check_data_quality()
     exit(exit_code if args.strict else 0)

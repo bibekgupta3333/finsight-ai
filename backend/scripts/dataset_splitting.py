@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 class DatasetSplitter:
     """Dataset splitting pipeline with stratified and temporal strategies.
-    
+
     Attributes:
         data_path: Path to cleaned dataset
         output_dir: Directory to save splits
@@ -56,7 +56,7 @@ class DatasetSplitter:
         random_seed: int = 42,
     ) -> None:
         """Initialize the dataset splitter.
-        
+
         Args:
             data_path: Path to cleaned dataset CSV
             output_dir: Directory to save split datasets
@@ -64,7 +64,7 @@ class DatasetSplitter:
             val_size: Validation set proportion
             test_size: Test set proportion
             random_seed: Random seed for reproducibility
-        
+
         Raises:
             ValueError: If split proportions don't sum to 1.0
         """
@@ -92,55 +92,55 @@ class DatasetSplitter:
 
     def load_data(self) -> pd.DataFrame:
         """Load cleaned dataset.
-        
+
         Returns:
             Loaded DataFrame
-        
+
         Raises:
             FileNotFoundError: If data file doesn't exist
         """
         logger.info(f"Loading data from {self.data_path}")
-        
+
         if not self.data_path.exists():
             raise FileNotFoundError(f"Data file not found: {self.data_path}")
-        
+
         df = pd.read_csv(self.data_path)
         logger.info(f"Loaded {len(df):,} transactions")
         logger.info(f"Columns: {list(df.columns)}")
-        
+
         # Validate required columns
         required_cols = ["isFraud", "step"]
         missing_cols = [col for col in required_cols if col not in df.columns]
         if missing_cols:
             raise ValueError(f"Missing required columns: {missing_cols}")
-        
+
         return df
 
     def stratified_split(
         self, df: pd.DataFrame
     ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Perform stratified split maintaining fraud rate across splits.
-        
+
         This method uses sklearn's train_test_split with stratification on
         the target variable (isFraud) to ensure each split maintains the same
         fraud rate as the original dataset (~0.13%).
-        
+
         Args:
             df: Input DataFrame
-        
+
         Returns:
             Tuple of (train_df, val_df, test_df)
         """
         logger.info("=" * 80)
         logger.info("STRATIFIED SPLIT")
         logger.info("=" * 80)
-        
+
         # Calculate fraud rate
         fraud_rate = df["isFraud"].mean()
         logger.info(f"Overall fraud rate: {fraud_rate:.4%}")
         logger.info(f"Total fraud cases: {df['isFraud'].sum():,}")
         logger.info(f"Total legitimate cases: {(~df['isFraud'].astype(bool)).sum():,}")
-        
+
         # First split: separate test set
         train_val_df, test_df = train_test_split(
             df,
@@ -148,7 +148,7 @@ class DatasetSplitter:
             random_state=self.random_seed,
             stratify=df["isFraud"],
         )
-        
+
         # Second split: separate train and validation
         # Adjust val_size relative to remaining data
         val_size_adjusted = self.val_size / (self.train_size + self.val_size)
@@ -158,56 +158,56 @@ class DatasetSplitter:
             random_state=self.random_seed,
             stratify=train_val_df["isFraud"],
         )
-        
+
         # Validate splits
         self._validate_split(train_df, val_df, test_df, fraud_rate, "Stratified")
-        
+
         return train_df, val_df, test_df
 
     def temporal_split(
         self, df: pd.DataFrame
     ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Perform temporal split respecting time ordering.
-        
+
         This method splits data chronologically based on the 'step' column,
         which represents time periods. This simulates real-world deployment
         where models are trained on past data and tested on future data.
-        
+
         Note: This split does NOT guarantee identical fraud rates across splits
         as fraud patterns may vary over time (realistic scenario).
-        
+
         Args:
             df: Input DataFrame (must have 'step' column)
-        
+
         Returns:
             Tuple of (train_df, val_df, test_df)
         """
         logger.info("=" * 80)
         logger.info("TEMPORAL SPLIT")
         logger.info("=" * 80)
-        
+
         # Sort by time
         df_sorted = df.sort_values("step").reset_index(drop=True)
-        
+
         # Calculate split indices
         n = len(df_sorted)
         train_end = int(n * self.train_size)
         val_end = int(n * (self.train_size + self.val_size))
-        
+
         # Split by time
         train_df = df_sorted.iloc[:train_end].copy()
         val_df = df_sorted.iloc[train_end:val_end].copy()
         test_df = df_sorted.iloc[val_end:].copy()
-        
+
         # Log temporal boundaries
         logger.info(f"Train period: step {train_df['step'].min()} to {train_df['step'].max()}")
         logger.info(f"Val period: step {val_df['step'].min()} to {val_df['step'].max()}")
         logger.info(f"Test period: step {test_df['step'].min()} to {test_df['step'].max()}")
-        
+
         # Validate splits
         fraud_rate = df["isFraud"].mean()
         self._validate_split(train_df, val_df, test_df, fraud_rate, "Temporal")
-        
+
         return train_df, val_df, test_df
 
     def _validate_split(
@@ -219,7 +219,7 @@ class DatasetSplitter:
         split_type: str,
     ) -> None:
         """Validate split quality and log statistics.
-        
+
         Args:
             train_df: Training set
             val_df: Validation set
@@ -228,41 +228,41 @@ class DatasetSplitter:
             split_type: Type of split (for logging)
         """
         total = len(train_df) + len(val_df) + len(test_df)
-        
+
         logger.info(f"\n{split_type} Split Statistics:")
         logger.info(f"{'Set':<12} {'Count':>12} {'Fraud':>12} {'Fraud Rate':>12} {'% of Total':>12}")
         logger.info("-" * 64)
-        
+
         for name, df_split in [("Train", train_df), ("Val", val_df), ("Test", test_df)]:
             count = len(df_split)
             fraud_count = df_split["isFraud"].sum()
             fraud_rate = df_split["isFraud"].mean()
             pct_total = count / total * 100
-            
+
             logger.info(
                 f"{name:<12} {count:>12,} {fraud_count:>12,} "
                 f"{fraud_rate:>11.4%} {pct_total:>11.1f}%"
             )
-        
+
         logger.info("-" * 64)
         logger.info(f"{'Total':<12} {total:>12,}")
         logger.info(f"Original fraud rate: {original_fraud_rate:.4%}")
-        
+
         # Assertions for data quality
         assert len(train_df) > 0, "Train set is empty"
         assert len(val_df) > 0, "Validation set is empty"
         assert len(test_df) > 0, "Test set is empty"
         assert len(train_df) + len(val_df) + len(test_df) == total, "Data loss detected"
-        
+
         # Check for data leakage (no row should appear in multiple splits)
         train_indices = set(train_df.index)
         val_indices = set(val_df.index)
         test_indices = set(test_df.index)
-        
+
         assert len(train_indices & val_indices) == 0, "Data leakage: train-val overlap"
         assert len(train_indices & test_indices) == 0, "Data leakage: train-test overlap"
         assert len(val_indices & test_indices) == 0, "Data leakage: val-test overlap"
-        
+
         logger.info("✓ Split validation passed")
 
     def save_splits(
@@ -273,25 +273,25 @@ class DatasetSplitter:
         split_type: str,
     ) -> Dict[str, str]:
         """Save split datasets to CSV files.
-        
+
         Args:
             train_df: Training set
             val_df: Validation set
             test_df: Test set
             split_type: 'stratified' or 'temporal'
-        
+
         Returns:
             Dictionary with paths to saved files
         """
         output_subdir = self.stratified_dir if split_type == "stratified" else self.temporal_dir
-        
+
         paths = {}
         for name, df_split in [("train", train_df), ("val", val_df), ("test", test_df)]:
             file_path = output_subdir / f"{name}.csv"
             df_split.to_csv(file_path, index=False)
             paths[name] = str(file_path)
             logger.info(f"Saved {name} set to {file_path} ({len(df_split):,} rows)")
-        
+
         return paths
 
     def generate_metadata(
@@ -303,14 +303,14 @@ class DatasetSplitter:
         split_paths: Dict[str, str],
     ) -> Dict:
         """Generate metadata for split documentation.
-        
+
         Args:
             train_df: Training set
             val_df: Validation set
             test_df: Test set
             split_type: 'stratified' or 'temporal'
             split_paths: Paths to saved split files
-        
+
         Returns:
             Metadata dictionary
         """
@@ -325,7 +325,7 @@ class DatasetSplitter:
             "split_statistics": {},
             "split_paths": split_paths,
         }
-        
+
         for name, df_split in [("train", train_df), ("val", val_df), ("test", test_df)]:
             metadata["split_statistics"][name] = {
                 "total_count": int(len(df_split)),
@@ -333,7 +333,7 @@ class DatasetSplitter:
                 "legitimate_count": int((~df_split["isFraud"].astype(bool)).sum()),
                 "fraud_rate": float(df_split["isFraud"].mean()),
             }
-        
+
         # Add temporal bounds for temporal split
         if split_type == "temporal":
             for name, df_split in [("train", train_df), ("val", val_df), ("test", test_df)]:
@@ -341,20 +341,20 @@ class DatasetSplitter:
                     "min_step": int(df_split["step"].min()),
                     "max_step": int(df_split["step"].max()),
                 }
-        
+
         return metadata
 
     def run_all_splits(self) -> Dict:
         """Execute both stratified and temporal splits.
-        
+
         Returns:
             Combined metadata for both split strategies
         """
         logger.info("Starting dataset splitting pipeline")
-        
+
         # Load data
         df = self.load_data()
-        
+
         # Stratified split
         logger.info("\n" + "=" * 80)
         logger.info("EXECUTING STRATIFIED SPLIT")
@@ -364,7 +364,7 @@ class DatasetSplitter:
         strat_metadata = self.generate_metadata(
             train_strat, val_strat, test_strat, "stratified", strat_paths
         )
-        
+
         # Temporal split
         logger.info("\n" + "=" * 80)
         logger.info("EXECUTING TEMPORAL SPLIT")
@@ -374,20 +374,20 @@ class DatasetSplitter:
         temp_metadata = self.generate_metadata(
             train_temp, val_temp, test_temp, "temporal", temp_paths
         )
-        
+
         # Save combined metadata
         metadata = {
             "stratified": strat_metadata,
             "temporal": temp_metadata,
         }
-        
+
         metadata_path = self.output_dir / "split_metadata.json"
         with open(metadata_path, "w") as f:
             json.dump(metadata, f, indent=2)
-        
+
         logger.info(f"\n✓ All splits completed successfully")
         logger.info(f"✓ Metadata saved to {metadata_path}")
-        
+
         return metadata
 
 
@@ -397,7 +397,7 @@ def main():
     project_root = Path(__file__).parent.parent.parent
     data_path = project_root / "data/processed/paysim_cleaned.csv"
     output_dir = project_root / "data/splits"
-    
+
     # Create splitter
     splitter = DatasetSplitter(
         data_path=str(data_path),
@@ -407,10 +407,67 @@ def main():
         test_size=0.2,
         random_seed=42,
     )
-    
+
     # Run all splits
     metadata = splitter.run_all_splits()
-    
+
+    # --- Data Lineage Tracking ---
+    import hashlib
+    import sys
+    try:
+        from backend.scripts.data_lineage import DataLineage
+    except ModuleNotFoundError:
+        # Fallback for script execution from backend/
+        sys.path.append(str(Path(__file__).parent))
+        from data_lineage import DataLineage
+    def file_hash(path):
+        h = hashlib.sha256()
+        with open(path, 'rb') as f:
+            while True:
+                chunk = f.read(8192)
+                if not chunk:
+                    break
+                h.update(chunk)
+        return h.hexdigest()
+
+    cleaned_path = str(data_path)
+    strat_train = str(splitter.stratified_dir / "train.csv")
+    strat_val = str(splitter.stratified_dir / "val.csv")
+    strat_test = str(splitter.stratified_dir / "test.csv")
+    temp_train = str(splitter.temporal_dir / "train.csv")
+    temp_val = str(splitter.temporal_dir / "val.csv")
+    temp_test = str(splitter.temporal_dir / "test.csv")
+    script_path = str(Path(__file__).resolve())
+    script_hash = file_hash(script_path)
+    input_hash = file_hash(cleaned_path)
+    # Hash only train splits for output (could hash all if needed)
+    output_hashes = {
+        "strat_train": file_hash(strat_train),
+        "strat_val": file_hash(strat_val),
+        "strat_test": file_hash(strat_test),
+        "temp_train": file_hash(temp_train),
+        "temp_val": file_hash(temp_val),
+        "temp_test": file_hash(temp_test),
+    }
+
+    lineage = DataLineage()
+    lineage.track_transformation(
+        transformation_id="dataset_splitting_pipeline",
+        input_files=[cleaned_path],
+        output_files=[strat_train, strat_val, strat_test, temp_train, temp_val, temp_test],
+        script=script_path,
+        operations=["stratified_split", "temporal_split"],
+        input_version="v2_cleaned",
+        output_version="v2_splits",
+        metadata={
+            "script_hash": script_hash,
+            "input_hash": input_hash,
+            "output_hashes": output_hashes,
+            "split_metadata": metadata,
+        },
+    )
+    lineage.save()
+
     logger.info("\n" + "=" * 80)
     logger.info("DATASET SPLITTING COMPLETED")
     logger.info("=" * 80)

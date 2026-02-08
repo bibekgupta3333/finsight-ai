@@ -184,3 +184,22 @@ stages:
       hash: md5
       md5: faeed8073ac477c9e59d6c85abe847dc
       size: 8847
+  validate_raw:
+    cmd: python backend/scripts/validate_data.py 
+      data/raw/PS_20174392719_1491204439457_log.csv --output-dir data/analysis 
+      --report-name raw_data_quality_report.json
+    deps:
+    - path: backend/scripts/validate_data.py
+      hash: md5
+      md5: 0716e7af6ef83325557eb6d8a654f7c8
+      size: 21701
+      isexec: true
+    - path: data/raw/PS_20174392719_1491204439457_log.csv
+      hash: md5
+      md5: e92a5f7447f43712f1dca473d0b0fa85
+      size: 493534783
+    outs:
+    - path: data/analysis/raw_data_quality_report.json
+      hash: md5
+      md5: 121a7561fb278bf818ce7fd41c625dfc
+      size: 2574

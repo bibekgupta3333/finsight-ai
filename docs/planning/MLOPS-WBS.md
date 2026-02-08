@@ -199,43 +199,63 @@ MLOps Pipeline Organization
 ---
 
 ### 1.2 Data Lineage Tracking - **PARTIAL (40%)**
-**Current State:** `data/lineage.json` exists but not auto-updated
+
+**Current State:** `data/lineage.json` is now auto-updated after each pipeline step. Data → model version linkage is implemented in lineage metadata.
 
 **Tasks:**
 - [x] ✅ Manual lineage.json for current data - **DONE**
-- [ ] ⏳ Automate lineage tracking in data scripts
-  - **Modify:** `scripts/data_cleaning.py`, `scripts/dataset_splitting.py`
-  - **Add:** Lineage metadata (timestamp, script version, input/output hashes)
-  - **Estimate:** 1 hour
-- [ ] ⏳ Link data versions to model versions
-  - **Format:** `model_v3 → trained on paysim_cleaned_v2 (hash: abc123)`
-  - **Estimate:** 1 hour
+- [x] ✅ Automate lineage tracking in data scripts - **DONE**
+  - `scripts/data_cleaning.py`, `scripts/dataset_splitting.py` now log lineage with timestamp, script version, input/output hashes
+- [x] ✅ Link data versions to model versions - **DONE**
+  - Data version hashes and script hashes are stored in lineage.json for traceability
 
 **Deliverables:**
-- ✅ Auto-updated `lineage.json`
-- ✅ Data → Model traceability
+- ✅ Auto-updated `lineage.json` after every run
+- ✅ Data → Model traceability (hashes, script versions, timestamps)
 
-**Priority:** 🟡 **MEDIUM**
+**Priority:** 🟢 **COMPLETE**
 
 ---
 
-### 1.3 Data Quality Validation - **PARTIAL (30%)**
-**Current State:** `data/analysis/data_quality_report.json` generated once
+### 1.3 Data Quality Validation - **COMPLETE (100%)** ✅
+**Current State:** Comprehensive validation pipeline with 6 validation checks (schema, missing values, duplicates, outliers, fraud rate, drift detection)
 
 **Tasks:**
-- [ ] ⏳ Create `validate_data.py` script
-  - **Checks:** Missing values, outliers, schema validation, drift detection
-  - **Output:** Pass/Fail + quality_report.json
-  - **Estimate:** 2 hours
-- [ ] ⏳ Add validation to DVC pipeline
-  - **Stage:** `dvc run -n validate -d data/raw/PS_*.csv python scripts/validate_data.py`
-  - **Estimate:** 30 min
+- [x] ✅ Create `validate_data.py` script
+  - **Checks:** Schema validation, missing values, duplicates, outliers (IQR), fraud rate, drift detection (KS test)
+  - **Output:** Pass/Fail with quality score (0-100) + JSON report
+  - **Features:** Strict mode, baseline comparison, configurable thresholds
+  - **Completed:** 2026-02-08
+- [x] ✅ Add validation to DVC pipeline
+  - **Stage:** `validate_raw` stage added to `dvc.yaml`
+  - **Integration:** Runs before `clean` stage with metrics tracking
+  - **Completed:** 2026-02-08
+- [x] ✅ Add NPM validation commands
+  - **Commands:** `data:validate`, `data:validate:cleaned`, `data:validate:strict`, `data:validate:drift`
+  - **Testing:** All commands tested successfully
+  - **Completed:** 2026-02-08
+- [x] ✅ Create comprehensive documentation
+  - **File:** `docs/DATA-VALIDATION-GUIDE.md` (400+ lines)
+  - **Content:** Usage examples, thresholds table, report format, troubleshooting
+  - **Completed:** 2026-02-08
+- [x] ✅ Update README.md
+  - **Section:** Data Quality Validation with command examples
+  - **Completed:** 2026-02-08
 
 **Deliverables:**
-- ✅ Automated data validation script
-- ✅ Quality gates (fail pipeline if validation fails)
+- ✅ Automated data validation script with 6 validation checks
+- ✅ Quality gates (exit code 1 if validation fails, 0 if passed)
+- ✅ Quality scoring system (weighted 0-100 score)
+- ✅ DVC pipeline integration
+- ✅ NPM scripts for easy validation
+- ✅ Comprehensive documentation (DATA-VALIDATION-GUIDE.md)
 
-**Priority:** 🟡 **MEDIUM**
+**Test Results:**
+- ✅ Raw data: Quality Score 100.0/100 (6.36M rows validated)
+- ✅ Drift detection: No significant drift detected between raw and cleaned data
+- ✅ All NPM commands working correctly
+
+**Priority:** 🟡 **MEDIUM** → **COMPLETE**
 
 ---
 

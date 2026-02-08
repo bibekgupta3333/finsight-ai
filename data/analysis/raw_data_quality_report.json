@@ -1,0 +1,115 @@
+{
+  "timestamp": "2026-02-08T15:14:19.497628",
+  "data_file": "data/raw/PS_20174392719_1491204439457_log.csv",
+  "baseline_file": null,
+  "validations": {
+    "schema": {
+      "passed": true,
+      "schema_type": "raw",
+      "columns_count": 11,
+      "issues": []
+    },
+    "missing_values": {
+      "passed": true,
+      "total_missing": 0,
+      "missing_rate": 0.0,
+      "threshold": 0.05,
+      "columns_with_missing": {}
+    },
+    "duplicates": {
+      "passed": true,
+      "total_duplicates": 0,
+      "duplicate_rate": 0.0,
+      "threshold": 0.01
+    },
+    "outliers": {
+      "passed": true,
+      "numeric_columns_checked": 8,
+      "columns_with_outliers": {
+        "amount": {
+          "count": 174085,
+          "rate": 0.027360584161870424,
+          "bounds": [
+            -572606.1525000001,
+            794717.2000000001
+          ]
+        },
+        "oldbalanceOrg": {
+          "count": 929807,
+          "rate": 0.14613586855729244,
+          "bounds": [
+            -321945.525,
+            429260.7
+          ]
+        },
+        "newbalanceOrig": {
+          "count": 864681,
+          "rate": 0.13590014805221748,
+          "bounds": [
+            -432775.23,
+            577033.64
+          ]
+        },
+        "oldbalanceDest": {
+          "count": 474998,
+          "rate": 0.07465446624189406,
+          "bounds": [
+            -2829110.1225,
+            3772146.83
+          ]
+        },
+        "newbalanceDest": {
+          "count": 425660,
+          "rate": 0.06690011347526648,
+          "bounds": [
+            -3335727.75,
+            4447637.0
+          ]
+        },
+        "isFraud": {
+          "count": 8213,
+          "rate": 0.001290820448180152,
+          "bounds": [
+            0.0,
+            0.0
+          ]
+        },
+        "isFlaggedFraud": {
+          "count": 16,
+          "rate": 2.51468734577894e-06,
+          "bounds": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "iqr_multiplier": 3.0
+    },
+    "fraud_rate": {
+      "passed": true,
+      "fraud_count": 8213,
+      "total_count": 6362620,
+      "fraud_rate": 0.001290820448180152,
+      "expected_range": [
+        0.0001,
+        0.5
+      ]
+    },
+    "drift": {
+      "passed": true,
+      "skipped": true,
+      "reason": "No baseline data provided"
+    }
+  },
+  "quality_score": 100.0,
+  "status": "PASSED",
+  "errors": [],
+  "warnings": [
+    "Found 2877460 outliers across 7 columns"
+  ],
+  "data_hash": "16910f90577b0d981bf8ff289714510bb89bc71bff7d3f220f024e287e4eea6b",
+  "data_shape": [
+    6362620,
+    11
+  ]
+}

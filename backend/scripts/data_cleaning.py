@@ -459,6 +459,8 @@ class DataCleaningPipeline:
 
 def main() -> None:
     """Main entry point for data cleaning pipeline."""
+
+    from pathlib import Path
     # Setup paths
     project_root = Path(__file__).parent.parent.parent
     raw_data_path = project_root / "data/raw/PS_20174392719_1491204439457_log.csv"
@@ -472,7 +474,65 @@ def main() -> None:
         random_seed=42,
     )
 
+
     cleaned_df = pipeline.run()
+
+    # --- Data Lineage Tracking ---
+
+    import hashlib
+    import sys
+    try:
+        from backend.scripts.data_lineage import DataLineage
+    except ModuleNotFoundError:
+        # Fallback for script execution from backend/
+        sys.path.append(str(Path(__file__).parent))
+        from data_lineage import DataLineage
+    from pathlib import Path
+
+    def file_hash(path):
+        h = hashlib.sha256()
+        with open(path, 'rb') as f:
+            while True:
+                chunk = f.read(8192)
+                if not chunk:
+                    break
+                h.update(chunk)
+        return h.hexdigest()
+
+    # Paths
+    raw_path = str(raw_data_path)
+    cleaned_path = str(output_dir / "paysim_cleaned.csv")
+    script_path = str(Path(__file__).resolve())
+    script_hash = file_hash(script_path)
+    input_hash = file_hash(raw_path)
+    output_hash = file_hash(cleaned_path)
+
+    lineage = DataLineage()
+    lineage.track_transformation(
+        transformation_id="data_cleaning_pipeline",
+        input_files=[raw_path],
+        output_files=[cleaned_path],
+        script=script_path,
+        operations=[
+            "handle_missing",
+            "remove_duplicates",
+            "mask_pii",
+            "normalize_amounts",
+            "create_temporal_features",
+            "engineer_features",
+        ],
+        input_version="v1_raw",
+        output_version="v2_cleaned",
+        metadata={
+            "script_hash": script_hash,
+            "input_hash": input_hash,
+            "output_hash": output_hash,
+            "execution_time_sec": None,  # Optionally add timing
+            "features_created": pipeline.stats["features_created"],
+            "quality_checks_passed": True,
+        },
+    )
+    lineage.save()
 
     # Display sample
     print("\n" + "=" * 80)
