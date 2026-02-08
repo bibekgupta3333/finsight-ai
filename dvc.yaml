@@ -1,6 +1,6 @@
 # DVC Pipeline for FinSight AI Data Management
 # This pipeline tracks the complete data processing workflow from raw data to train-ready datasets
-# 
+#
 # Pipeline Stages:
 # 1. clean: Clean and preprocess raw data
 # 2. split_stratified: Create stratified train/val/test splits
@@ -19,7 +19,6 @@ stages:
       - data/raw/PS_20174392719_1491204439457_log.csv
     outs:
       - data/processed/paysim_cleaned.csv
-      - data/processed/cleaning_statistics.json
       - data/processed/cleaned_metadata.json
     params:
       - normalization_method
@@ -31,7 +30,7 @@ stages:
       Clean and preprocess raw PaySim transaction data.
       Steps:
       - Remove duplicates
-      - Handle missing values  
+      - Handle missing values
       - PII masking (hash account IDs)
       - Normalize transaction amounts
       - Time feature extraction (hour, day, day_of_week)
@@ -46,7 +45,6 @@ stages:
       - data/splits/stratified/train.csv
       - data/splits/stratified/val.csv
       - data/splits/stratified/test.csv
-      - data/splits/split_metadata.json
     params:
       - train_size
       - val_size
@@ -87,7 +85,6 @@ stages:
       - data/balanced/train_balanced_smote.csv
       - data/balanced/train_balanced_combined.csv
       - data/balanced/train_balanced_with_synthetic.csv
-      - data/balanced/augmentation_metadata.json
     params:
       - smote_sampling_strategy
       - smote_k_neighbors
@@ -108,19 +105,21 @@ stages:
     deps:
       - backend/scripts/generate_explanations.py
       - data/splits/stratified/train.csv
-      - data/fraud_policies/*.md
+      - data/fraud_policies/cashout_fraud_policy.md
+      - data/fraud_policies/lowrisk_types_policy.md
+      - data/fraud_policies/transfer_fraud_policy.md
     outs:
       - data/annotations/fraud_explanations.json
-      - data/annotations/preference_pairs.json
+      - data/annotations/fraud_explanations_summary.csv
     params:
       - num_samples
       - random_seed
     desc: |
-      Generate fraud explanations and preference pairs for training.
+      Generate fraud explanations for training.
       Uses policy-guided LLM to create high-quality annotations.
       Produces:
       - Fraud explanations (chain-of-thought reasoning)
-      - Preference pairs (for RLHF/DPO fine-tuning)
+      - Summary CSV with key statistics
 
   quality_check:
     cmd: python backend/scripts/data_quality_check.py
@@ -129,8 +128,6 @@ stages:
       - data/splits/stratified/train.csv
       - data/splits/temporal/train.csv
       - data/balanced/train_balanced_smote.csv
-    outs:
-      - data/analysis/data_quality_report.json
     metrics:
       - data/analysis/data_quality_report.json:
           cache: false

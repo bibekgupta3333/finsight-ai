@@ -1,0 +1,186 @@
+schema: '2.0'
+stages:
+  clean:
+    cmd: python backend/scripts/data_cleaning.py
+    deps:
+    - path: backend/scripts/data_cleaning.py
+      hash: md5
+      md5: 51c0305a1f3f505f2b19482c5a4111c5
+      size: 16275
+    - path: data/raw/PS_20174392719_1491204439457_log.csv
+      hash: md5
+      md5: e92a5f7447f43712f1dca473d0b0fa85
+      size: 493534783
+    params:
+      params.yaml:
+        normalization_method: standard
+        random_seed: 42
+    outs:
+    - path: data/processed/cleaned_metadata.json
+      hash: md5
+      md5: f8fdad56e6c29d9d308d64b7a551376a
+      size: 1762
+    - path: data/processed/cleaning_statistics.json
+      hash: md5
+      md5: ff674bf82672c0237e6518ba3c385115
+      size: 710
+    - path: data/processed/paysim_cleaned.csv
+      hash: md5
+      md5: 1c9421eacfc2e2bad7704721637a6c0f
+      size: 1356121453
+  split_stratified:
+    cmd: python backend/scripts/dataset_splitting.py --strategy stratified
+    deps:
+    - path: backend/scripts/dataset_splitting.py
+      hash: md5
+      md5: 7a18ba19675332ccc60866f9a4013474
+      size: 14866
+    - path: data/processed/paysim_cleaned.csv
+      hash: md5
+      md5: 1c9421eacfc2e2bad7704721637a6c0f
+      size: 1356121453
+    params:
+      params.yaml:
+        random_seed: 42
+        test_size: 0.2
+        train_size: 0.6
+        val_size: 0.2
+    outs:
+    - path: data/splits/split_metadata.json
+      hash: md5
+      md5: ae0a0a0f956396442f8e9f4e6d2dd7d4
+      size: 2317
+    - path: data/splits/stratified/test.csv
+      hash: md5
+      md5: 565eeacc8217899e1ef74958f54d6752
+      size: 267637633
+    - path: data/splits/stratified/train.csv
+      hash: md5
+      md5: 2fdad259a6d764a3ad800102df9f1cc2
+      size: 802910217
+    - path: data/splits/stratified/val.csv
+      hash: md5
+      md5: 0826e735c410f5020449c58bc50968f1
+      size: 267664358
+  split_temporal:
+    cmd: python backend/scripts/dataset_splitting.py --strategy temporal
+    deps:
+    - path: backend/scripts/dataset_splitting.py
+      hash: md5
+      md5: 7a18ba19675332ccc60866f9a4013474
+      size: 14866
+    - path: data/processed/paysim_cleaned.csv
+      hash: md5
+      md5: 1c9421eacfc2e2bad7704721637a6c0f
+      size: 1356121453
+    params:
+      params.yaml:
+        test_size: 0.2
+        train_size: 0.6
+        val_size: 0.2
+    outs:
+    - path: data/splits/temporal/test.csv
+      hash: md5
+      md5: f622c2d42dc55f7091961a81f2eef260
+      size: 268317018
+    - path: data/splits/temporal/train.csv
+      hash: md5
+      md5: 9b7ae526a9763ff2c0b106e781cf8f88
+      size: 801749742
+    - path: data/splits/temporal/val.csv
+      hash: md5
+      md5: fbb5118000db3399fe7b4f7ac2e81d54
+      size: 268145448
+  balance:
+    cmd: python backend/scripts/data_augmentation.py
+    deps:
+    - path: backend/scripts/data_augmentation.py
+      hash: md5
+      md5: 68619847294945f038aed8b2d52c967b
+      size: 25295
+    - path: data/splits/stratified/train.csv
+      hash: md5
+      md5: 2fdad259a6d764a3ad800102df9f1cc2
+      size: 802910217
+    params:
+      params.yaml:
+        random_seed: 42
+        smote_k_neighbors: 5
+        smote_sampling_strategy: 0.1
+    outs:
+    - path: data/balanced/augmentation_metadata.json
+      hash: md5
+      md5: 331cd97e51cc29e6f067e98c62da953d
+      size: 1862
+    - path: data/balanced/train_balanced_combined.csv
+      hash: md5
+      md5: 2377a7a3d59b2f14bc708185ca413d9c
+      size: 961125895
+    - path: data/balanced/train_balanced_smote.csv
+      hash: md5
+      md5: b1b7d8e7b5503bc19fd555d5fd3ad59b
+      size: 1602280713
+    - path: data/balanced/train_balanced_with_synthetic.csv
+      hash: md5
+      md5: e49de4b36532edfee77d0e21f77c39de
+      size: 803137913
+  quality_check:
+    cmd: python backend/scripts/data_quality_check.py
+    deps:
+    - path: backend/scripts/data_quality_check.py
+      hash: md5
+      md5: a3a5a570b79af2d58950315bb6c3b213
+      size: 4195
+    - path: data/balanced/train_balanced_smote.csv
+      hash: md5
+      md5: b1b7d8e7b5503bc19fd555d5fd3ad59b
+      size: 1602280713
+    - path: data/splits/stratified/train.csv
+      hash: md5
+      md5: 2fdad259a6d764a3ad800102df9f1cc2
+      size: 802910217
+    - path: data/splits/temporal/train.csv
+      hash: md5
+      md5: 9b7ae526a9763ff2c0b106e781cf8f88
+      size: 801749742
+    outs:
+    - path: data/analysis/data_quality_report.json
+      hash: md5
+      md5: a192875403a539ebf4ad245be4fdb3d6
+      size: 488
+  generate_annotations:
+    cmd: python backend/scripts/generate_explanations.py
+    deps:
+    - path: backend/scripts/generate_explanations.py
+      hash: md5
+      md5: 536cc8e97c6db76e4f70a86241d6aa14
+      size: 15566
+    - path: data/fraud_policies/cashout_fraud_policy.md
+      hash: md5
+      md5: f655a9b3119d8761e2e124a0052f81ae
+      size: 5128
+    - path: data/fraud_policies/lowrisk_types_policy.md
+      hash: md5
+      md5: ebfd3dcc0c8c6c7a12a073ab784fa47f
+      size: 5619
+    - path: data/fraud_policies/transfer_fraud_policy.md
+      hash: md5
+      md5: bc0e1e79c267ece5baf8bc88af84d347
+      size: 3739
+    - path: data/splits/stratified/train.csv
+      hash: md5
+      md5: 2fdad259a6d764a3ad800102df9f1cc2
+      size: 802910217
+    params:
+      params.yaml:
+        num_samples: 1000
+        random_seed: 42
+    outs:
+    - path: data/annotations/fraud_explanations.json
+      hash: md5
+      md5: 81f45131c26ad3de05f8eeda8b57fc27
+      size: 180279
+    - path: data/annotations/fraud_explanations_summary.csv
+      hash: md5
+      md5: faeed8073ac477c9e59d6c85abe847dc
+      size: 8847

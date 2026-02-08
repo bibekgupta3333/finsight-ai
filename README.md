@@ -218,7 +218,51 @@ See [backend/scripts/README.md](backend/scripts/README.md) for detailed document
    python scripts/prepare_data_pipeline.py --quick
    ```
 
-7. **Access the application**
+7. **DVC Data Versioning** (optional - for reproducibility)
+   ```bash
+   # Install DVC
+   pip install 'dvc[s3]' dagshub
+   
+   # Check DVC status
+   dvc status
+   
+   # Reproduce entire data pipeline from raw data
+   dvc repro
+   
+   # Visualize pipeline DAG
+   dvc dag
+   
+   # Pull data from remote storage (after initial setup)
+   dvc pull
+   ```
+   
+   **Common DVC Commands:**
+   ```bash
+   # Pipeline Management
+   dvc status                     # Check what has changed
+   dvc repro                      # Reproduce pipeline
+   dvc repro <stage>              # Run specific stage
+   dvc dag                        # Visualize dependencies
+   
+   # Data Management
+   dvc pull                       # Download data from remote
+   dvc push                       # Upload data to remote
+   dvc checkout                   # Restore specific version
+   
+   # Experimentation
+   dvc params diff                # Compare parameters
+   dvc metrics show               # Show metrics
+   dvc plots show                 # Generate plots
+   
+   # Remote Storage
+   dvc remote list                # List configured remotes
+   dvc remote add <name> <url>    # Add remote storage
+   ```
+   
+   **Pipeline Stages:** clean → split → balance → annotate → quality_check  
+   **See:** [NEXT-STEPS-DVC.md](NEXT-STEPS-DVC.md) for detailed DVC setup
+
+8. **Access the application**
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
    - API Docs: http://localhost:8000/docs
