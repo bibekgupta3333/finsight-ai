@@ -1,0 +1,14 @@
+artifact_uri: /Users/bibekgupta/Downloads/projects/finsight-ai/backend/mlruns/347214381811997818/e614ac21365b42f0ac79f9228759e67e/artifacts
+end_time: 1770584082101
+entry_point_name: ''
+experiment_id: '347214381811997818'
+lifecycle_stage: active
+run_id: e614ac21365b42f0ac79f9228759e67e
+run_name: test_xgb_metrics
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1770584081781
+status: 4
+tags: []
+user_id: bibekgupta

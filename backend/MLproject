@@ -1,0 +1,42 @@
+name: finsight-fraud-detection
+
+conda_env: conda.yaml
+
+entry_points:
+  baseline:
+    parameters:
+      max_samples: {type: int, default: 50000}
+      no_tune: {type: string, default: ""}
+      run_name: {type: string, default: ""}
+    command: "python scripts/train_baseline_models.py --max-samples {max_samples} {no_tune} --run-name {run_name}"
+
+  xgboost:
+    parameters:
+      max_samples: {type: int, default: 50000}
+      n_trials: {type: int, default: 20}
+      memory_limit: {type: float, default: 16.0}
+      run_name: {type: string, default: ""}
+    command: "python scripts/train_xgboost_model.py --max-samples {max_samples} --n-trials {n_trials} --memory-limit {memory_limit} --run-name {run_name}"
+
+  lightgbm:
+    parameters:
+      max_samples: {type: int, default: 50000}
+      memory_limit: {type: float, default: 16.0}
+      run_name: {type: string, default: ""}
+    command: "python scripts/train_lightgbm_model.py --max-samples {max_samples} --memory-limit {memory_limit} --run-name {run_name}"
+
+  main:
+    parameters:
+      model_type: {type: string, default: "xgboost"}
+      max_samples: {type: int, default: 50000}
+    command: |
+      if [ "{model_type}" = "baseline" ]; then
+        python scripts/train_baseline_models.py --max-samples {max_samples}
+      elif [ "{model_type}" = "xgboost" ]; then
+        python scripts/train_xgboost_model.py --max-samples {max_samples}
+      elif [ "{model_type}" = "lightgbm" ]; then
+        python scripts/train_lightgbm_model.py --max-samples {max_samples}
+      else
+        echo "Unknown model type: {model_type}"
+        exit 1
+      fi

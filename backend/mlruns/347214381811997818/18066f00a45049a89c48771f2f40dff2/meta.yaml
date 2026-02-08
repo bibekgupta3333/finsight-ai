@@ -1,0 +1,14 @@
+artifact_uri: /Users/bibekgupta/Downloads/projects/finsight-ai/backend/mlruns/347214381811997818/18066f00a45049a89c48771f2f40dff2/artifacts
+end_time: 1770584124173
+entry_point_name: ''
+experiment_id: '347214381811997818'
+lifecycle_stage: active
+run_id: 18066f00a45049a89c48771f2f40dff2
+run_name: test_lgbm_metrics
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1770584121688
+status: 3
+tags: []
+user_id: bibekgupta

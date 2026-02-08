@@ -13,7 +13,9 @@ Author: FinSight AI Team
 Date: February 1, 2026
 """
 
+import argparse
 import json
+import os
 import pickle
 import warnings
 from datetime import datetime
@@ -22,21 +24,34 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
+from dotenv import load_dotenv
 from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
     accuracy_score,
+    balanced_accuracy_score,
     classification_report,
+    cohen_kappa_score,
     confusion_matrix,
     f1_score,
+    matthews_corrcoef,
+    precision_recall_curve,
     precision_score,
     recall_score,
     roc_auc_score,
+    auc,
 )
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+# MLflow for experiment tracking
+import mlflow
+import mlflow.sklearn
+
 warnings.filterwarnings("ignore")
+
+# Load environment variables
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env.local")
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -87,6 +102,8 @@ class FraudMLPipeline:
             print(f"Loading regular training data from: {train_path}")
 
         val_path = SPLITS_DIR / "val.csv"
+        test_path = DATA_DIR / "splits" / "temporal" / "test.csv"
+
         # Load with optional sampling for memory optimization
         if self.max_samples:
             print(f"\n⚠️  Memory optimization: Limiting to {self.max_samples:,} samples")
@@ -289,7 +306,25 @@ class FraudMLPipeline:
         X_train: np.ndarray,
         y_train: np.ndarray,
         X_val: np.ndarray,
-        y_val: np.ndarray, (optimized for memory)
+        y_val: np.ndarray,
+        tune_hyperparameters: bool = True
+    ):
+        """
+        Train Random Forest model.
+
+        Args:
+            X_train, y_train: Training data
+            X_val, y_val: Validation data
+            tune_hyperparameters: Whether to perform hyperparameter tuning
+        """
+        print("\n" + "=" * 80)
+        print("STEP 4: RANDOM FOREST TRAINING")
+        print("=" * 80)
+
+        if tune_hyperparameters:
+            print("\nTraining Random Forest with hyperparameter tuning (optimized for M4 Pro)...")
+
+            # Reduced parameter grid for memory optimization
             param_grid = {
                 "n_estimators": [50, 100],  # Reduced for memory
                 "max_depth": [10, 20],  # Removed None to limit memory
@@ -299,7 +334,7 @@ class FraudMLPipeline:
             }
 
             print(f"Parameter grid: {param_grid}")
-            print(f"Total combinations: {2 * 2 * 1 * 1 * 1} (reduced for M4 Pro)")
+            print(f"Total combinations: {2 * 2 * 1 * 1 * 1} = 4 (reduced for M4 Pro)")
 
             # Initialize base model
             rf_base = RandomForestClassifier(
@@ -316,28 +351,7 @@ class FraudMLPipeline:
                 param_grid=param_grid,
                 cv=cv,
                 scoring="f1",  # Optimize for F1-score
-                n_jobs=1,  # Sequential search to limit memoryors": [100, 200],  # Reduced for faster training
-                "max_depth": [10, 20, None],
-                "min_samples_split": [2, 5],
-                "min_samples_leaf": [1, 2],
-                "class_weight": ["balanced"],  # Handle class imbalance
-            }
-
-            print(f"Parameter grid: {param_grid}")
-
-            # Initialize base model
-            rf_base = RandomForestClassifier(
-                random_state=self.random_state, n_jobs=-1, verbose=0
-            )
-
-            # Setup GridSearchCV with stratified k-fold
-            cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=self.random_state)
-            grid_search = GridSearchCV(
-                estimator=rf_base,
-                param_grid=param_grid,
-                cv=cv,
-                scoring="f1",  # Optimize for F1-score
-                n_jobs=-1,
+                n_jobs=1,  # Sequential search to limit memory
                 verbose=2,
             )
 
@@ -423,23 +437,97 @@ class FraudMLPipeline:
     def _calculate_metrics(
         self, y_true: np.ndarray, y_pred: np.ndarray, y_proba: np.ndarray
     ) -> Dict[str, float]:
-        """Calculate classification metrics."""
+        """Calculate comprehensive classification metrics for thesis research."""
+        # Confusion matrix components (handle edge cases)
+        cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
+
+        # Handle case where confusion matrix might not be 2x2
+        if cm.shape == (2, 2):
+            tn, fp, fn, tp = cm.ravel()
+        else:
+            # Edge case: only one class present
+            tn = fp = fn = tp = 0
+            if len(cm) > 0:
+                if y_true.sum() == 0:  # All negative
+                    tn = cm[0, 0]
+                else:  # All positive
+                    tp = cm[0, 0] if len(cm) == 1 else cm[1, 1]
+
+        # Calculate all metrics (with zero division handling)
         metrics = {
+            # Basic metrics
             "accuracy": float(accuracy_score(y_true, y_pred)),
-            "precision": float(precision_score(y_true, y_pred)),
-            "recall": float(recall_score(y_true, y_pred)),
-            "f1_score": float(f1_score(y_true, y_pred)),
+            "balanced_accuracy": float(balanced_accuracy_score(y_true, y_pred)),
+            "precision": float(precision_score(y_true, y_pred, zero_division=0)),
+            "recall": float(recall_score(y_true, y_pred, zero_division=0)),
+            "f1_score": float(f1_score(y_true, y_pred, zero_division=0)),
+
+            # ROC and PR curves
             "auc_roc": float(roc_auc_score(y_true, y_proba)),
+            "auc_pr": float(self._calculate_pr_auc(y_true, y_proba)),
+
+            # Confusion matrix components (important for thesis)
+            "true_positives": int(tp),
+            "true_negatives": int(tn),
+            "false_positives": int(fp),
+            "false_negatives": int(fn),
+
+            # Rates (critical for fraud detection)
+            "specificity": float(tn / (tn + fp)) if (tn + fp) > 0 else 0.0,
+            "sensitivity": float(tp / (tp + fn)) if (tp + fn) > 0 else 0.0,  # Same as recall
+            "false_positive_rate": float(fp / (fp + tn)) if (fp + tn) > 0 else 0.0,
+            "false_negative_rate": float(fn / (fn + tp)) if (fn + tp) > 0 else 0.0,
+            "negative_predictive_value": float(tn / (tn + fn)) if (tn + fn) > 0 else 0.0,
+
+            # Advanced metrics for imbalanced classification
+            "matthews_corrcoef": float(matthews_corrcoef(y_true, y_pred)),
+            "cohen_kappa": float(cohen_kappa_score(y_true, y_pred)),
+
+            # G-mean (geometric mean of sensitivity and specificity)
+            "g_mean": float(np.sqrt((tp / (tp + fn)) * (tn / (tn + fp)))) if (tp + fn) > 0 and (tn + fp) > 0 else 0.0,
         }
         return metrics
 
+    def _calculate_pr_auc(self, y_true: np.ndarray, y_proba: np.ndarray) -> float:
+        """Calculate Precision-Recall AUC (important for imbalanced datasets)."""
+        precision, recall, _ = precision_recall_curve(y_true, y_proba)
+        return auc(recall, precision)
+
     def _print_metrics(self, metrics: Dict[str, float]):
         """Print metrics in a formatted way."""
-        print(f"\nAccuracy:  {metrics['accuracy']:.4f}")
-        print(f"Precision: {metrics['precision']:.4f}")
-        print(f"Recall:    {metrics['recall']:.4f}")
-        print(f"F1-Score:  {metrics['f1_score']:.4f}")
-        print(f"AUC-ROC:   {metrics['auc_roc']:.4f}")
+        print("\n" + "=" * 60)
+        print("CORE METRICS")
+        print("=" * 60)
+        print(f"Accuracy:          {metrics['accuracy']:.4f}")
+        print(f"Balanced Accuracy: {metrics['balanced_accuracy']:.4f}")
+        print(f"Precision:         {metrics['precision']:.4f}")
+        print(f"Recall/Sensitivity:{metrics['recall']:.4f}")
+        print(f"Specificity:       {metrics['specificity']:.4f}")
+        print(f"F1-Score:          {metrics['f1_score']:.4f}")
+        print(f"\n" + "=" * 60)
+        print("AUC METRICS")
+        print("=" * 60)
+        print(f"AUC-ROC:           {metrics['auc_roc']:.4f}")
+        print(f"AUC-PR:            {metrics['auc_pr']:.4f}")
+        print(f"\n" + "=" * 60)
+        print("CONFUSION MATRIX BREAKDOWN")
+        print("=" * 60)
+        print(f"True Positives:    {metrics['true_positives']:,}")
+        print(f"True Negatives:    {metrics['true_negatives']:,}")
+        print(f"False Positives:   {metrics['false_positives']:,}")
+        print(f"False Negatives:   {metrics['false_negatives']:,}")
+        print(f"\n" + "=" * 60)
+        print("ERROR RATES")
+        print("=" * 60)
+        print(f"False Positive Rate: {metrics['false_positive_rate']:.4f}")
+        print(f"False Negative Rate: {metrics['false_negative_rate']:.4f}")
+        print(f"\n" + "=" * 60)
+        print("ADVANCED METRICS")
+        print("=" * 60)
+        print(f"Matthews Corr Coef: {metrics['matthews_corrcoef']:.4f}")
+        print(f"Cohen's Kappa:      {metrics['cohen_kappa']:.4f}")
+        print(f"G-Mean:             {metrics['g_mean']:.4f}")
+        print("=" * 60)
 
     def get_feature_importance(self, top_n: int = 20) -> pd.DataFrame:
         """
@@ -558,25 +646,15 @@ class FraudMLPipeline:
             "precision": self.metadata["test_metrics"]["precision"],
             "recall": self.metadata["test_metrics"]["recall"],
             "auc_roc": self.metadata["test_metrics"]["auc_roc"],
-    import argparse
+        }
 
-    parser = argparse.ArgumentParser(description='Train Random Forest fraud detection model')
-    parser.add_argument('--max-samples', type=int, default=50000,
-                        help='Maximum training samples (default: 50000 for M4 Pro)')
-    parser.add_argument('--no-tune', action='store_true',
-                        help='Skip hyperparameter tuning')
-    args = parser.parse_args()
+        # Check if version exists
+        existing_idx = None
+        for idx, model in enumerate(registry["models"]):
+            if model.get("version") == version:
+                existing_idx = idx
+                break
 
-    print("=" * 80)
-    print("RANDOM FOREST BASELINE MODEL TRAINING (MEMORY OPTIMIZED)")
-    print("=" * 80)
-    print(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Project: FinSight AI - Fraud Detection")
-    print(f"Max samples: {args.max_samples:,}")
-    print("=" * 80)
-
-    # Initialize pipeline
-    pipeline = FraudMLPipeline(use_smote=True, random_state=42, max_samples=args.max_samples
         if existing_idx is not None:
             registry["models"][existing_idx] = model_entry
         else:
@@ -593,49 +671,136 @@ class FraudMLPipeline:
 
 def main():
     """Main training pipeline."""
+    parser = argparse.ArgumentParser(description="Train Random Forest fraud detection model")
+    parser.add_argument("--max-samples", type=int, default=50000,
+                        help="Maximum training samples (default: 50000 for M4 Pro)")
+    parser.add_argument("--no-tune", action="store_true",
+                        help="Skip hyperparameter tuning")
+    parser.add_argument("--run-name", type=str, default=None,
+                        help="MLflow run name (default: auto-generated)")
+    args = parser.parse_args()
+
     print("=" * 80)
-    print("RANDOM FOREST BASELINE MODEL TRAINING")
+    print("RANDOM FOREST BASELINE MODEL TRAINING (MEMORY OPTIMIZED)")
     print("=" * 80)
     print(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Project: FinSight AI - Fraud Detection")
+    print(f"Max samples: {args.max_samples:,}")
+    print(f"Hyperparameter tuning: {'Disabled' if args.no_tune else 'Enabled'}")
+    print("=" * 80)
+
+    # Setup MLflow
+    mlflow_uri = os.getenv("MLFLOW_TRACKING_URI", "file://./mlruns")
+    mlflow_experiment = os.getenv("MLFLOW_EXPERIMENT_NAME", "finsight-fraud-detection")
+    mlflow.set_tracking_uri(mlflow_uri)
+    mlflow.set_experiment(mlflow_experiment)
+
+    print(f"MLflow Tracking URI: {mlflow_uri}")
+    print(f"MLflow Experiment: {mlflow_experiment}")
     print("=" * 80)
 
     # Initialize pipeline
-    pipeline = FraudMLPipeline(use_smote=True, random_state=42)not args.no_tun
+    pipeline = FraudMLPipeline(
+        use_smote=True,
+        random_state=42,
+        max_samples=args.max_samples
+    )
 
-    # Step 1: Load data
-    train_df, val_df, test_df = pipeline.load_data()
+    # Start MLflow run
+    run_name = args.run_name or f"random_forest_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    with mlflow.start_run(run_name=run_name) as run:
+        # Log training configuration
+        mlflow.log_params({
+            "model_type": "random_forest",
+            "use_smote": True,
+            "max_samples": args.max_samples,
+            "random_state": 42,
+            "hyperparameter_tuning": not args.no_tune,
+        })
 
-    # Step 2: Feature engineering
-    X_train, y_train = pipeline.engineer_features(train_df, fit=True)
-    X_val, y_val = pipeline.engineer_features(val_df, fit=False)
-    X_test, y_test = pipeline.engineer_features(test_df, fit=False)
+        # Step 1: Load data
+        train_df, val_df, test_df = pipeline.load_data()
 
-    # Step 3: Feature scaling
-    X_train, X_val, X_test = pipeline.scale_features(X_train, X_val, X_test)
+        # Log dataset sizes
+        mlflow.log_params({
+            "train_samples": len(train_df),
+            "val_samples": len(val_df),
+            "test_samples": len(test_df),
+            "train_fraud_rate": float(train_df['isFraud'].mean()),
+            "val_fraud_rate": float(val_df['isFraud'].mean()),
+            "test_fraud_rate": float(test_df['isFraud'].mean()),
+        })
 
-    # Step 4: Train model with hyperparameter tuning
-    pipeline.train_random_forest(X_train, y_train, X_val, y_val, tune_hyperparameters=True)
+        # Step 2: Feature engineering
+        X_train, y_train = pipeline.engineer_features(train_df, fit=True)
+        X_val, y_val = pipeline.engineer_features(val_df, fit=False)
+        X_test, y_test = pipeline.engineer_features(test_df, fit=False)
 
-    # Step 5: Evaluate on test set
-    test_metrics = pipeline.evaluate_test_set(X_test, y_test)
+        # Log feature count
+        mlflow.log_param("n_features", len(pipeline.feature_names))
 
-    # Get feature importance
-    pipeline.get_feature_importance(top_n=20)
+        # Step 3: Feature scaling
+        X_train, X_val, X_test = pipeline.scale_features(X_train, X_val, X_test)
 
-    # Step 6: Save all artifacts
-    pipeline.save_model(version="v1")
+        # Step 4: Train model
+        pipeline.train_random_forest(
+            X_train, y_train, X_val, y_val,
+            tune_hyperparameters=not args.no_tune
+        )
 
-    print("\n" + "=" * 80)
-    print("✓ TRAINING COMPLETE!")
-    print("=" * 80)
-    print("\nModel performance summary:")
-    print(f"  F1-Score: {test_metrics['f1_score']:.4f}")
-    print(f"  Precision: {test_metrics['precision']:.4f}")
-    print(f"  Recall: {test_metrics['recall']:.4f}")
-    print(f"  AUC-ROC: {test_metrics['auc_roc']:.4f}")
-    print("\nModel artifacts saved to: backend/models/")
-    print("=" * 80)
+        # Log best hyperparameters
+        if hasattr(pipeline.model, 'get_params'):
+            model_params = pipeline.model.get_params()
+            for param, value in model_params.items():
+                if param in ['n_estimators', 'max_depth', 'min_samples_split', 'min_samples_leaf']:
+                    mlflow.log_param(f"rf_{param}", value)
+
+        # Step 5: Evaluate on test set
+        test_metrics = pipeline.evaluate_test_set(X_test, y_test)
+
+        # Log all metrics
+        mlflow.log_metrics(test_metrics)
+
+        # Get feature importance
+        pipeline.get_feature_importance(top_n=20)
+
+        # Step 6: Save all artifacts
+        version = f"v1_{datetime.now().strftime('%Y%m%d')}"
+        pipeline.save_model(version=version)
+
+        # Log model to MLflow
+        mlflow.sklearn.log_model(
+            pipeline.model,
+            "model",
+            registered_model_name="random-forest-fraud-detector"
+        )
+
+        # Log artifacts
+        mlflow.log_artifacts(str(MODELS_DIR), artifact_path="models")
+
+        # Set tags for easy filtering
+        mlflow.set_tags({
+            "model_family": "ensemble",
+            "algorithm": "random_forest",
+            "stage": "baseline",
+            "hardware": "M4_Pro",
+            "dataset_version": "smote_balanced",
+        })
+
+        print("\n" + "=" * 80)
+        print("✓ TRAINING COMPLETE!")
+        print("=" * 80)
+        print("\nModel performance summary:")
+        print(f"  F1-Score: {test_metrics['f1_score']:.4f}")
+        print(f"  Precision: {test_metrics['precision']:.4f}")
+        print(f"  Recall: {test_metrics['recall']:.4f}")
+        print(f"  AUC-ROC: {test_metrics['auc_roc']:.4f}")
+        print(f"\nMLflow Run ID: {run.info.run_id}")
+        print(f"View experiments at: {mlflow_uri}")
+        if "dagshub" in mlflow_uri:
+            print("DagsHub UI: https://dagshub.com/bibekgupta3333/finsight-ai/experiments")
+        print("\nModel artifacts saved to: backend/models/")
+        print("=" * 80)
 
 
 if __name__ == "__main__":

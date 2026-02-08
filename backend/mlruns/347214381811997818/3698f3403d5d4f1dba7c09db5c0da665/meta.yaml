@@ -1,0 +1,14 @@
+artifact_uri: /Users/bibekgupta/Downloads/projects/finsight-ai/backend/mlruns/347214381811997818/3698f3403d5d4f1dba7c09db5c0da665/artifacts
+end_time: 1770584073222
+entry_point_name: ''
+experiment_id: '347214381811997818'
+lifecycle_stage: active
+run_id: 3698f3403d5d4f1dba7c09db5c0da665
+run_name: test_rf_metrics
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1770584052196
+status: 3
+tags: []
+user_id: bibekgupta

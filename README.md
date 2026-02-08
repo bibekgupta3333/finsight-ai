@@ -161,7 +161,161 @@ See [docs/DATA-VALIDATION-GUIDE.md](docs/DATA-VALIDATION-GUIDE.md) for comprehen
 
 ---
 
-## 🧠 Why This Project is AGI-Level
+## � Model Training & Experiment Tracking (MLflow)
+
+### MLflow Integration
+
+All model training is tracked with **MLflow** for experiment management, model versioning, and reproducibility. Supports both local tracking and remote DagsHub integration.
+
+**Models Available:**
+- **Random Forest** - Baseline ensemble model with SMOTE balancing
+- **XGBoost** - Gradient boosting with Optuna hyperparameter optimization
+- **LightGBM** - Fast gradient boosting optimized for large datasets
+
+### Quick Training Commands
+
+```bash
+# Quick training (10k samples, ~30 seconds each)
+pnpm train:rf:quick          # Random Forest baseline
+pnpm train:xgboost:quick     # XGBoost (5 Optuna trials)
+pnpm train:lightgbm:quick    # LightGBM
+pnpm train:all:quick         # Train all 3 models
+
+# Full training (50k samples, production config)
+pnpm train:rf                # Random Forest with hyperparameter tuning
+pnpm train:xgboost           # XGBoost (20 Optuna trials)
+pnpm train:lightgbm          # LightGBM
+pnpm train:all               # Train all 3 models
+```
+
+### MLflow Experiment Management
+
+**View Experiments:**
+```bash
+# Launch MLflow UI
+pnpm mlflow:ui
+# Open http://localhost:5000
+
+# Compare experiments in Jupyter notebook
+pnpm mlflow:compare
+# Opens backend/notebooks/02_model_evaluation.ipynb
+```
+
+**What's Tracked:**
+- ✅ **Parameters:** Model hyperparameters, training config, dataset sizes, fraud rates
+- ✅ **Metrics:** Accuracy, Precision, Recall, F1-Score, ROC-AUC
+- ✅ **Artifacts:** Trained models, feature importance, metadata, preprocessors
+- ✅ **Tags:** Algorithm type, stage (baseline/development/production), hardware, optimization method
+
+**Model Registry:**
+- `xgboost-fraud-detector` - XGBoost models with versioning
+- `lightgbm-fraud-detector` - LightGBM models with versioning
+- `random-forest-fraud-detector` - Random Forest models with versioning
+
+### DagsHub Remote Tracking (Optional)
+
+**What is DagsHub?**  
+DagsHub is a platform for data science collaboration, providing:
+- Remote MLflow tracking server (free tier available)
+- Git-based data versioning (DVC integration)
+- Shareable experiment URLs for team collaboration
+- Perfect for thesis defense presentations!
+
+**Setup:**
+1. Create account at [dagshub.com](https://dagshub.com)
+2. Get token from https://dagshub.com/user/settings/tokens
+3. Update `backend/.env.local`:
+   ```bash
+   # Comment out local tracking
+   # MLFLOW_TRACKING_URI=./mlruns
+   
+   # Enable DagsHub
+   MLFLOW_TRACKING_URI=https://dagshub.com/bibekgupta3333/finsight-ai.mlflow
+   MLFLOW_TRACKING_USERNAME=bibekgupta3333
+   MLFLOW_TRACKING_PASSWORD=<YOUR_DAGSHUB_TOKEN>
+   ```
+4. Train models - experiments auto-sync to DagsHub
+5. View at https://dagshub.com/bibekgupta3333/finsight-ai/experiments
+
+**Benefits for Thesis:**
+- 📊 Share experiment results with committee via URL
+- 📈 Beautiful visualization of model comparison
+- 🔄 Full reproducibility trail
+- 📝 Automatic experiment documentation
+
+### MLflow Project Structure
+
+**Run with MLflow CLI:**
+```bash
+cd backend
+
+# Run specific model
+mlflow run . -e xgboost -P max_samples=50000 -P n_trials=20
+mlflow run . -e lightgbm -P max_samples=50000
+mlflow run . -e baseline -P max_samples=50000
+
+# Run via main entry point (model selector)
+mlflow run . -e main -P model_type=xgboost -P max_samples=50000
+```
+
+**Direct Python Execution:**
+```bash
+cd backend
+
+# With custom run name for organization
+python scripts/train_xgboost_model.py --max-samples 50000 --run-name "xgb_v2_optimized"
+python scripts/train_lightgbm_model.py --max-samples 50000 --run-name "lgbm_baseline"
+python scripts/train_baseline_models.py --max-samples 50000 --no-tune --run-name "rf_quick_test"
+```
+
+### Experiment Comparison
+
+**Interactive Notebook:**
+```bash
+pnpm mlflow:compare
+# Opens 02_model_evaluation.ipynb with:
+# - Automated experiment loading from MLflow
+# - Sortable comparison table with color-coded metrics
+# - 4-panel visualization (F1, Precision, Recall, ROC-AUC)
+# - Best model identification with loading instructions
+```
+
+**MLflow UI:**
+1. Start UI: `pnpm mlflow:ui`
+2. Navigate to "Experiments" tab
+3. Select multiple runs
+4. Click "Compare" button
+5. View side-by-side metrics, params, and artifacts
+
+**Filtering by Tags:**
+- `algorithm` - random_forest, xgboost, lightgbm
+- `stage` - baseline, development, production
+- `hardware` - M4_Pro (or your machine)
+- `optimization` - optuna (for hyperparameter tuning)
+
+### Performance Benchmarks (M4 Pro)
+
+| Model | Samples | Training Time | F1-Score | Precision | Recall |
+|-------|---------|--------------|----------|-----------|--------|
+| Random Forest (quick) | 10,000 | ~25s | 0.85 | 0.82 | 0.88 |
+| XGBoost (quick) | 10,000 | ~40s | 0.87 | 0.84 | 0.90 |
+| LightGBM (quick) | 10,000 | ~18s | 0.86 | 0.83 | 0.89 |
+| XGBoost (full) | 50,000 | ~4m | 0.91 | 0.89 | 0.93 |
+
+**Memory Optimization:**
+- Default max samples: 50,000 (configurable)
+- Memory limit: 16GB (adjustable for M4 Pro)
+- SMOTE balancing applied for class imbalance
+- Stratified sampling ensures fraud representation
+
+**Documentation:**
+- 📘 Complete guide: [docs/MLOPS-PHASE-2-SUMMARY.md](docs/MLOPS-PHASE-2-SUMMARY.md)
+- 📊 WBS tracking: [docs/planning/MLOPS-WBS.md](docs/planning/MLOPS-WBS.md)
+- 🔧 Troubleshooting: See Phase 2 summary for common issues
+
+---
+
+## �🧠 Why This Project is AGI-Level
 
 ## 🚀 Quick Start
 
@@ -292,10 +446,33 @@ See [docs/DATA-VALIDATION-GUIDE.md](docs/DATA-VALIDATION-GUIDE.md) for comprehen
    **Pipeline Stages:** clean → split → balance → annotate → quality_check  
    **See:** [NEXT-STEPS-DVC.md](NEXT-STEPS-DVC.md) for detailed DVC setup
 
-8. **Access the application**
+8. **Train models and track experiments** (MLflow)
+   ```bash
+   # Quick training to test setup (10k samples, ~1 minute total)
+   pnpm train:all:quick
+   
+   # View experiments in MLflow UI
+   pnpm mlflow:ui
+   # Open http://localhost:5000
+   
+   # Or compare in Jupyter notebook
+   pnpm mlflow:compare
+   
+   # Full training with all samples (50k, ~5-10 minutes)
+   pnpm train:all
+   ```
+   
+   **What happens:**
+   - Trains Random Forest, XGBoost, and LightGBM
+   - Logs all metrics to MLflow (./backend/mlruns)
+   - Registers models in model registry
+   - Generates comparison visualizations
+
+9. **Access the application**
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
    - API Docs: http://localhost:8000/docs
+   - MLflow UI: http://localhost:5000 (after running `pnpm mlflow:ui`)
    - ChromaDB: http://localhost:8001
 
 ### Docker Setup

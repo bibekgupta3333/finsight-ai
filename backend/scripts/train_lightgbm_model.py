@@ -15,6 +15,7 @@ import argparse
 import gc
 import json
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Tuple
@@ -25,15 +26,24 @@ import mlflow.lightgbm
 import numpy as np
 import pandas as pd
 import psutil
+from dotenv import load_dotenv
 from sklearn.metrics import (
     accuracy_score,
+    auc,
+    balanced_accuracy_score,
+    cohen_kappa_score,
     confusion_matrix,
     f1_score,
+    matthews_corrcoef,
+    precision_recall_curve,
     precision_score,
     recall_score,
     roc_auc_score,
 )
 from sklearn.preprocessing import StandardScaler
+
+# Load environment variables
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env.local")
 
 # Configure logging
 logging.basicConfig(
@@ -285,19 +295,69 @@ class LightGBMTrainer:
         y_test_pred_proba = self.model.predict(X_test, num_iteration=self.model.best_iteration)
         y_test_pred = (y_test_pred_proba > 0.5).astype(int)
 
+        # Confusion matrix components (handle edge cases with labels parameter)
+        cm = confusion_matrix(y_test, y_test_pred, labels=[0, 1])
+
+        # Handle case where confusion matrix might not be 2x2
+        if cm.shape == (2, 2):
+            tn, fp, fn, tp = cm.ravel()
+        else:
+            # Edge case: only one class present
+            tn = fp = fn = tp = 0
+            if len(cm) > 0:
+                if y_test.sum() == 0:  # All negative
+                    tn = cm[0, 0]
+                else:  # All positive
+                    tp = cm[0, 0] if len(cm) == 1 else cm[1, 1]
+
+        # Precision-Recall AUC (handle edge case)
+        try:
+            precision, recall, _ = precision_recall_curve(y_test, y_test_pred_proba)
+            pr_auc = auc(recall, precision)
+        except:
+            pr_auc = 0.0
+
+        # Comprehensive metrics for thesis research
         metrics = {
+            # Basic metrics
             "accuracy": float(accuracy_score(y_test, y_test_pred)),
+            "balanced_accuracy": float(balanced_accuracy_score(y_test, y_test_pred)),
             "precision": float(precision_score(y_test, y_test_pred, zero_division=0)),
             "recall": float(recall_score(y_test, y_test_pred, zero_division=0)),
             "f1_score": float(f1_score(y_test, y_test_pred, zero_division=0)),
-            "roc_auc": float(roc_auc_score(y_test, y_test_pred_proba))
+
+            # ROC and PR curves
+            "roc_auc": float(roc_auc_score(y_test, y_test_pred_proba)),
+            "auc_pr": float(pr_auc),
+
+            # Confusion matrix components
+            "true_positives": int(tp),
+            "true_negatives": int(tn),
+            "false_positives": int(fp),
+            "false_negatives": int(fn),
+
+            # Rates
+            "specificity": float(tn / (tn + fp)) if (tn + fp) > 0 else 0.0,
+            "sensitivity": float(tp / (tp + fn)) if (tp + fn) > 0 else 0.0,
+            "false_positive_rate": float(fp / (fp + tn)) if (fp + tn) > 0 else 0.0,
+            "false_negative_rate": float(fn / (fn + tp)) if (fn + tp) > 0 else 0.0,
+            "negative_predictive_value": float(tn / (tn + fn)) if (tn + fn) > 0 else 0.0,
+
+            # Advanced metrics
+            "matthews_corrcoef": float(matthews_corrcoef(y_test, y_test_pred)),
+            "cohen_kappa": float(cohen_kappa_score(y_test, y_test_pred)),
+            "g_mean": float(np.sqrt((tp / (tp + fn)) * (tn / (tn + fp)))) if (tp + fn) > 0 and (tn + fp) > 0 else 0.0,
         }
 
-        logger.info("Test Set Metrics:")
-        for metric, value in metrics.items():
-            logger.info(f"  {metric}: {value:.4f}")
-
-        cm = confusion_matrix(y_test, y_test_pred)
+        logger.info("="*80)
+        logger.info("COMPREHENSIVE TEST SET METRICS")
+        logger.info("="*80)
+        logger.info(f"Accuracy: {metrics['accuracy']:.4f} | Balanced: {metrics['balanced_accuracy']:.4f}")
+        logger.info(f"Precision: {metrics['precision']:.4f} | Recall: {metrics['recall']:.4f} | F1: {metrics['f1_score']:.4f}")
+        logger.info(f"Specificity: {metrics['specificity']:.4f} | Sensitivity: {metrics['sensitivity']:.4f}")
+        logger.info(f"AUC-ROC: {metrics['roc_auc']:.4f} | AUC-PR: {metrics['auc_pr']:.4f}")
+        logger.info(f"MCC: {metrics['matthews_corrcoef']:.4f} | Kappa: {metrics['cohen_kappa']:.4f} | G-Mean: {metrics['g_mean']:.4f}")
+        logger.info(f"\nConfusion Matrix: TP={tp:,} TN={tn:,} FP={fp:,} FN={fn:,}")
         logger.info(f"Confusion Matrix:\n{cm}")
 
         return metrics
@@ -371,6 +431,8 @@ def main():
                         help="Maximum training samples (default: 50000 for M4 Pro)")
     parser.add_argument("--memory-limit", type=float, default=16.0,
                         help="Memory limit in GB (default: 16.0)")
+    parser.add_argument("--run-name", type=str, default=None,
+                        help="MLflow run name (default: auto-generated)")
     args = parser.parse_args()
 
     logger.info("=" * 80)
@@ -382,8 +444,14 @@ def main():
     logger.info("=" * 80)
 
     # Setup MLflow
-    mlflow.set_tracking_uri(f"file://{PROJECT_ROOT / 'backend' / 'mlruns'}")
-    mlflow.set_experiment("baseline_models")
+    mlflow_uri = os.getenv("MLFLOW_TRACKING_URI", "file://./mlruns")
+    mlflow_experiment = os.getenv("MLFLOW_EXPERIMENT_NAME", "finsight-fraud-detection")
+    mlflow.set_tracking_uri(mlflow_uri)
+    mlflow.set_experiment(mlflow_experiment)
+
+    logger.info(f"MLflow Tracking URI: {mlflow_uri}")
+    logger.info(f"MLflow Experiment: {mlflow_experiment}")
+    logger.info("=" * 80)
 
     # Initialize trainer
     trainer = LightGBMTrainer(
@@ -400,9 +468,10 @@ def main():
     X_val, y_val = trainer.engineer_features(val_df, fit=False)
     X_test, y_test = trainer.engineer_features(test_df, fit=False)
 
-     # Start MLflow run
-    with mlflow.start_run(run_name="lightgbm_fraud_detection"):
-        # Log parameters
+    # Start MLflow run
+    run_name = args.run_name or f"lightgbm_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    with mlflow.start_run(run_name=run_name) as run:
+        # Log training configuration
         lgb_params = {
             "objective": "binary",
             "metric": ["binary_logloss", "auc"],
@@ -417,10 +486,23 @@ def main():
             "min_child_samples": 20,
             "num_boost_round": 1000,
             "early_stopping_rounds": 50,
-            "max_samples": args.max_samples,
-            "memory_limit_gb": args.memory_limit
         }
         mlflow.log_params(lgb_params)
+        mlflow.log_params({
+            "max_samples": args.max_samples,
+            "memory_limit_gb": args.memory_limit,
+            "random_state": trainer.random_state,
+        })
+
+        # Log dataset sizes
+        mlflow.log_params({
+            "train_samples": len(train_df),
+            "val_samples": len(val_df),
+            "test_samples": len(test_df),
+            "train_fraud_rate": float(train_df['isFraud'].mean()),
+            "val_fraud_rate": float(val_df['isFraud'].mean()),
+            "test_fraud_rate": float(test_df['isFraud'].mean()),
+        })
 
         # Train
         trainer.train_lightgbm(X_train, y_train, X_val, y_val)
@@ -432,28 +514,32 @@ def main():
         mlflow.log_metrics(metrics)
 
         # Log model
-        mlflow.lightgbm.log_model(trainer.model, "model")
+        mlflow.lightgbm.log_model(
+            trainer.model,
+            "model",
+            registered_model_name="lightgbm-fraud-detector"
+        )
 
-        # Log artifacts
-        metadata_path = MODELS_DIR / "lightgbm_v1_metadata.json"
-        if metadata_path.exists():
-            mlflow.log_artifact(str(metadata_path), "metadata")
+        # Save and log artifacts
+        version = f"v1_{datetime.now().strftime('%Y%m%d')}"
+        trainer.save_model(metrics, version=version)
 
-        # Set tags
+        mlflow.log_artifacts(str(MODELS_DIR), artifact_path="models")
+
+        # Set tags for easy filtering
         mlflow.set_tags({
-            "model_type": "lightgbm",
-            "framework": "lightgbm",
-            "task": "fraud_detection",
-            "best_model": "true"
+            "model_family": "gradient_boosting",
+            "algorithm": "lightgbm",
+            "stage": "development",
+            "hardware": "M4_Pro",
+            "dataset_version": "stratified_split",
         })
 
-    # Save
-    trainer.save_model(metrics, version="v1")
-
-    logger.info(f"\nFinal F1-Score: {metrics['f1_score']:.4f}")
-    logger.info("\nView results in MLflow UI:")
-    logger.info("  mlflow ui --backend-store-uri file://./mlruns --port 5000")
-    logger.info("  http://localhost:5000")
+        logger.info(f"\nMLflow Run ID: {run.info.run_id}")
+        logger.info(f"Final F1-Score: {metrics['f1_score']:.4f}")
+        logger.info(f"\nView experiments at: {mlflow_uri}")
+        if "dagshub" in mlflow_uri:
+            logger.info("DagsHub UI: https://dagshub.com/bibekgupta3333/finsight-ai/experiments")
 
 
 if __name__ == "__main__":

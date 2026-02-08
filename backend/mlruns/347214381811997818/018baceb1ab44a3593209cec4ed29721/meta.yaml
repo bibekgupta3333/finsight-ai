@@ -1,0 +1,14 @@
+artifact_uri: /Users/bibekgupta/Downloads/projects/finsight-ai/backend/mlruns/347214381811997818/018baceb1ab44a3593209cec4ed29721/artifacts
+end_time: 1770582349416
+entry_point_name: ''
+experiment_id: '347214381811997818'
+lifecycle_stage: active
+run_id: 018baceb1ab44a3593209cec4ed29721
+run_name: test_mlflow_integration
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1770582346045
+status: 3
+tags: []
+user_id: bibekgupta
