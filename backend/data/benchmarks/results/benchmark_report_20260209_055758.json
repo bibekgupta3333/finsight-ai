@@ -1,0 +1,143 @@
+{
+  "timestamp": "2026-02-09T05:57:58.408617",
+  "config_file": "benchmarks/config.yaml",
+  "total_predictions": 15,
+  "baselines_tested": [
+    "xgboost",
+    "lightgbm",
+    "rule-based"
+  ],
+  "datasets_tested": [
+    "quick_test"
+  ],
+  "overall_metrics": {
+    "total_predictions": 15,
+    "correct": 10,
+    "incorrect": 5,
+    "accuracy": 0.6666666666666666,
+    "precision": 0.8333333333333334,
+    "recall": 0.5555555555555556,
+    "f1_score": 0.6666666666666667,
+    "true_positives": 5,
+    "true_negatives": 5,
+    "false_positives": 1,
+    "false_negatives": 4,
+    "false_positive_rate": 0.16666666666666666,
+    "false_negative_rate": 0.4444444444444444,
+    "latency_p50_ms": 1.2249946594238281,
+    "latency_p95_ms": 3.1910419464111306,
+    "latency_p99_ms": 4.323778152465819,
+    "avg_confidence": 0.8984859556433736
+  },
+  "per_baseline": {
+    "xgboost": {
+      "total_predictions": 5,
+      "correct": 3,
+      "incorrect": 2,
+      "accuracy": 0.6,
+      "precision": 1.0,
+      "recall": 0.3333333333333333,
+      "f1_score": 0.5,
+      "true_positives": 1,
+      "true_negatives": 2,
+      "false_positives": 0,
+      "false_negatives": 2,
+      "false_positive_rate": 0.0,
+      "false_negative_rate": 0.6666666666666666,
+      "latency_p50_ms": 2.4733543395996094,
+      "latency_p95_ms": 4.202413558959961,
+      "latency_p99_ms": 4.526052474975586,
+      "avg_confidence": 0.996137935092861
+    },
+    "lightgbm": {
+      "total_predictions": 5,
+      "correct": 3,
+      "incorrect": 2,
+      "accuracy": 0.6,
+      "precision": 1.0,
+      "recall": 0.3333333333333333,
+      "f1_score": 0.5,
+      "true_positives": 1,
+      "true_negatives": 2,
+      "false_positives": 0,
+      "false_negatives": 2,
+      "false_positive_rate": 0.0,
+      "false_negative_rate": 0.6666666666666666,
+      "latency_p50_ms": 1.2249946594238281,
+      "latency_p95_ms": 1.6117572784423828,
+      "latency_p99_ms": 1.6857242584228516,
+      "avg_confidence": 0.9693199318372597
+    },
+    "rule-based": {
+      "total_predictions": 5,
+      "correct": 4,
+      "incorrect": 1,
+      "accuracy": 0.8,
+      "precision": 0.75,
+      "recall": 1.0,
+      "f1_score": 0.8571428571428571,
+      "true_positives": 3,
+      "true_negatives": 1,
+      "false_positives": 1,
+      "false_negatives": 0,
+      "false_positive_rate": 0.5,
+      "false_negative_rate": 0.0,
+      "latency_p50_ms": 0.024080276489257812,
+      "latency_p95_ms": 0.05140304565429687,
+      "latency_p99_ms": 0.055103302001953125,
+      "avg_confidence": 0.7299999999999999
+    }
+  },
+  "per_dataset": {
+    "quick_test": {
+      "total_predictions": 15,
+      "correct": 10,
+      "incorrect": 5,
+      "accuracy": 0.6666666666666666,
+      "precision": 0.8333333333333334,
+      "recall": 0.5555555555555556,
+      "f1_score": 0.6666666666666667,
+      "true_positives": 5,
+      "true_negatives": 5,
+      "false_positives": 1,
+      "false_negatives": 4,
+      "false_positive_rate": 0.16666666666666666,
+      "false_negative_rate": 0.4444444444444444,
+      "latency_p50_ms": 1.2249946594238281,
+      "latency_p95_ms": 3.1910419464111306,
+      "latency_p99_ms": 4.323778152465819,
+      "avg_confidence": 0.8984859556433736
+    }
+  },
+  "comparison_table": [
+    {
+      "baseline": "rule-based",
+      "accuracy": 0.8,
+      "precision": 0.75,
+      "recall": 1.0,
+      "f1_score": 0.8571428571428571,
+      "latency_p95_ms": 0.05140304565429687
+    },
+    {
+      "baseline": "xgboost",
+      "accuracy": 0.6,
+      "precision": 1.0,
+      "recall": 0.3333333333333333,
+      "f1_score": 0.5,
+      "latency_p95_ms": 4.202413558959961
+    },
+    {
+      "baseline": "lightgbm",
+      "accuracy": 0.6,
+      "precision": 1.0,
+      "recall": 0.3333333333333333,
+      "f1_score": 0.5,
+      "latency_p95_ms": 1.6117572784423828
+    }
+  ],
+  "best_baseline": "rule-based",
+  "recommendations": [
+    "\u2713 Low latency (<100ms p95). Good for real-time applications.",
+    "\ud83d\udca1 Recommended baseline: rule-based (F1=0.857, Latency=0.1ms)"
+  ]
+}

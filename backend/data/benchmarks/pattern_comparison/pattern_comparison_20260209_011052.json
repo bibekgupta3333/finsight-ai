@@ -1,0 +1,122 @@
+{
+  "timestamp": "20260209_011052",
+  "test_size": 3,
+  "patterns": [
+    "single",
+    "manager-worker"
+  ],
+  "results": {
+    "single": [
+      {
+        "test_id": "basic_fraud_001",
+        "pattern": "single",
+        "prediction": "fraud",
+        "expected": "fraud",
+        "correct": true,
+        "confidence": 0.75,
+        "risk_score": 65.0,
+        "latency_ms": 1.2562274932861328,
+        "num_agents": 1,
+        "error": null
+      },
+      {
+        "test_id": "basic_legit_001",
+        "pattern": "single",
+        "prediction": "legitimate",
+        "expected": "legitimate",
+        "correct": true,
+        "confidence": 0.85,
+        "risk_score": 0.0,
+        "latency_ms": 1.0361671447753906,
+        "num_agents": 1,
+        "error": null
+      },
+      {
+        "test_id": "edge_tiny_fraud_001",
+        "pattern": "single",
+        "prediction": "legitimate",
+        "expected": "fraud",
+        "correct": false,
+        "confidence": 0.6,
+        "risk_score": 45.0,
+        "latency_ms": 302.6561737060547,
+        "num_agents": 1,
+        "error": null
+      }
+    ],
+    "manager-worker": [
+      {
+        "test_id": "basic_fraud_001",
+        "pattern": "manager-worker",
+        "prediction": "fraud",
+        "expected": "fraud",
+        "correct": true,
+        "confidence": 0.75,
+        "risk_score": 65.0,
+        "latency_ms": 1.5988349914550781,
+        "num_agents": 2,
+        "error": null
+      },
+      {
+        "test_id": "basic_legit_001",
+        "pattern": "manager-worker",
+        "prediction": "legitimate",
+        "expected": "legitimate",
+        "correct": true,
+        "confidence": 0.85,
+        "risk_score": 0.0,
+        "latency_ms": 2.482175827026367,
+        "num_agents": 2,
+        "error": null
+      },
+      {
+        "test_id": "edge_tiny_fraud_001",
+        "pattern": "manager-worker",
+        "prediction": "legitimate",
+        "expected": "fraud",
+        "correct": false,
+        "confidence": 0.6,
+        "risk_score": 45.0,
+        "latency_ms": 304.8090934753418,
+        "num_agents": 2,
+        "error": null
+      }
+    ]
+  },
+  "metrics": {
+    "single": {
+      "accuracy": 0.6666666666666666,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1": 0.6666666666666666,
+      "latency_p50": 1.2562274932861328,
+      "latency_p95": 272.51617908477783,
+      "latency_mean": 101.64952278137207,
+      "avg_confidence": 0.7333333333333334,
+      "avg_agents": 1.0,
+      "error_rate": 0.0,
+      "total_tests": 3,
+      "true_positives": 1,
+      "false_positives": 0,
+      "false_negatives": 1,
+      "true_negatives": 1
+    },
+    "manager-worker": {
+      "accuracy": 0.6666666666666666,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1": 0.6666666666666666,
+      "latency_p50": 2.482175827026367,
+      "latency_p95": 274.57640171051025,
+      "latency_mean": 102.96336809794109,
+      "avg_confidence": 0.7333333333333334,
+      "avg_agents": 2.0,
+      "error_rate": 0.0,
+      "total_tests": 3,
+      "true_positives": 1,
+      "false_positives": 0,
+      "false_negatives": 1,
+      "true_negatives": 1
+    }
+  }
+}

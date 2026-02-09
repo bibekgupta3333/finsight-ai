@@ -1,0 +1,302 @@
+[
+  {
+    "baseline": "xgboost",
+    "dataset": "benchmark_suite",
+    "test_id": "basic_fraud_001",
+    "expected": "fraud",
+    "prediction": "legitimate",
+    "confidence": 0.9999983785322684,
+    "correct": false,
+    "latency_ms": 4.225969314575195,
+    "metadata": {
+      "fraud_probability": 1.621467731638404e-06,
+      "risk_level": "low",
+      "model": "xgboost"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.373872"
+  },
+  {
+    "baseline": "xgboost",
+    "dataset": "benchmark_suite",
+    "test_id": "basic_legit_001",
+    "expected": "legitimate",
+    "prediction": "legitimate",
+    "confidence": 0.9999893579670243,
+    "correct": true,
+    "latency_ms": 2.6459693908691406,
+    "metadata": {
+      "fraud_probability": 1.0642032975738402e-05,
+      "risk_level": "low",
+      "model": "xgboost"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.376530"
+  },
+  {
+    "baseline": "xgboost",
+    "dataset": "benchmark_suite",
+    "test_id": "edge_tiny_fraud_001",
+    "expected": "fraud",
+    "prediction": "fraud",
+    "confidence": 0.9851770401000977,
+    "correct": true,
+    "latency_ms": 2.3088455200195312,
+    "metadata": {
+      "fraud_probability": 0.9851770401000977,
+      "risk_level": "critical",
+      "model": "xgboost"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.378852"
+  },
+  {
+    "baseline": "xgboost",
+    "dataset": "benchmark_suite",
+    "test_id": "edge_high_legit_001",
+    "expected": "legitimate",
+    "prediction": "legitimate",
+    "confidence": 0.9999985953277246,
+    "correct": true,
+    "latency_ms": 2.643108367919922,
+    "metadata": {
+      "fraud_probability": 1.4046722753846552e-06,
+      "risk_level": "low",
+      "model": "xgboost"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.381508"
+  },
+  {
+    "baseline": "xgboost",
+    "dataset": "benchmark_suite",
+    "test_id": "drained_fraud_001",
+    "expected": "fraud",
+    "prediction": "legitimate",
+    "confidence": 0.99552630353719,
+    "correct": false,
+    "latency_ms": 2.668142318725586,
+    "metadata": {
+      "fraud_probability": 0.0044736964628100395,
+      "risk_level": "low",
+      "model": "xgboost"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.384186"
+  },
+  {
+    "baseline": "xgboost",
+    "dataset": "benchmark_suite",
+    "test_id": "rapid_fraud_001",
+    "expected": "fraud",
+    "prediction": "legitimate",
+    "confidence": 0.6931557357311249,
+    "correct": false,
+    "latency_ms": 2.351045608520508,
+    "metadata": {
+      "fraud_probability": 0.3068442642688751,
+      "risk_level": "medium",
+      "model": "xgboost"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.386547"
+  },
+  {
+    "baseline": "lightgbm",
+    "dataset": "benchmark_suite",
+    "test_id": "basic_fraud_001",
+    "expected": "fraud",
+    "prediction": "legitimate",
+    "confidence": 0.9998466783706841,
+    "correct": false,
+    "latency_ms": 1.5790462493896484,
+    "metadata": {
+      "fraud_probability": 0.00015332162931587092,
+      "risk_level": "low",
+      "model": "lightgbm"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.388295"
+  },
+  {
+    "baseline": "lightgbm",
+    "dataset": "benchmark_suite",
+    "test_id": "basic_legit_001",
+    "expected": "legitimate",
+    "prediction": "legitimate",
+    "confidence": 0.9999970046686698,
+    "correct": true,
+    "latency_ms": 1.2371540069580078,
+    "metadata": {
+      "fraud_probability": 2.9953313301893312e-06,
+      "risk_level": "low",
+      "model": "lightgbm"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.389539"
+  },
+  {
+    "baseline": "lightgbm",
+    "dataset": "benchmark_suite",
+    "test_id": "edge_tiny_fraud_001",
+    "expected": "fraud",
+    "prediction": "fraud",
+    "confidence": 0.9118269759535161,
+    "correct": true,
+    "latency_ms": 1.1601448059082031,
+    "metadata": {
+      "fraud_probability": 0.9118269759535161,
+      "risk_level": "critical",
+      "model": "lightgbm"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.390710"
+  },
+  {
+    "baseline": "lightgbm",
+    "dataset": "benchmark_suite",
+    "test_id": "edge_high_legit_001",
+    "expected": "legitimate",
+    "prediction": "legitimate",
+    "confidence": 0.9999964017138661,
+    "correct": true,
+    "latency_ms": 1.1038780212402344,
+    "metadata": {
+      "fraud_probability": 3.5982861339252187e-06,
+      "risk_level": "low",
+      "model": "lightgbm"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.391824"
+  },
+  {
+    "baseline": "lightgbm",
+    "dataset": "benchmark_suite",
+    "test_id": "drained_fraud_001",
+    "expected": "fraud",
+    "prediction": "legitimate",
+    "confidence": 0.9349325984795624,
+    "correct": false,
+    "latency_ms": 1.0230541229248047,
+    "metadata": {
+      "fraud_probability": 0.06506740152043756,
+      "risk_level": "low",
+      "model": "lightgbm"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.392855"
+  },
+  {
+    "baseline": "lightgbm",
+    "dataset": "benchmark_suite",
+    "test_id": "rapid_fraud_001",
+    "expected": "fraud",
+    "prediction": "legitimate",
+    "confidence": 0.999869281899352,
+    "correct": false,
+    "latency_ms": 1.0640621185302734,
+    "metadata": {
+      "fraud_probability": 0.00013071810064799256,
+      "risk_level": "low",
+      "model": "lightgbm"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.393927"
+  },
+  {
+    "baseline": "rule-based",
+    "dataset": "benchmark_suite",
+    "test_id": "basic_fraud_001",
+    "expected": "fraud",
+    "prediction": "fraud",
+    "confidence": 0.8,
+    "correct": true,
+    "latency_ms": 0.0400543212890625,
+    "metadata": {
+      "rule": "type == 'CASH_OUT' and amount > 100000",
+      "rule_based": true
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.394116"
+  },
+  {
+    "baseline": "rule-based",
+    "dataset": "benchmark_suite",
+    "test_id": "basic_legit_001",
+    "expected": "legitimate",
+    "prediction": "legitimate",
+    "confidence": 0.6,
+    "correct": true,
+    "latency_ms": 0.05698204040527344,
+    "metadata": {
+      "rule": "True",
+      "rule_based": true
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.394179"
+  },
+  {
+    "baseline": "rule-based",
+    "dataset": "benchmark_suite",
+    "test_id": "edge_tiny_fraud_001",
+    "expected": "fraud",
+    "prediction": "fraud",
+    "confidence": 0.75,
+    "correct": true,
+    "latency_ms": 0.02288818359375,
+    "metadata": {
+      "rule": "newbalanceOrig == 0 and oldbalanceOrg > 0",
+      "rule_based": true
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.394206"
+  },
+  {
+    "baseline": "rule-based",
+    "dataset": "benchmark_suite",
+    "test_id": "edge_high_legit_001",
+    "expected": "legitimate",
+    "prediction": "fraud",
+    "confidence": 0.7,
+    "correct": false,
+    "latency_ms": 0.024080276489257812,
+    "metadata": {
+      "rule": "amount > 500000",
+      "rule_based": true
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.394233"
+  },
+  {
+    "baseline": "rule-based",
+    "dataset": "benchmark_suite",
+    "test_id": "drained_fraud_001",
+    "expected": "fraud",
+    "prediction": "fraud",
+    "confidence": 0.8,
+    "correct": true,
+    "latency_ms": 0.0057220458984375,
+    "metadata": {
+      "rule": "type == 'CASH_OUT' and amount > 100000",
+      "rule_based": true
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.394242"
+  },
+  {
+    "baseline": "rule-based",
+    "dataset": "benchmark_suite",
+    "test_id": "rapid_fraud_001",
+    "expected": "fraud",
+    "prediction": "fraud",
+    "confidence": 0.85,
+    "correct": true,
+    "latency_ms": 0.013828277587890625,
+    "metadata": {
+      "rule": "oldbalanceDest == 0 and newbalanceDest == 0 and amount > 50000",
+      "rule_based": true
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:53:00.394258"
+  }
+]

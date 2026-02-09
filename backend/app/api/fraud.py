@@ -1663,6 +1663,16 @@ from app.agents import (
     MemoryType,
 )
 
+# LangGraph agent imports (Phase 8.3)
+from app.agents.langgraph import (
+    FraudDetectionAgentLangGraph,
+    ManagerWorkerSystemLangGraph,
+    PlannerExecutorCriticSystemLangGraph,
+    DebateSystemLangGraph,
+    RoleSpecializedSystemLangGraph,
+    SwarmSystemLangGraph,
+)
+
 
 class AgentAnalysisRequest(BaseModel):
     """Request for agent-based analysis."""
@@ -2097,6 +2107,409 @@ async def analyze_with_swarm(
         "risk_score": result.risk_score,
         "confidence": result.confidence,
         "explanation": result.explanation,
+        "consensus_strategy": result.consensus_strategy,
+        "agreement_level": result.agreement_level,
+        "swarm_size": swarm_size,
+        "consensus_threshold": threshold,
+        "total_time": result.total_time,
+    }
+
+
+# ============================================================================
+# LangGraph Agent Endpoints (Phase 8.3 & 8.4)
+# ============================================================================
+
+
+@router.post(
+    "/agents/langgraph/single",
+    summary="Single agent analysis (LangGraph)",
+    description="Analyze using LangGraph-based single agent with StateGraph orchestration",
+    responses={
+        200: {
+            "description": "LangGraph single agent analysis completed",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "agent_type": "langgraph-single",
+                        "is_fraud": True,
+                        "risk_score": 85.0,
+                        "confidence": 0.92,
+                        "framework": "langgraph-1.0.7",
+                        "reasoning_steps": 6,
+                        "execution_time": 0.015,
+                    }
+                }
+            },
+        }
+    },
+)
+async def analyze_with_langgraph_single(request: AgentAnalysisRequest):
+    """
+    Analyze using LangGraph-based single agent.
+
+    Uses LangGraph StateGraph for orchestration:
+    - observation → planning → execution → reasoning → decision → reflection
+    - TypedDict state management
+    - Production-ready LangGraph 1.0.7 framework
+    """
+    agent = FraudDetectionAgentLangGraph()
+
+    transaction = {
+        "amount": request.amount,
+        "type": request.type,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+        "oldbalanceDest": request.oldbalanceDest,
+        "newbalanceDest": request.newbalanceDest,
+        "nameOrig": request.nameOrig,
+        "nameDest": request.nameDest,
+    }
+
+    result = await agent.analyze(transaction, request.transaction_id)
+
+    return {
+        "agent_type": "langgraph-single",
+        "transaction_id": request.transaction_id,
+        "is_fraud": result.is_fraud,
+        "risk_score": result.risk_score,
+        "confidence": result.confidence,
+        "explanation": result.explanation,
+        "framework": "langgraph-1.0.7",
+        "reasoning_steps": len(result.reasoning_steps) if result.reasoning_steps else 0,
+        "total_steps": result.total_steps,
+        "execution_time": result.execution_time,
+    }
+
+
+@router.post(
+    "/agents/langgraph/manager-worker",
+    summary="Manager-Worker multi-agent (LangGraph)",
+    description="Analyze using LangGraph-based manager coordinating multiple worker agents",
+    responses={
+        200: {
+            "description": "LangGraph manager-worker completed",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "agent_type": "langgraph-manager-worker",
+                        "is_fraud": True,
+                        "risk_score": 90.0,
+                        "confidence": 0.95,
+                        "framework": "langgraph-1.0.7",
+                        "workers": 3,
+                        "agreement_level": 1.0,
+                        "execution_time": 0.02,
+                    }
+                }
+            },
+        }
+    },
+)
+async def analyze_with_langgraph_manager_worker(
+    request: AgentAnalysisRequest,
+    num_workers: int = Query(3, description="Number of worker agents", ge=2, le=10),
+):
+    """
+    Analyze using LangGraph manager-worker pattern.
+
+    Manager delegates to N workers using StateGraph:
+    - Parallel worker execution (internal asyncio.gather)
+    - Majority vote consensus
+    - Linear graph: delegate → aggregate → END
+    """
+    system = ManagerWorkerSystemLangGraph(num_workers=num_workers)
+
+    transaction = {
+        "amount": request.amount,
+        "type": request.type,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+        "oldbalanceDest": request.oldbalanceDest,
+        "newbalanceDest": request.newbalanceDest,
+        "nameOrig": request.nameOrig,
+        "nameDest": request.nameDest,
+    }
+
+    result = await system.analyze(transaction, request.transaction_id)
+
+    return {
+        "agent_type": "langgraph-manager-worker",
+        "transaction_id": result.transaction_id,
+        "is_fraud": result.is_fraud,
+        "risk_score": result.risk_score,
+        "confidence": result.confidence,
+        "explanation": result.explanation,
+        "framework": "langgraph-1.0.7",
+        "consensus_strategy": result.consensus_strategy,
+        "agreement_level": result.agreement_level,
+        "num_workers": num_workers,
+        "num_agents": len(result.agent_results),
+        "total_time": result.total_time,
+    }
+
+
+@router.post(
+    "/agents/langgraph/planner-executor-critic",
+    summary="Planner-Executor-Critic (LangGraph)",
+    description="Analyze using LangGraph-based PEC pattern with three specialized roles",
+    responses={
+        200: {
+            "description": "LangGraph PEC completed",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "agent_type": "langgraph-pec",
+                        "is_fraud": True,
+                        "risk_score": 87.0,
+                        "confidence": 0.92,
+                        "framework": "langgraph-1.0.7",
+                        "disagreement_handling": "conservative",
+                        "execution_time": 0.02,
+                    }
+                }
+            },
+        }
+    },
+)
+async def analyze_with_langgraph_pec(request: AgentAnalysisRequest):
+    """
+    Analyze using LangGraph planner-executor-critic pattern.
+
+    Three specialized roles in StateGraph:
+    - Planner: Creates analysis strategy
+    - Executor: Performs detailed analysis
+    - Critic: Validates executor's results
+    - Decision: Handles disagreement (conservative escalation if Δ > 30)
+
+    Sequential flow: planner → executor → critic → decide → END
+    """
+    system = PlannerExecutorCriticSystemLangGraph()
+
+    transaction = {
+        "amount": request.amount,
+        "type": request.type,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+        "oldbalanceDest": request.oldbalanceDest,
+        "newbalanceDest": request.newbalanceDest,
+        "nameOrig": request.nameOrig,
+        "nameDest": request.nameDest,
+    }
+
+    result = await system.analyze(transaction, request.transaction_id)
+
+    return {
+        "agent_type": "langgraph-pec",
+        "transaction_id": result.transaction_id,
+        "is_fraud": result.is_fraud,
+        "risk_score": result.risk_score,
+        "confidence": result.confidence,
+        "explanation": result.explanation,
+        "framework": "langgraph-1.0.7",
+        "consensus_strategy": result.consensus_strategy,
+        "agreement_level": result.agreement_level,
+        "total_time": result.total_time,
+    }
+
+
+@router.post(
+    "/agents/langgraph/debate",
+    summary="Debate pattern (LangGraph)",
+    description="Analyze using LangGraph-based adversarial debate with judicial arbitration",
+    responses={
+        200: {
+            "description": "LangGraph debate completed",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "agent_type": "langgraph-debate",
+                        "is_fraud": True,
+                        "risk_score": 85.0,
+                        "confidence": 0.95,
+                        "framework": "langgraph-1.0.7",
+                        "verdict": "FRAUD - unanimous agreement",
+                        "execution_time": 0.02,
+                    }
+                }
+            },
+        }
+    },
+)
+async def analyze_with_langgraph_debate(request: AgentAnalysisRequest):
+    """
+    Analyze using LangGraph debate pattern.
+
+    Adversarial argumentation in StateGraph:
+    - Prosecutor: Argues transaction IS fraud (parallel)
+    - Defense: Argues transaction is legitimate (parallel)
+    - Judge: Makes final ruling based on arguments
+    - Verdict: Adjusts confidence based on agreement
+
+    Flow: parallel_debate (prosecutor + defense) → judge → verdict → END
+    High confidence (0.95) if unanimous, moderate (0.8 × judge.confidence) if split
+    """
+    system = DebateSystemLangGraph()
+
+    transaction = {
+        "amount": request.amount,
+        "type": request.type,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+        "oldbalanceDest": request.oldbalanceDest,
+        "newbalanceDest": request.newbalanceDest,
+        "nameOrig": request.nameOrig,
+        "nameDest": request.nameDest,
+    }
+
+    result = await system.analyze(transaction, request.transaction_id)
+
+    return {
+        "agent_type": "langgraph-debate",
+        "transaction_id": result.transaction_id,
+        "is_fraud": result.is_fraud,
+        "risk_score": result.risk_score,
+        "confidence": result.confidence,
+        "explanation": result.explanation,
+        "framework": "langgraph-1.0.7",
+        "consensus_strategy": result.consensus_strategy,
+        "agreement_level": result.agreement_level,
+        "total_time": result.total_time,
+    }
+
+
+@router.post(
+    "/agents/langgraph/role-specialized",
+    summary="Role-Specialized pattern (LangGraph)",
+    description="Analyze using LangGraph-based domain expert collaboration with weighted consensus",
+    responses={
+        200: {
+            "description": "LangGraph role-specialized completed",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "agent_type": "langgraph-role-specialized",
+                        "is_fraud": True,
+                        "risk_score": 85.0,
+                        "confidence": 0.92,
+                        "framework": "langgraph-1.0.7",
+                        "specialist_weights": {
+                            "transaction_analyst": 0.4,
+                            "account_specialist": 0.3,
+                            "policy_expert": 0.3,
+                        },
+                        "execution_time": 0.02,
+                    }
+                }
+            },
+        }
+    },
+)
+async def analyze_with_langgraph_role_specialized(request: AgentAnalysisRequest):
+    """
+    Analyze using LangGraph role-specialized pattern.
+
+    Domain experts collaborate in StateGraph:
+    - Transaction Analyst: Examines transaction patterns (40% weight)
+    - Account Specialist: Analyzes account history (30% weight)
+    - Policy Expert: Checks compliance and policies (30% weight)
+
+    Flow: parallel_specialists (all 3) → consensus (weighted vote) → END
+    Consensus requires ≥2 specialists agreement
+    """
+    system = RoleSpecializedSystemLangGraph()
+
+    transaction = {
+        "amount": request.amount,
+        "type": request.type,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+        "oldbalanceDest": request.oldbalanceDest,
+        "newbalanceDest": request.newbalanceDest,
+        "nameOrig": request.nameOrig,
+        "nameDest": request.nameDest,
+    }
+
+    result = await system.analyze(transaction, request.transaction_id)
+
+    return {
+        "agent_type": "langgraph-role-specialized",
+        "transaction_id": result.transaction_id,
+        "is_fraud": result.is_fraud,
+        "risk_score": result.risk_score,
+        "confidence": result.confidence,
+        "explanation": result.explanation,
+        "framework": "langgraph-1.0.7",
+        "consensus_strategy": result.consensus_strategy,
+        "agreement_level": result.agreement_level,
+        "total_time": result.total_time,
+    }
+
+
+@router.post(
+    "/agents/langgraph/swarm",
+    summary="Swarm intelligence pattern (LangGraph)",
+    description="Analyze using LangGraph-based swarm intelligence with threshold consensus",
+    responses={
+        200: {
+            "description": "LangGraph swarm completed",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "agent_type": "langgraph-swarm",
+                        "is_fraud": True,
+                        "risk_score": 85.0,
+                        "confidence": 0.90,
+                        "framework": "langgraph-1.0.7",
+                        "swarm_size": 5,
+                        "consensus_threshold": 0.6,
+                        "fraud_votes": 5,
+                        "vote_fraction": 1.0,
+                        "execution_time": 0.04,
+                    }
+                }
+            },
+        }
+    },
+)
+async def analyze_with_langgraph_swarm(
+    request: AgentAnalysisRequest,
+    swarm_size: int = Query(5, description="Number of agents in swarm", ge=3, le=20),
+    threshold: float = Query(0.6, description="Consensus threshold (fraction)", ge=0.5, le=1.0),
+):
+    """
+    Analyze using LangGraph swarm pattern.
+
+    Swarm intelligence with emergent consensus:
+    - N agents analyze independently in parallel
+    - Threshold-based consensus (default 60%)
+    - Emergent intelligence from collective
+
+    Flow: swarm_analyze (N agents parallel) → consensus (threshold) → END
+    Agreement level = vote_fraction if fraud, else 1 - vote_fraction
+    """
+    system = SwarmSystemLangGraph(swarm_size=swarm_size, consensus_threshold=threshold)
+
+    transaction = {
+        "amount": request.amount,
+        "type": request.type,
+        "oldbalanceOrg": request.oldbalanceOrg,
+        "newbalanceOrig": request.newbalanceOrig,
+        "oldbalanceDest": request.oldbalanceDest,
+        "newbalanceDest": request.newbalanceDest,
+        "nameOrig": request.nameOrig,
+        "nameDest": request.nameDest,
+    }
+
+    result = await system.analyze(transaction, request.transaction_id)
+
+    return {
+        "agent_type": "langgraph-swarm",
+        "transaction_id": result.transaction_id,
+        "is_fraud": result.is_fraud,
+        "risk_score": result.risk_score,
+        "confidence": result.confidence,
+        "explanation": result.explanation,
+        "framework": "langgraph-1.0.7",
         "consensus_strategy": result.consensus_strategy,
         "agreement_level": result.agreement_level,
         "swarm_size": swarm_size,

@@ -1,0 +1,143 @@
+{
+  "timestamp": "2026-02-09T05:53:00.405159",
+  "config_file": "benchmarks/config.yaml",
+  "total_predictions": 18,
+  "baselines_tested": [
+    "xgboost",
+    "lightgbm",
+    "rule-based"
+  ],
+  "datasets_tested": [
+    "benchmark_suite"
+  ],
+  "overall_metrics": {
+    "total_predictions": 18,
+    "correct": 11,
+    "incorrect": 7,
+    "accuracy": 0.6111111111111112,
+    "precision": 0.8571428571428571,
+    "recall": 0.5,
+    "f1_score": 0.631578947368421,
+    "true_positives": 6,
+    "true_negatives": 5,
+    "false_positives": 1,
+    "false_negatives": 6,
+    "false_positive_rate": 0.16666666666666666,
+    "false_negative_rate": 0.5,
+    "latency_p50_ms": 1.1320114135742188,
+    "latency_p95_ms": 2.901816368103025,
+    "latency_p99_ms": 3.961138725280759,
+    "avg_confidence": 0.8900174640156158
+  },
+  "per_baseline": {
+    "xgboost": {
+      "total_predictions": 6,
+      "correct": 3,
+      "incorrect": 3,
+      "accuracy": 0.5,
+      "precision": 1.0,
+      "recall": 0.25,
+      "f1_score": 0.4,
+      "true_positives": 1,
+      "true_negatives": 2,
+      "false_positives": 0,
+      "false_negatives": 3,
+      "false_positive_rate": 0.0,
+      "false_negative_rate": 0.75,
+      "latency_p50_ms": 2.6445388793945312,
+      "latency_p95_ms": 3.836512565612793,
+      "latency_p99_ms": 4.148077964782715,
+      "avg_confidence": 0.945640901865905
+    },
+    "lightgbm": {
+      "total_predictions": 6,
+      "correct": 3,
+      "incorrect": 3,
+      "accuracy": 0.5,
+      "precision": 1.0,
+      "recall": 0.25,
+      "f1_score": 0.4,
+      "true_positives": 1,
+      "true_negatives": 2,
+      "false_positives": 0,
+      "false_negatives": 3,
+      "false_positive_rate": 0.0,
+      "false_negative_rate": 0.75,
+      "latency_p50_ms": 1.1320114135742188,
+      "latency_p95_ms": 1.4935731887817383,
+      "latency_p99_ms": 1.5619516372680664,
+      "avg_confidence": 0.9744114901809419
+    },
+    "rule-based": {
+      "total_predictions": 6,
+      "correct": 5,
+      "incorrect": 1,
+      "accuracy": 0.8333333333333334,
+      "precision": 0.8,
+      "recall": 1.0,
+      "f1_score": 0.888888888888889,
+      "true_positives": 4,
+      "true_negatives": 1,
+      "false_positives": 1,
+      "false_negatives": 0,
+      "false_positive_rate": 0.5,
+      "false_negative_rate": 0.0,
+      "latency_p50_ms": 0.023484230041503906,
+      "latency_p95_ms": 0.0527501106262207,
+      "latency_p99_ms": 0.05613565444946289,
+      "avg_confidence": 0.7499999999999999
+    }
+  },
+  "per_dataset": {
+    "benchmark_suite": {
+      "total_predictions": 18,
+      "correct": 11,
+      "incorrect": 7,
+      "accuracy": 0.6111111111111112,
+      "precision": 0.8571428571428571,
+      "recall": 0.5,
+      "f1_score": 0.631578947368421,
+      "true_positives": 6,
+      "true_negatives": 5,
+      "false_positives": 1,
+      "false_negatives": 6,
+      "false_positive_rate": 0.16666666666666666,
+      "false_negative_rate": 0.5,
+      "latency_p50_ms": 1.1320114135742188,
+      "latency_p95_ms": 2.901816368103025,
+      "latency_p99_ms": 3.961138725280759,
+      "avg_confidence": 0.8900174640156158
+    }
+  },
+  "comparison_table": [
+    {
+      "baseline": "rule-based",
+      "accuracy": 0.8333333333333334,
+      "precision": 0.8,
+      "recall": 1.0,
+      "f1_score": 0.888888888888889,
+      "latency_p95_ms": 0.0527501106262207
+    },
+    {
+      "baseline": "xgboost",
+      "accuracy": 0.5,
+      "precision": 1.0,
+      "recall": 0.25,
+      "f1_score": 0.4,
+      "latency_p95_ms": 3.836512565612793
+    },
+    {
+      "baseline": "lightgbm",
+      "accuracy": 0.5,
+      "precision": 1.0,
+      "recall": 0.25,
+      "f1_score": 0.4,
+      "latency_p95_ms": 1.4935731887817383
+    }
+  ],
+  "best_baseline": "rule-based",
+  "recommendations": [
+    "\u2713 Low latency (<100ms p95). Good for real-time applications.",
+    "\ud83d\udca1 Recommended baseline: rule-based (F1=0.889, Latency=0.1ms)"
+  ]
+}

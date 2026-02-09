@@ -12,32 +12,37 @@ description = "FinSight AI - Fraud Detection Backend with Async Architecture"
 requires-python = ">=3.11"
 
 dependencies = [
-    "fastapi>=0.109.0",
+    "fastapi>=0.128.0",
     "uvicorn[standard]>=0.27.0",
     "pydantic>=2.5.0",
     "pydantic-settings>=2.1.0",
-    "python-multipart>=0.0.6",
+    "python-multipart>=0.0.22",
     "redis[hiredis]>=5.0.0",
-    "pandas>=2.1.0",
-    "numpy>=1.26.0",
+    "pandas>=2.2.0,<3.0",
+    "numpy>=2.3.0,<2.4",
     "scikit-learn>=1.3.0",
     "imbalanced-learn>=0.12.0",
-    "xgboost>=2.0.0",
+    "xgboost>=3.1.3",
     "lightgbm>=4.0.0",
-    "optuna>=3.5.0",
+    "optuna>=4.7.0",
     "matplotlib>=3.8.0",
     "seaborn>=0.13.0",
-    "scipy>=1.11.0",
+    "scipy>=1.17.0",
     # MLOps & Experiment Tracking
-    "mlflow>=2.10.0",
+    "mlflow>=3.9.0",
     "shap>=0.44.0",
     # LLM Integration
     "ollama>=0.2.0",
     "tiktoken>=0.6.0",
-    "sentence-transformers>=2.3.0",
+    "sentence-transformers>=5.2.2",
     "cachetools>=5.3.0",
+    # LangGraph & LangChain (Latest versions)
+    "langgraph>=1.0.8",
+    "langchain>=1.2.9",
+    "langchain-core>=1.2.9",
+    "langchain-community>=0.3.0",
     # Vector Database
-    "chromadb>=0.4.0",
+    "chromadb>=1.4.1",
 ]
 
 [project.optional-dependencies]
@@ -46,7 +51,7 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
     "httpx>=0.26.0",
-    "black>=24.0.0",
+    "black>=26.1.0",
     "isort>=5.13.0",
     "flake8>=7.0.0",
     "mypy>=1.8.0",

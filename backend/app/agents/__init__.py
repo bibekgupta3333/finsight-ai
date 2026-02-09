@@ -3,6 +3,8 @@ Agent implementations for fraud detection.
 
 This package implements agentic reasoning patterns with observation,
 planning, execution, memory, reflection, and termination logic.
+
+LangGraph implementations available in app.agents.langgraph subpackage.
 """
 
 from app.agents.single_agent import FraudDetectionAgent, AgentResult

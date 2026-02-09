@@ -1,0 +1,297 @@
+# Benchmark Configuration for Multi-Agent Fraud Detection Research
+#
+# This configuration defines baselines, test datasets, and evaluation metrics
+# for comparing different fraud detection approaches.
+#
+# Last Updated: February 9, 2026
+
+# =============================================================================
+# BASELINES
+# =============================================================================
+baselines:
+  # Classical ML Models (Fast, No LLM)
+  - name: "xgboost"
+    type: "ml"
+    description: "XGBoost classifier - high recall, lower precision"
+    model_path: "models/xgboost_v1.json"
+    preprocessor_path: "models/xgboost_v1_preprocessor.pkl"
+    enabled: true
+
+  - name: "lightgbm"
+    type: "ml"
+    description: "LightGBM classifier - balanced F1-score (0.995)"
+    model_path: "models/lightgbm_v1.txt"
+    enabled: true
+
+  - name: "random_forest"
+    type: "ml"
+    description: "Random Forest classifier - baseline"
+    model_path: "models/random_forest_v1.pkl"
+    preprocessor_path: "models/random_forest_v1_preprocessor.pkl"
+    enabled: true
+
+  # Rule-Based Heuristics (Fastest, No ML)
+  - name: "rule-based"
+    type: "heuristic"
+    description: "Hand-crafted rules for fraud detection"
+    rules:
+      # Rule 1: Large CASH_OUT transactions
+      - condition: "type == 'CASH_OUT' and amount > 100000"
+        prediction: "fraud"
+        confidence: 0.8
+
+      # Rule 2: Disappeared money (balance mismatch)
+      - condition: "oldbalanceDest == 0 and newbalanceDest == 0 and amount > 50000"
+        prediction: "fraud"
+        confidence: 0.85
+
+      # Rule 3: Account drained completely
+      - condition: "newbalanceOrig == 0 and oldbalanceOrg > 0"
+        prediction: "fraud"
+        confidence: 0.75
+
+      # Rule 4: Very high amounts (>500k)
+      - condition: "amount > 500000"
+        prediction: "fraud"
+        confidence: 0.7
+
+      # Rule 5: Balance inconsistency - origin
+      - condition: "abs((oldbalanceOrg - amount) - newbalanceOrig) > 10"
+        prediction: "fraud"
+        confidence: 0.65
+
+      # Default: legitimate
+      - condition: "True"
+        prediction: "legitimate"
+        confidence: 0.6
+    enabled: true
+
+  # Single-Agent LLM (Simple, No Multi-Agent)
+  - name: "single-agent"
+    type: "agentic"
+    description: "Single LLM agent for fraud detection"
+    model: "llama2:7b"
+    temperature: 0.1
+    max_tokens: 500
+    enabled: false  # Disabled by default (requires Ollama)
+
+# =============================================================================
+# TEST DATASETS
+# =============================================================================
+test_datasets:
+  # Balanced test set
+  - name: "balanced_test"
+    description: "Balanced stratified test set"
+    path: "data/balanced/balanced_test.csv"
+    enabled: false  # File may not exist
+
+  # Edge cases (hardest examples)
+  - name: "edge_cases"
+    description: "Edge cases with tiny amounts, high amounts, balance mismatches"
+    path: "data/samples/sample_transactions_edge_cases.csv"
+    enabled: false
+
+  # Built-in benchmark suite
+  - name: "benchmark_suite"
+    description: "Hand-crafted benchmark test cases with labels"
+    source: "service"  # Loaded from benchmark_service
+    enabled: true
+
+  # Small sample for quick testing
+  - name: "quick_test"
+    description: "10 representative transactions for rapid iteration"
+    inline_data:
+      - type: "CASH_OUT"
+        amount: 500000.0
+        oldbalanceOrg: 1000000.0
+        newbalanceOrig: 500000.0
+        oldbalanceDest: 0.0
+        newbalanceDest: 500000.0
+        expected: "fraud"
+
+      - type: "PAYMENT"
+        amount: 50.0
+        oldbalanceOrg: 1000.0
+        newbalanceOrig: 950.0
+        oldbalanceDest: 500.0
+        newbalanceDest: 550.0
+        expected: "legitimate"
+
+      - type: "TRANSFER"
+        amount: 1.0
+        oldbalanceOrg: 100.0
+        newbalanceOrig: 0.0
+        oldbalanceDest: 0.0
+        newbalanceDest: 0.0
+        expected: "fraud"
+
+      - type: "PAYMENT"
+        amount: 900000.0
+        oldbalanceOrg: 1000000.0
+        newbalanceOrig: 100000.0
+        oldbalanceDest: 500000.0
+        newbalanceDest: 1400000.0
+        expected: "legitimate"
+
+      - type: "CASH_OUT"
+        amount: 750000.0
+        oldbalanceOrg: 750000.0
+        newbalanceOrig: 0.0
+        oldbalanceDest: 0.0
+        newbalanceDest: 0.0
+        expected: "fraud"
+    enabled: true
+
+# =============================================================================
+# EVALUATION METRICS
+# =============================================================================
+metrics:
+  # Classification Metrics
+  - name: "accuracy"
+    description: "Overall classification accuracy"
+    enabled: true
+
+  - name: "precision"
+    description: "Fraud precision (TP / (TP + FP))"
+    enabled: true
+
+  - name: "recall"
+    description: "Fraud recall (TP / (TP + FN))"
+    enabled: true
+
+  - name: "f1_score"
+    description: "Harmonic mean of precision and recall"
+    enabled: true
+    primary: true  # Primary metric for ranking
+
+  # Performance Metrics
+  - name: "latency_p50"
+    description: "Median inference latency (ms)"
+    enabled: true
+
+  - name: "latency_p95"
+    description: "95th percentile latency (ms)"
+    enabled: true
+
+  - name: "latency_p99"
+    description: "99th percentile latency (ms)"
+    enabled: true
+
+  # Cost Metrics (for LLM-based approaches)
+  - name: "cost_per_1k"
+    description: "Estimated cost per 1000 predictions (USD)"
+    enabled: true
+    applicable_to: ["agentic"]
+
+  - name: "token_usage"
+    description: "Average tokens per prediction"
+    enabled: true
+    applicable_to: ["agentic"]
+
+  # Error Analysis
+  - name: "false_positive_rate"
+    description: "Rate of false fraud alerts"
+    enabled: true
+
+  - name: "false_negative_rate"
+    description: "Rate of missed fraud cases"
+    enabled: true
+
+# =============================================================================
+# BENCHMARK EXECUTION
+# =============================================================================
+execution:
+  # Parallel execution (careful on M4 Pro)
+  parallel: false
+  max_workers: 2  # Conservative for M4 Pro
+
+  # Timeouts (prevent hanging)
+  timeout_per_prediction: 30  # seconds
+  timeout_total: 600  # 10 minutes max
+
+  # Sampling (for large datasets)
+  sample_size: 1000  # Max samples per dataset
+  random_seed: 42
+
+  # Output
+  results_dir: "data/benchmarks/results"
+  save_predictions: true
+  save_errors: true
+  generate_report: true
+
+# =============================================================================
+# REPORTING
+# =============================================================================
+reporting:
+  # Report format
+  formats:
+    - "json"
+    - "markdown"
+    - "csv"
+
+  # Output paths
+  output_dir: "reports/benchmarks"
+
+  # Report sections
+  include:
+    - "summary"
+    - "per_baseline"
+    - "per_dataset"
+    - "error_analysis"
+    - "latency_analysis"
+    - "comparison_table"
+    - "recommendations"
+
+  # Visualization
+  plots:
+    - "accuracy_comparison"
+    - "latency_distribution"
+    - "precision_recall_curve"
+    - "confusion_matrix"
+  enabled: false  # Disable plots by default (requires matplotlib)
+
+# =============================================================================
+# RESEARCH CONFIGURATION
+# =============================================================================
+research:
+  # Reproducibility
+  random_seed: 42
+  deterministic: true
+
+  # Thesis requirements
+  purpose: "Demonstrate multi-agent superiority for fraud detection"
+  hypothesis: "Multi-agent systems outperform single baselines in edge cases"
+
+  # Statistical testing
+  significance_level: 0.05
+  confidence_interval: 0.95
+  min_samples: 30  # Minimum samples for statistical validity
+
+  # Comparison focus
+  primary_comparison: "f1_score"
+  secondary_comparisons:
+    - "precision"
+    - "recall"
+    - "latency_p95"
+
+# =============================================================================
+# M4 PRO OPTIMIZATIONS
+# =============================================================================
+hardware:
+  # CPU optimization
+  use_apple_silicon: true
+  max_threads: 8  # M4 Pro has 14 cores, use 8 for safety
+
+  # Memory management
+  batch_size: 32
+  max_memory_mb: 4096  # 4GB max
+
+  # Model loading
+  lazy_load: true  # Load models on-demand
+  cache_models: true
+
+  # LLM optimization
+  ollama_config:
+    num_gpu: 0  # Use CPU inference
+    num_thread: 8
+    low_vram: true

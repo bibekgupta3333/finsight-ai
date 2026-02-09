@@ -1,8 +1,8 @@
 # FinSight AI Documentation
 
-**Last Updated:** February 4, 2026  
+**Last Updated:** February 9, 2026  
 **Version:** 2.1  
-**Project Status:** 58% Complete
+**Project Status:** 61% Complete
 
 ---
 
@@ -49,6 +49,8 @@ This folder contains comprehensive documentation for the FinSight AI multi-agent
 | [STATE-MANAGEMENT-IMPLEMENTATION.md](STATE-MANAGEMENT-IMPLEMENTATION.md) | Session management, checkpointing, FSM | Dec 29, 2025 |
 | [TOOL-INFRASTRUCTURE-TEST-RESULTS.md](TOOL-INFRASTRUCTURE-TEST-RESULTS.md) | Tool registry, sandboxing, safety testing | Jan 6, 2026 |
 | [MLOPS-IMPLEMENTATION-SUMMARY.md](MLOPS-IMPLEMENTATION-SUMMARY.md) | MLOps pipeline and model management | Jan 2026 |
+| [BENCHMARK-GUIDE.md](BENCHMARK-GUIDE.md) | **Benchmark suite for evaluating fraud detection baselines** | Feb 9, 2026 |
+| [planning/PHASE-9.2-IMPLEMENTATION-SUMMARY.md](planning/PHASE-9.2-IMPLEMENTATION-SUMMARY.md) | **Multi-agent pattern comparison with statistical testing** | Feb 9, 2026 |
 
 ---
 
@@ -101,14 +103,17 @@ This folder contains comprehensive documentation for the FinSight AI multi-agent
 ### For ML Engineers
 1. [DATA-PIPELINE.md](data/DATA-PIPELINE.md) - Data preparation
 2. [MLOPS-IMPLEMENTATION-SUMMARY.md](MLOPS-IMPLEMENTATION-SUMMARY.md) - Model training
-3. [BIAS-FAIRNESS-ANALYSIS.md](data/BIAS-FAIRNESS-ANALYSIS.md) - Fairness audits
-4. [planning/ML-MODEL-EVALUATION-WBS.md](planning/ML-MODEL-EVALUATION-WBS.md) - Evaluation plan
+3. [BENCHMARK-GUIDE.md](BENCHMARK-GUIDE.md) - Benchmark suite (XGBoost, LightGBM, Rule-based)
+4. [planning/PHASE-9.2-IMPLEMENTATION-SUMMARY.md](planning/PHASE-9.2-IMPLEMENTATION-SUMMARY.md) - Multi-agent pattern comparison
+5. [BIAS-FAIRNESS-ANALYSIS.md](data/BIAS-FAIRNESS-ANALYSIS.md) - Fairness audits
+6. [planning/ML-MODEL-EVALUATION-WBS.md](planning/ML-MODEL-EVALUATION-WBS.md) - Evaluation plan
 
 ### For Researchers (AGI/LLM)
 1. [AGI-CONCEPTS-INTEGRATION.md](AGI-CONCEPTS-INTEGRATION.md) - AGI coverage
-2. [PROMPTING-PATTERNS-API-REFERENCE.md](PROMPTING-PATTERNS-API-REFERENCE.md) - Advanced prompting
-3. [TOOL-INFRASTRUCTURE-TEST-RESULTS.md](TOOL-INFRASTRUCTURE-TEST-RESULTS.md) - Tool use
-4. [SAFETY-ALIGNMENT.md](safety/SAFETY-ALIGNMENT.md) - Safety mechanisms
+2. [planning/PHASE-9.2-IMPLEMENTATION-SUMMARY.md](planning/PHASE-9.2-IMPLEMENTATION-SUMMARY.md) - Multi-agent pattern benchmarking
+3. [PROMPTING-PATTERNS-API-REFERENCE.md](PROMPTING-PATTERNS-API-REFERENCE.md) - Advanced prompting
+4. [TOOL-INFRASTRUCTURE-TEST-RESULTS.md](TOOL-INFRASTRUCTURE-TEST-RESULTS.md) - Tool use
+5. [SAFETY-ALIGNMENT.md](safety/SAFETY-ALIGNMENT.md) - Safety mechanisms
 
 ### For DevOps
 1. [deployment/deployment-guide.md](deployment/deployment-guide.md) - Full deployment
@@ -137,14 +142,14 @@ This folder contains comprehensive documentation for the FinSight AI multi-agent
 
 ---
 
-## 🔄 Recent Changes (Feb 4, 2026)
+## 🔄 Recent Changes (Feb 9, 2026)
 
-- ✅ Removed outdated summary files (UPDATE-SUMMARY.md, PROJECT-SETUP-SUMMARY.md)
-- ✅ Consolidated deployment docs (merged 3 files into deployment-guide.md)
-- ✅ Consolidated architecture quick references
-- ✅ Consolidated data quick references
-- ✅ Created master index (this file)
-- ✅ Updated WBS to 58% completion
+- ✅ **Phase 9.2 Complete:** Multi-agent pattern comparison framework
+- ✅ Added systematic benchmarking for 6 agent patterns (single, manager-worker, PEC, debate, role-specialized, swarm)
+- ✅ Implemented statistical significance testing (t-test, Wilcoxon, Cohen's d)
+- ✅ Created publication-quality visualization suite (5 plot types)
+- ✅ Added pnpm commands: `benchmark:patterns`, `benchmark:patterns:quick`, `benchmark:visualize`
+- ✅ Updated WBS to 61% completion
 
 ---
 

@@ -1,0 +1,14 @@
+{
+  "manager-worker": {
+    "baseline": "single",
+    "t_statistic": NaN,
+    "t_pvalue": NaN,
+    "wilcoxon_statistic": 0.0,
+    "wilcoxon_pvalue": 1.0,
+    "cohens_d": 0.0,
+    "mean_difference": 0.0,
+    "ci_95_lower": NaN,
+    "ci_95_upper": NaN,
+    "sample_size": 3
+  }
+}

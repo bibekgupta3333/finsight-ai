@@ -1,0 +1,252 @@
+[
+  {
+    "baseline": "xgboost",
+    "dataset": "quick_test",
+    "test_id": "quick_test_0",
+    "expected": "fraud",
+    "prediction": "legitimate",
+    "confidence": 0.9999983785322684,
+    "correct": false,
+    "latency_ms": 4.606962203979492,
+    "metadata": {
+      "fraud_probability": 1.621467731638404e-06,
+      "risk_level": "low",
+      "model": "xgboost"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.381244"
+  },
+  {
+    "baseline": "xgboost",
+    "dataset": "quick_test",
+    "test_id": "quick_test_1",
+    "expected": "legitimate",
+    "prediction": "legitimate",
+    "confidence": 0.9999893579670243,
+    "correct": true,
+    "latency_ms": 2.584218978881836,
+    "metadata": {
+      "fraud_probability": 1.0642032975738402e-05,
+      "risk_level": "low",
+      "model": "xgboost"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.383841"
+  },
+  {
+    "baseline": "xgboost",
+    "dataset": "quick_test",
+    "test_id": "quick_test_2",
+    "expected": "fraud",
+    "prediction": "fraud",
+    "confidence": 0.9851770401000977,
+    "correct": true,
+    "latency_ms": 2.3298263549804688,
+    "metadata": {
+      "fraud_probability": 0.9851770401000977,
+      "risk_level": "critical",
+      "model": "xgboost"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.386181"
+  },
+  {
+    "baseline": "xgboost",
+    "dataset": "quick_test",
+    "test_id": "quick_test_3",
+    "expected": "legitimate",
+    "prediction": "legitimate",
+    "confidence": 0.9999985953277246,
+    "correct": true,
+    "latency_ms": 2.151966094970703,
+    "metadata": {
+      "fraud_probability": 1.4046722753846552e-06,
+      "risk_level": "low",
+      "model": "xgboost"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.388344"
+  },
+  {
+    "baseline": "xgboost",
+    "dataset": "quick_test",
+    "test_id": "quick_test_4",
+    "expected": "fraud",
+    "prediction": "legitimate",
+    "confidence": 0.99552630353719,
+    "correct": false,
+    "latency_ms": 2.4733543395996094,
+    "metadata": {
+      "fraud_probability": 0.0044736964628100395,
+      "risk_level": "low",
+      "model": "xgboost"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.390828"
+  },
+  {
+    "baseline": "lightgbm",
+    "dataset": "quick_test",
+    "test_id": "quick_test_0",
+    "expected": "fraud",
+    "prediction": "legitimate",
+    "confidence": 0.9998466783706841,
+    "correct": false,
+    "latency_ms": 1.7042160034179688,
+    "metadata": {
+      "fraud_probability": 0.00015332162931587092,
+      "risk_level": "low",
+      "model": "lightgbm"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.392673"
+  },
+  {
+    "baseline": "lightgbm",
+    "dataset": "quick_test",
+    "test_id": "quick_test_1",
+    "expected": "legitimate",
+    "prediction": "legitimate",
+    "confidence": 0.9999970046686698,
+    "correct": true,
+    "latency_ms": 1.241922378540039,
+    "metadata": {
+      "fraud_probability": 2.9953313301893312e-06,
+      "risk_level": "low",
+      "model": "lightgbm"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.393924"
+  },
+  {
+    "baseline": "lightgbm",
+    "dataset": "quick_test",
+    "test_id": "quick_test_2",
+    "expected": "fraud",
+    "prediction": "fraud",
+    "confidence": 0.9118269759535161,
+    "correct": true,
+    "latency_ms": 1.209259033203125,
+    "metadata": {
+      "fraud_probability": 0.9118269759535161,
+      "risk_level": "critical",
+      "model": "lightgbm"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.395143"
+  },
+  {
+    "baseline": "lightgbm",
+    "dataset": "quick_test",
+    "test_id": "quick_test_3",
+    "expected": "legitimate",
+    "prediction": "legitimate",
+    "confidence": 0.9999964017138661,
+    "correct": true,
+    "latency_ms": 1.2249946594238281,
+    "metadata": {
+      "fraud_probability": 3.5982861339252187e-06,
+      "risk_level": "low",
+      "model": "lightgbm"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.396378"
+  },
+  {
+    "baseline": "lightgbm",
+    "dataset": "quick_test",
+    "test_id": "quick_test_4",
+    "expected": "fraud",
+    "prediction": "legitimate",
+    "confidence": 0.9349325984795624,
+    "correct": false,
+    "latency_ms": 1.0590553283691406,
+    "metadata": {
+      "fraud_probability": 0.06506740152043756,
+      "risk_level": "low",
+      "model": "lightgbm"
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.397445"
+  },
+  {
+    "baseline": "rule-based",
+    "dataset": "quick_test",
+    "test_id": "quick_test_0",
+    "expected": "fraud",
+    "prediction": "fraud",
+    "confidence": 0.8,
+    "correct": true,
+    "latency_ms": 0.032901763916015625,
+    "metadata": {
+      "rule": "type == 'CASH_OUT' and amount > 100000",
+      "rule_based": true
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.397596"
+  },
+  {
+    "baseline": "rule-based",
+    "dataset": "quick_test",
+    "test_id": "quick_test_1",
+    "expected": "legitimate",
+    "prediction": "legitimate",
+    "confidence": 0.6,
+    "correct": true,
+    "latency_ms": 0.05602836608886719,
+    "metadata": {
+      "rule": "True",
+      "rule_based": true
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.397657"
+  },
+  {
+    "baseline": "rule-based",
+    "dataset": "quick_test",
+    "test_id": "quick_test_2",
+    "expected": "fraud",
+    "prediction": "fraud",
+    "confidence": 0.75,
+    "correct": true,
+    "latency_ms": 0.02193450927734375,
+    "metadata": {
+      "rule": "newbalanceOrig == 0 and oldbalanceOrg > 0",
+      "rule_based": true
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.397682"
+  },
+  {
+    "baseline": "rule-based",
+    "dataset": "quick_test",
+    "test_id": "quick_test_3",
+    "expected": "legitimate",
+    "prediction": "fraud",
+    "confidence": 0.7,
+    "correct": false,
+    "latency_ms": 0.024080276489257812,
+    "metadata": {
+      "rule": "amount > 500000",
+      "rule_based": true
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.397709"
+  },
+  {
+    "baseline": "rule-based",
+    "dataset": "quick_test",
+    "test_id": "quick_test_4",
+    "expected": "fraud",
+    "prediction": "fraud",
+    "confidence": 0.8,
+    "correct": true,
+    "latency_ms": 0.0059604644775390625,
+    "metadata": {
+      "rule": "type == 'CASH_OUT' and amount > 100000",
+      "rule_based": true
+    },
+    "error": null,
+    "timestamp": "2026-02-09T05:57:58.397718"
+  }
+]
