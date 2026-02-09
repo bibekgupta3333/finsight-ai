@@ -24,6 +24,11 @@ class Settings(BaseSettings):
         rate_limit_per_minute: Rate limit per minute per client
         request_timeout: Request timeout in seconds
         batch_size: Batch processing size
+        mlflow_tracking_uri: MLflow tracking URI (local or remote)
+        mlflow_experiment_name: MLflow experiment name
+        random_seed: Random seed for reproducibility
+        max_training_samples: Maximum samples for training (M4 Pro memory constraint)
+        memory_limit_gb: Memory limit in GB for training
     """
 
     # Application
@@ -116,6 +121,13 @@ class Settings(BaseSettings):
 
     # Logging
     log_level: str = "INFO"
+
+    # MLflow & Training Configuration
+    mlflow_tracking_uri: str = "./mlruns"
+    mlflow_experiment_name: str = "finsight-fraud-detection"
+    random_seed: int = 42
+    max_training_samples: int = 50000
+    memory_limit_gb: float = 16.0
 
     model_config = SettingsConfigDict(
         env_file=(".env", ".env.local"),
