@@ -1,0 +1,150 @@
+{
+  "agent_name": "finsight_planner_executor_critic",
+  "agent_class": "PlannerExecutorCriticSystem",
+  "agent_params": {},
+  "num_tasks": 7,
+  "results": [
+    {
+      "task_id": "fraud_easy_001",
+      "difficulty": "easy",
+      "success": false,
+      "correct_classification": true,
+      "prediction": "fraud",
+      "ground_truth": "fraud",
+      "confidence": 0.75,
+      "risk_score": 50.0,
+      "tools_used": 0,
+      "meets_confidence": true,
+      "meets_risk_score": false,
+      "meets_tool_requirement": true,
+      "elapsed_time": 0.0009751319885253906,
+      "error": null
+    },
+    {
+      "task_id": "fraud_easy_002",
+      "difficulty": "easy",
+      "success": true,
+      "correct_classification": true,
+      "prediction": "legitimate",
+      "ground_truth": "legitimate",
+      "confidence": 0.85,
+      "risk_score": 0.0,
+      "tools_used": 0,
+      "meets_confidence": true,
+      "meets_risk_score": true,
+      "meets_tool_requirement": true,
+      "elapsed_time": 0.0031309127807617188,
+      "error": null
+    },
+    {
+      "task_id": "fraud_medium_001",
+      "difficulty": "medium",
+      "success": false,
+      "correct_classification": false,
+      "prediction": "fraud",
+      "ground_truth": "legitimate",
+      "confidence": 0.9,
+      "risk_score": 70.0,
+      "tools_used": 0,
+      "meets_confidence": true,
+      "meets_risk_score": false,
+      "meets_tool_requirement": true,
+      "elapsed_time": 0.003662109375,
+      "error": null
+    },
+    {
+      "task_id": "fraud_medium_002",
+      "difficulty": "medium",
+      "success": false,
+      "correct_classification": true,
+      "prediction": "fraud",
+      "ground_truth": "fraud",
+      "confidence": 0.9,
+      "risk_score": 85.0,
+      "tools_used": 0,
+      "meets_confidence": true,
+      "meets_risk_score": true,
+      "meets_tool_requirement": false,
+      "elapsed_time": 0.004967212677001953,
+      "error": null
+    },
+    {
+      "task_id": "fraud_hard_001",
+      "difficulty": "hard",
+      "success": false,
+      "correct_classification": false,
+      "prediction": "legitimate",
+      "ground_truth": "fraud",
+      "confidence": 0.6,
+      "risk_score": 45.0,
+      "tools_used": 0,
+      "meets_confidence": true,
+      "meets_risk_score": false,
+      "meets_tool_requirement": false,
+      "elapsed_time": 0.9122531414031982,
+      "error": null
+    },
+    {
+      "task_id": "fraud_hard_002",
+      "difficulty": "hard",
+      "success": false,
+      "correct_classification": false,
+      "prediction": "fraud",
+      "ground_truth": "legitimate",
+      "confidence": 0.75,
+      "risk_score": 60.0,
+      "tools_used": 0,
+      "meets_confidence": true,
+      "meets_risk_score": false,
+      "meets_tool_requirement": false,
+      "elapsed_time": 0.002992868423461914,
+      "error": null
+    },
+    {
+      "task_id": "fraud_expert_001",
+      "difficulty": "expert",
+      "success": false,
+      "correct_classification": true,
+      "prediction": "fraud",
+      "ground_truth": "fraud",
+      "confidence": 0.9,
+      "risk_score": 85.0,
+      "tools_used": 0,
+      "meets_confidence": true,
+      "meets_risk_score": true,
+      "meets_tool_requirement": false,
+      "elapsed_time": 0.0014848709106445312,
+      "error": null
+    }
+  ],
+  "metrics": {
+    "success_rate": 0.14285714285714285,
+    "accuracy": 0.5714285714285714,
+    "avg_confidence": 0.8071428571428572,
+    "avg_tools_used": 0.0,
+    "avg_time_per_task": 0.13278089250837052,
+    "total_tasks": 7,
+    "successful_tasks": 1,
+    "correct_classifications": 4,
+    "error_rate": 0.0,
+    "difficulty_breakdown": {
+      "easy": {
+        "success_rate": 0.5,
+        "num_tasks": 2
+      },
+      "medium": {
+        "success_rate": 0.0,
+        "num_tasks": 2
+      },
+      "hard": {
+        "success_rate": 0.0,
+        "num_tasks": 2
+      },
+      "expert": {
+        "success_rate": 0.0,
+        "num_tasks": 1
+      }
+    }
+  },
+  "timestamp": "2026-02-09T01:38:36.415069"
+}

@@ -1,0 +1,304 @@
+{
+  "dataset_name": "fraud_detection",
+  "version": "1.0",
+  "created_at": "20260209_013740",
+  "description": "Fraud detection tasks in AgentBench format for evaluating LLM agents",
+  "num_tasks": 7,
+  "difficulty_distribution": {
+    "easy": 2,
+    "medium": 2,
+    "hard": 2,
+    "expert": 1
+  },
+  "tasks": [
+    {
+      "task_id": "fraud_easy_001",
+      "task_type": "fraud_detection",
+      "difficulty": "easy",
+      "instruction": "You are a fraud detection agent. Analyze the following financial transaction and determine if it is fraudulent. You have access to fraud detection tools.\n\nTransaction details:\n- Type: CASH_OUT\n- Amount: $500,000\n- Origin Account Balance Before: $1,000,000\n- Origin Account Balance After: $500,000\n- Destination Account Balance Before: $0\n- Destination Account Balance After: $0\n\nProvide your assessment with confidence level.",
+      "initial_state": {
+        "transaction": {
+          "type": "CASH_OUT",
+          "amount": 500000.0,
+          "oldbalanceOrg": 1000000.0,
+          "newbalanceOrig": 500000.0,
+          "oldbalanceDest": 0.0,
+          "newbalanceDest": 0.0,
+          "nameOrig": "C1234567890",
+          "nameDest": "M1234567890"
+        },
+        "available_tools": [
+          "calculate_risk_score",
+          "query_fraud_policy",
+          "fetch_account_history"
+        ]
+      },
+      "ground_truth": {
+        "is_fraud": true,
+        "risk_score_min": 70.0,
+        "confidence_min": 0.7,
+        "reasoning": [
+          "Large CASH_OUT transaction",
+          "Destination account balance remains zero (money disappeared)",
+          "High amount ($500k)"
+        ]
+      },
+      "success_criteria": {
+        "correct_classification": true,
+        "min_confidence": 0.7,
+        "required_reasoning_elements": 2,
+        "tool_usage": true
+      },
+      "max_turns": 5
+    },
+    {
+      "task_id": "fraud_easy_002",
+      "task_type": "fraud_detection",
+      "difficulty": "easy",
+      "instruction": "You are a fraud detection agent. Analyze the following financial transaction and determine if it is fraudulent.\n\nTransaction details:\n- Type: PAYMENT\n- Amount: $50\n- Origin Account Balance Before: $1,000\n- Origin Account Balance After: $950\n- Destination Account Balance Before: $500\n- Destination Account Balance After: $550\n\nProvide your assessment with confidence level.",
+      "initial_state": {
+        "transaction": {
+          "type": "PAYMENT",
+          "amount": 50.0,
+          "oldbalanceOrg": 1000.0,
+          "newbalanceOrig": 950.0,
+          "oldbalanceDest": 500.0,
+          "newbalanceDest": 550.0,
+          "nameOrig": "C9876543210",
+          "nameDest": "M9876543210"
+        },
+        "available_tools": [
+          "calculate_risk_score",
+          "query_fraud_policy"
+        ]
+      },
+      "ground_truth": {
+        "is_fraud": false,
+        "risk_score_max": 30.0,
+        "confidence_min": 0.8,
+        "reasoning": [
+          "Small payment amount",
+          "Balance changes are consistent",
+          "Standard PAYMENT transaction type"
+        ]
+      },
+      "success_criteria": {
+        "correct_classification": true,
+        "min_confidence": 0.8,
+        "required_reasoning_elements": 2,
+        "tool_usage": true
+      },
+      "max_turns": 5
+    },
+    {
+      "task_id": "fraud_medium_001",
+      "task_type": "fraud_detection",
+      "difficulty": "medium",
+      "instruction": "You are a fraud detection agent. Analyze this transaction that has some ambiguous signals.\n\nTransaction details:\n- Type: TRANSFER\n- Amount: $250,000\n- Origin Account Balance Before: $300,000\n- Origin Account Balance After: $50,000\n- Destination Account Balance Before: $100,000\n- Destination Account Balance After: $350,000\n\nCarefully analyze all indicators before making your decision.",
+      "initial_state": {
+        "transaction": {
+          "type": "TRANSFER",
+          "amount": 250000.0,
+          "oldbalanceOrg": 300000.0,
+          "newbalanceOrig": 50000.0,
+          "oldbalanceDest": 100000.0,
+          "newbalanceDest": 350000.0,
+          "nameOrig": "C5555555555",
+          "nameDest": "C6666666666"
+        },
+        "available_tools": [
+          "calculate_risk_score",
+          "query_fraud_policy",
+          "fetch_account_history"
+        ]
+      },
+      "ground_truth": {
+        "is_fraud": false,
+        "risk_score_max": 50.0,
+        "confidence_min": 0.6,
+        "reasoning": [
+          "Large transfer but balances are consistent",
+          "Both accounts are customer accounts (C prefix)",
+          "Destination received exact amount"
+        ]
+      },
+      "success_criteria": {
+        "correct_classification": true,
+        "min_confidence": 0.6,
+        "required_reasoning_elements": 2,
+        "tool_usage": true,
+        "max_false_confidence": 0.9
+      },
+      "max_turns": 8
+    },
+    {
+      "task_id": "fraud_medium_002",
+      "task_type": "fraud_detection",
+      "difficulty": "medium",
+      "instruction": "You are a fraud detection agent. This transaction has mixed signals - analyze carefully.\n\nTransaction details:\n- Type: CASH_OUT\n- Amount: $150,000\n- Origin Account Balance Before: $150,000\n- Origin Account Balance After: $0\n- Destination Account Balance Before: $50,000\n- Destination Account Balance After: $200,000\n\nUse multiple tools to build a comprehensive analysis.",
+      "initial_state": {
+        "transaction": {
+          "type": "CASH_OUT",
+          "amount": 150000.0,
+          "oldbalanceOrg": 150000.0,
+          "newbalanceOrig": 0.0,
+          "oldbalanceDest": 50000.0,
+          "newbalanceDest": 200000.0,
+          "nameOrig": "C7777777777",
+          "nameDest": "M8888888888"
+        },
+        "available_tools": [
+          "calculate_risk_score",
+          "query_fraud_policy",
+          "fetch_account_history"
+        ]
+      },
+      "ground_truth": {
+        "is_fraud": true,
+        "risk_score_min": 60.0,
+        "confidence_min": 0.65,
+        "reasoning": [
+          "Account completely drained",
+          "Large CASH_OUT amount",
+          "To merchant account"
+        ]
+      },
+      "success_criteria": {
+        "correct_classification": true,
+        "min_confidence": 0.65,
+        "required_reasoning_elements": 2,
+        "tool_usage": true,
+        "min_tools_used": 2
+      },
+      "max_turns": 8
+    },
+    {
+      "task_id": "fraud_hard_001",
+      "task_type": "fraud_detection",
+      "difficulty": "hard",
+      "instruction": "You are a fraud detection agent. This is a challenging edge case with contradictory signals.\n\nTransaction details:\n- Type: TRANSFER\n- Amount: $1 (very small)\n- Origin Account Balance Before: $100\n- Origin Account Balance After: $0 (entire account drained)\n- Destination Account Balance Before: $0\n- Destination Account Balance After: $0 (money disappeared)\n\nSmall amount but suspicious patterns. Analyze carefully.",
+      "initial_state": {
+        "transaction": {
+          "type": "TRANSFER",
+          "amount": 1.0,
+          "oldbalanceOrg": 100.0,
+          "newbalanceOrig": 0.0,
+          "oldbalanceDest": 0.0,
+          "newbalanceDest": 0.0,
+          "nameOrig": "C1111111111",
+          "nameDest": "C2222222222"
+        },
+        "available_tools": [
+          "calculate_risk_score",
+          "query_fraud_policy",
+          "fetch_account_history"
+        ]
+      },
+      "ground_truth": {
+        "is_fraud": true,
+        "risk_score_min": 55.0,
+        "confidence_min": 0.55,
+        "reasoning": [
+          "Entire account drained for just $1",
+          "Money disappeared (destination balance unchanged)",
+          "Suspicious despite small amount"
+        ]
+      },
+      "success_criteria": {
+        "correct_classification": true,
+        "min_confidence": 0.55,
+        "required_reasoning_elements": 2,
+        "tool_usage": true,
+        "min_tools_used": 2,
+        "requires_explanation": true
+      },
+      "max_turns": 10
+    },
+    {
+      "task_id": "fraud_hard_002",
+      "task_type": "fraud_detection",
+      "difficulty": "hard",
+      "instruction": "You are a fraud detection agent. This transaction appears legitimate but has subtle fraud indicators that are easy to miss.\n\nTransaction details:\n- Type: PAYMENT\n- Amount: $900,000 (very large payment)\n- Origin Account Balance Before: $1,000,000\n- Origin Account Balance After: $100,000\n- Destination Account Balance Before: $500,000\n- Destination Account Balance After: $1,400,000\n\nLarge payment but balances seem consistent. Look deeper.",
+      "initial_state": {
+        "transaction": {
+          "type": "PAYMENT",
+          "amount": 900000.0,
+          "oldbalanceOrg": 1000000.0,
+          "newbalanceOrig": 100000.0,
+          "oldbalanceDest": 500000.0,
+          "newbalanceDest": 1400000.0,
+          "nameOrig": "C3333333333",
+          "nameDest": "M4444444444"
+        },
+        "available_tools": [
+          "calculate_risk_score",
+          "query_fraud_policy",
+          "fetch_account_history"
+        ]
+      },
+      "ground_truth": {
+        "is_fraud": false,
+        "risk_score_max": 40.0,
+        "confidence_min": 0.7,
+        "reasoning": [
+          "Balances are mathematically consistent",
+          "PAYMENT type (not inherently suspicious)",
+          "Large amount alone doesn't indicate fraud"
+        ]
+      },
+      "success_criteria": {
+        "correct_classification": true,
+        "min_confidence": 0.7,
+        "required_reasoning_elements": 2,
+        "tool_usage": true,
+        "min_tools_used": 2,
+        "avoid_false_positive": true
+      },
+      "max_turns": 10
+    },
+    {
+      "task_id": "fraud_expert_001",
+      "task_type": "fraud_detection",
+      "difficulty": "expert",
+      "instruction": "You are a fraud detection agent. This is a multi-step investigation task.\n\nYou receive an alert about a potentially fraudulent transaction:\n- Type: TRANSFER\n- Amount: $300,000\n- Origin Account: C9999999999\n- Destination Account: C0000000000\n\nYou must:\n1. Fetch account history for both accounts\n2. Query relevant fraud policies\n3. Calculate risk scores\n4. Make a final determination with detailed reasoning\n\nUse at least 3 different tools in your investigation.",
+      "initial_state": {
+        "transaction": {
+          "type": "TRANSFER",
+          "amount": 300000.0,
+          "oldbalanceOrg": 350000.0,
+          "newbalanceOrig": 50000.0,
+          "oldbalanceDest": 0.0,
+          "newbalanceDest": 300000.0,
+          "nameOrig": "C9999999999",
+          "nameDest": "C0000000000"
+        },
+        "available_tools": [
+          "calculate_risk_score",
+          "query_fraud_policy",
+          "fetch_account_history"
+        ]
+      },
+      "ground_truth": {
+        "is_fraud": true,
+        "risk_score_min": 70.0,
+        "confidence_min": 0.75,
+        "reasoning": [
+          "New destination account (previously $0)",
+          "Large transfer to new account",
+          "Origin account significantly depleted",
+          "Matches policy for fraudulent transfers"
+        ]
+      },
+      "success_criteria": {
+        "correct_classification": true,
+        "min_confidence": 0.75,
+        "required_reasoning_elements": 3,
+        "tool_usage": true,
+        "min_tools_used": 3,
+        "requires_detailed_explanation": true,
+        "multi_step_reasoning": true
+      },
+      "max_turns": 15
+    }
+  ]
+}

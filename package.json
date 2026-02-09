@@ -67,6 +67,10 @@
     "benchmark:patterns:quick": "cd backend && python benchmarks/run_pattern_comparison.py --test-size 5 --patterns single debate planner-executor-critic",
     "benchmark:patterns:all": "cd backend && python benchmarks/run_pattern_comparison.py --test-size 10",
     "benchmark:visualize": "cd backend && python benchmarks/generate_visualizations.py",
+    "benchmark:agentbench:tasks": "cd backend && PYTHONPATH=. python benchmarks/agentbench_tasks.py",
+    "benchmark:agentbench:eval": "cd backend && PYTHONPATH=. python benchmarks/agentbench_eval.py --agents single planner-executor-critic",
+    "benchmark:agentbench:quick": "cd backend && PYTHONPATH=. python benchmarks/agentbench_eval.py --agents single",
+    "benchmark:agentbench:all": "cd backend && PYTHONPATH=. python benchmarks/agentbench_eval.py --agents single manager-worker planner-executor-critic debate",
     "mlflow:ui": "cd backend && mlflow ui --backend-store-uri ./mlruns --port 5000",
     "mlflow:compare": "cd backend && jupyter notebook notebooks/02_model_evaluation.ipynb",
     "drift:detect": "cd backend && python scripts/detect_drift.py --reference test --current"
