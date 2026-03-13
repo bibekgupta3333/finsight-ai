@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 name = "finsight-ai-backend"
 version = "0.1.0"
 description = "FinSight AI - Fraud Detection Backend with Async Architecture"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 
 dependencies = [
     "fastapi>=0.128.0",
@@ -43,6 +43,8 @@ dependencies = [
     "langchain-community>=0.3.0",
     # Vector Database
     "chromadb>=1.4.1",
+    "pyjwt (>=2.11.0,<3.0.0)",
+    "jwt (>=1.4.0,<2.0.0)",
 ]
 
 [project.optional-dependencies]

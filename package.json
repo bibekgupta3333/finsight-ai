@@ -10,6 +10,10 @@
     "backend"
   ],
   "scripts": {
+    "install:all": "pnpm install && cd backend && poetry lock --no-update && poetry install && cd ../frontend && pnpm install",
+    "install:backend": "cd backend && poetry lock && poetry install",
+    "install:frontend": "cd frontend && pnpm install",
+    "install:deps": "pnpm install:all",
     "dev": "turbo run dev",
     "dev:local": "docker-compose up -d && pnpm run backend:local",
     "build": "turbo run build",
